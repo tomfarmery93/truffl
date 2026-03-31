@@ -74,12 +74,17 @@
 
     /* ── HERO BAND ── */
     .hero-band {
-      background: var(--warm);
-      padding: 96px 56px;
       display: grid;
       grid-template-columns: 1fr 1fr;
-      gap: 80px;
-      align-items: center;
+      min-height: 92vh;
+    }
+
+    .hero-band-text {
+      background: var(--warm);
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      padding: 96px 64px 96px 56px;
     }
 
     .eyebrow {
@@ -98,30 +103,29 @@
     .body-text p { margin-bottom: 16px; }
     .body-text p:last-child { margin-bottom: 0; }
 
-    /* ── FLICK PHOTO ── */
-    .flick-frame {
+    /* ── FLICK PHOTO — full bleed right panel ── */
+    .flick-panel {
       position: relative;
-      border-radius: 28px;
       overflow: hidden;
-      background: var(--blush);
-      /* The photo has a white background so we tint the container */
       background: #EDE0D4;
     }
 
-    .flick-frame img {
+    .flick-panel img {
       width: 100%;
+      height: 100%;
       display: block;
-      mix-blend-mode: multiply; /* blends white bg of photo into our warm tint */
-      border-radius: 28px;
+      object-fit: cover;
+      object-position: center top;
+      mix-blend-mode: multiply;
     }
 
     .flick-caption {
       position: absolute;
-      bottom: 20px;
-      left: 20px;
+      bottom: 32px;
+      left: 32px;
       background: white;
       border-radius: 40px;
-      padding: 8px 18px;
+      padding: 9px 18px;
       font-size: 13px;
       font-weight: 500;
       color: var(--text);
@@ -279,7 +283,9 @@
     @media (max-width: 960px) {
       nav { padding: 0 24px; }
       .nav-links { display: none; }
-      .hero-band { padding: 64px 32px; grid-template-columns: 1fr; gap: 48px; }
+      .hero-band { grid-template-columns: 1fr; min-height: auto; }
+      .hero-band-text { padding: 64px 32px; }
+      .flick-panel { height: 60vw; min-height: 320px; }
       .display-h1 { font-size: 40px; }
       .story-section { padding: 64px 32px; grid-template-columns: 1fr; gap: 48px; }
       .vetting-strip { padding: 64px 32px; }
@@ -333,7 +339,7 @@
 
   <!-- HERO BAND -->
   <section class="hero-band">
-    <div>
+    <div class="hero-band-text">
       <p class="eyebrow fade-up delay-1">Our story</p>
       <h1 class="display-h1 fade-up delay-2">Meet Flick.<br>The reason <em>all of this exists.</em></h1>
       <div class="body-text fade-up delay-3">
@@ -343,7 +349,7 @@
       </div>
     </div>
 
-    <div class="flick-frame fade-up delay-3">
+    <div class="flick-panel fade-up delay-3">
       <!--
         Image file: flick.jpg
         Place flick.jpg in the same folder as this HTML file.
