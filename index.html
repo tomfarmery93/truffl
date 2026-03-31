@@ -63,8 +63,8 @@
     .trust-item { display: flex; align-items: center; gap: 8px; font-size: 12px; color: var(--text-light); }
     .trust-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--sage-dark); flex-shrink: 0; }
 
-    .hero-right { position: relative; overflow: hidden; background: #EAD9CB; }
-    .hero-scene { width: 100%; height: 100%; position: relative; }
+    .hero-right { position: relative; overflow: hidden; background: #F7F3EE; display: flex; align-items: center; justify-content: center; }
+    .hero-scene { width: 100%; height: 100%; position: relative; display: flex; align-items: center; justify-content: center; }
     .hero-scene svg.bg-illo { position: absolute; inset: 0; width: 100%; height: 100%; }
 
     .live-pill { position: absolute; top: 40px; left: 36px; background: white; border-radius: 40px; padding: 9px 16px; display: flex; align-items: center; gap: 8px; font-size: 13px; font-weight: 500; color: var(--text); box-shadow: 0 4px 20px rgba(60,40,30,0.10); }
@@ -227,130 +227,7 @@
 
     <div class="hero-right">
       <div class="hero-scene">
-        <svg class="bg-illo" viewBox="0 0 700 780" preserveAspectRatio="xMidYMid slice" xmlns="http://www.w3.org/2000/svg">
-
-          <!-- Sky/background -->
-          <rect width="700" height="780" fill="#EAD9CB"/>
-
-          <!-- Large background circle — sage, gives depth -->
-          <circle cx="390" cy="370" r="270" fill="#C8D5C0" opacity="0.6"/>
-
-          <!-- Ground -->
-          <rect x="0" y="630" width="700" height="150" fill="#D4C0AE" opacity="0.5"/>
-
-          <!-- Ground shadow under dog -->
-          <ellipse cx="330" cy="638" rx="145" ry="18" fill="#B8A090" opacity="0.22"/>
-
-          <!-- ══ DOG — flat folk-art style ══ -->
-
-          <!-- Tail: thick rounded sausage curving up behind body -->
-          <path d="M455 500 Q530 440 510 350 Q498 300 470 318" stroke="#C4866A" stroke-width="46" fill="none" stroke-linecap="round"/>
-          <path d="M455 500 Q526 444 508 357 Q497 308 472 322" stroke="#D9A080" stroke-width="20" fill="none" stroke-linecap="round" opacity="0.4"/>
-
-          <!-- Body: wide friendly oval -->
-          <ellipse cx="320" cy="520" rx="150" ry="105" fill="#C4866A"/>
-
-          <!-- Belly: lighter patch -->
-          <ellipse cx="320" cy="535" rx="90" ry="68" fill="#D9A080"/>
-
-          <!-- Back legs -->
-          <rect x="190" y="590" width="62" height="80" rx="31" fill="#B8795C"/>
-          <rect x="380" y="590" width="62" height="80" rx="31" fill="#B8795C"/>
-
-          <!-- Front legs — slightly forward -->
-          <rect x="238" y="600" width="56" height="75" rx="28" fill="#C4866A"/>
-          <rect x="334" y="600" width="56" height="75" rx="28" fill="#C4866A"/>
-
-          <!-- Paws — rounded rectangles -->
-          <rect x="186" y="656" width="70" height="28" rx="14" fill="#9A5E48"/>
-          <rect x="376" y="656" width="70" height="28" rx="14" fill="#9A5E48"/>
-          <rect x="232" y="658" width="62" height="26" rx="13" fill="#9A5E48"/>
-          <rect x="330" y="658" width="62" height="26" rx="13" fill="#9A5E48"/>
-
-          <!-- Neck connector -->
-          <rect x="282" y="400" width="90" height="90" rx="38" fill="#C4866A"/>
-
-          <!-- Head: big friendly circle -->
-          <circle cx="327" cy="355" r="108" fill="#C4866A"/>
-
-          <!-- Ear left — long floppy -->
-          <ellipse cx="238" cy="330" rx="36" ry="62" fill="#B8795C" transform="rotate(-12 238 330)"/>
-          <!-- Ear right -->
-          <ellipse cx="416" cy="330" rx="36" ry="62" fill="#B8795C" transform="rotate(12 416 330)"/>
-
-          <!-- Head patch — darker forehead -->
-          <ellipse cx="327" cy="318" rx="68" ry="55" fill="#B8795C" opacity="0.4"/>
-
-          <!-- Muzzle: big friendly oval -->
-          <ellipse cx="327" cy="388" rx="56" ry="42" fill="#D9A080"/>
-
-          <!-- Nose: rounded rect -->
-          <rect x="308" y="368" width="38" height="26" rx="13" fill="#7A4830"/>
-          <!-- Nose highlight -->
-          <ellipse cx="320" cy="374" rx="7" ry="4.5" fill="white" opacity="0.3"/>
-
-          <!-- Mouth: happy W shape -->
-          <path d="M302 402 Q316 418 327 408 Q338 418 352 402" stroke="#9A5E48" stroke-width="3.5" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
-
-          <!-- Eye left: white + pupil + shine -->
-          <circle cx="292" cy="340" r="18" fill="white"/>
-          <circle cx="292" cy="340" r="11" fill="#3A2E28"/>
-          <circle cx="286" cy="334" r="4.5" fill="white"/>
-
-          <!-- Eye right -->
-          <circle cx="362" cy="340" r="18" fill="white"/>
-          <circle cx="362" cy="340" r="11" fill="#3A2E28"/>
-          <circle cx="356" cy="334" r="4.5" fill="white"/>
-
-          <!-- Eyebrows: friendly arched lines -->
-          <path d="M275 318 Q292 308 309 316" stroke="#9A5E48" stroke-width="4" fill="none" stroke-linecap="round"/>
-          <path d="M345 316 Q362 308 379 318" stroke="#9A5E48" stroke-width="4" fill="none" stroke-linecap="round"/>
-
-          <!-- Collar: sage band -->
-          <rect x="270" y="445" width="118" height="24" rx="12" fill="#8A9E82"/>
-          <!-- Collar detail line -->
-          <rect x="319" y="441" width="18" height="32" rx="6" fill="#6E8068"/>
-          <!-- Tag: little terracotta circle -->
-          <circle cx="328" cy="476" r="10" fill="#C4866A"/>
-          <text x="328" y="480" font-family="Georgia, serif" font-size="8" fill="white" text-anchor="middle" font-style="italic">t</text>
-
-          <!-- ══ BOTANICAL DETAILS — folk art style ══ -->
-
-          <!-- Left plant cluster -->
-          <rect x="82" y="590" width="9" height="55" rx="4.5" fill="#8A9E82"/>
-          <!-- Leaves left -->
-          <ellipse cx="87" cy="578" rx="22" ry="28" fill="#8A9E82"/>
-          <ellipse cx="66" cy="592" rx="16" ry="21" fill="#A0B498" transform="rotate(-28 66 592)"/>
-          <ellipse cx="108" cy="592" rx="16" ry="21" fill="#A0B498" transform="rotate(28 108 592)"/>
-          <!-- Small flower -->
-          <circle cx="87" cy="648" r="10" fill="#C4866A"/>
-          <circle cx="73" cy="655" r="7" fill="#D9A080"/>
-          <circle cx="101" cy="655" r="7" fill="#B8795C"/>
-          <rect x="83" y="648" width="8" height="32" rx="4" fill="#8A9E82"/>
-
-          <!-- Right plant cluster -->
-          <rect x="598" y="595" width="9" height="50" rx="4.5" fill="#8A9E82"/>
-          <ellipse cx="602" cy="583" rx="20" ry="26" fill="#8A9E82"/>
-          <ellipse cx="582" cy="596" rx="15" ry="20" fill="#A0B498" transform="rotate(-24 582 596)"/>
-          <ellipse cx="622" cy="596" rx="15" ry="20" fill="#A0B498" transform="rotate(24 622 596)"/>
-          <circle cx="602" cy="648" r="9" fill="#C4866A"/>
-          <circle cx="589" cy="654" r="6" fill="#D9A080"/>
-          <circle cx="615" cy="654" r="6" fill="#B8795C"/>
-          <rect x="598" y="648" width="8" height="30" rx="4" fill="#8A9E82"/>
-
-          <!-- Small accent dots / sparkles -->
-          <circle cx="155" cy="200" r="5" fill="#C4866A" opacity="0.45"/>
-          <circle cx="570" cy="168" r="6" fill="#8A9E82" opacity="0.45"/>
-          <circle cx="110" cy="420" r="4" fill="#D9A080" opacity="0.55"/>
-          <circle cx="610" cy="480" r="5" fill="#C8D5C0" opacity="0.65"/>
-          <circle cx="190" cy="700" r="3.5" fill="#C4866A" opacity="0.4"/>
-          <circle cx="540" cy="710" r="3.5" fill="#8A9E82" opacity="0.4"/>
-
-          <!-- Small star shapes -->
-          <path d="M580 240 L584 252 L572 244 L588 244 L576 252Z" fill="#C4866A" opacity="0.3"/>
-          <path d="M130 310 L133 319 L124 313 L136 313 L127 319Z" fill="#8A9E82" opacity="0.35"/>
-
-        </svg>
+        <img src="dog-hero.png" alt="Illustrated dog" style="width: 100%; height: 100%; object-fit: cover; object-position: center;">
 
         <!-- Live pill -->
         <div class="live-pill">
