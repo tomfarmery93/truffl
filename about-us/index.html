@@ -1,0 +1,506 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>About us — Truffl Pets</title>
+  <meta name="description" content="Meet Flick — the Springer Spaniel behind Truffl Pets. Our story, our mission, and how we vet every carer on our platform.">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,500;1,400;1,500&family=DM+Sans:opsz,wght@9..40,300;9..40,400;9..40,500&display=swap" rel="stylesheet">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --cream: #F7F3EE;
+      --warm: #EDE7DC;
+      --sage: #C8D5C0;
+      --sage-dark: #8A9E82;
+      --blush: #E8D5CC;
+      --terracotta: #C4866A;
+      --terracotta-dark: #B8795C;
+      --brown: #5C4033;
+      --brown-deep: #3A2E28;
+      --text: #3A2E28;
+      --text-mid: #7A6860;
+      --text-light: #A8978E;
+      --border: rgba(92,64,51,0.12);
+    }
+
+    html { font-size: 16px; scroll-behavior: smooth; }
+    body { font-family: 'DM Sans', sans-serif; background: var(--cream); color: var(--text); line-height: 1.6; -webkit-font-smoothing: antialiased; }
+    a { text-decoration: none; color: inherit; }
+
+    /* ── NAV ── */
+    nav {
+      background: var(--cream);
+      padding: 0 56px;
+      height: 68px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      border-bottom: 1px solid var(--border);
+      position: sticky;
+      top: 0;
+      z-index: 100;
+    }
+    .nav-links { display: flex; gap: 36px; font-size: 13px; color: var(--text-mid); }
+    .nav-links a { transition: color 0.2s; letter-spacing: 0.02em; }
+    .nav-links a:hover { color: var(--text); }
+    .nav-links a.active { color: var(--text); font-weight: 500; }
+    .nav-logo { display: flex; align-items: center; cursor: pointer; }
+    .nav-logo svg { width: 130px; height: auto; }
+    .nav-actions { display: flex; gap: 24px; align-items: center; font-size: 13px; color: var(--text-mid); }
+    .nav-actions a { transition: color 0.2s; }
+    .nav-actions a:hover { color: var(--text); }
+
+    .btn-primary {
+      background: var(--terracotta); color: white; border: none;
+      padding: 10px 22px; border-radius: 40px; font-size: 13px; font-weight: 500;
+      cursor: pointer; letter-spacing: 0.02em; transition: background 0.2s, transform 0.15s;
+      font-family: 'DM Sans', sans-serif; display: inline-block;
+    }
+    .btn-primary:hover { background: var(--terracotta-dark); transform: translateY(-1px); }
+    .btn-primary-lg { padding: 13px 28px; font-size: 14px; }
+
+    .btn-ghost {
+      background: transparent; color: var(--brown);
+      border: 1.5px solid rgba(92,64,51,0.25); padding: 12px 26px;
+      border-radius: 40px; font-size: 14px; cursor: pointer;
+      font-family: 'DM Sans', sans-serif; transition: border-color 0.2s, transform 0.15s;
+      display: inline-block;
+    }
+    .btn-ghost:hover { border-color: var(--brown); transform: translateY(-1px); }
+
+    /* ── HERO BAND ── */
+    .hero-band {
+      background: var(--warm);
+      padding: 96px 56px;
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 80px;
+      align-items: center;
+    }
+
+    .eyebrow {
+      font-size: 11px; letter-spacing: 0.16em; text-transform: uppercase;
+      color: var(--sage-dark); font-weight: 500; margin-bottom: 18px;
+    }
+
+    .display-h1 {
+      font-family: 'Cormorant Garamond', Georgia, serif;
+      font-size: 52px; color: var(--brown); font-weight: 400;
+      line-height: 1.08; margin-bottom: 24px;
+    }
+    .display-h1 em { font-style: italic; color: var(--terracotta); }
+
+    .body-text { font-size: 15px; color: var(--text-mid); line-height: 1.85; font-weight: 300; }
+    .body-text p { margin-bottom: 16px; }
+    .body-text p:last-child { margin-bottom: 0; }
+
+    /* ── FLICK PHOTO ── */
+    .flick-frame {
+      position: relative;
+      border-radius: 28px;
+      overflow: hidden;
+      background: var(--blush);
+      /* The photo has a white background so we tint the container */
+      background: #EDE0D4;
+    }
+
+    .flick-frame img {
+      width: 100%;
+      display: block;
+      mix-blend-mode: multiply; /* blends white bg of photo into our warm tint */
+      border-radius: 28px;
+    }
+
+    .flick-caption {
+      position: absolute;
+      bottom: 20px;
+      left: 20px;
+      background: white;
+      border-radius: 40px;
+      padding: 8px 18px;
+      font-size: 13px;
+      font-weight: 500;
+      color: var(--text);
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      box-shadow: 0 4px 16px rgba(60,40,30,0.10);
+    }
+
+    .breed-dot {
+      width: 8px; height: 8px; border-radius: 50%;
+      background: var(--terracotta); flex-shrink: 0;
+    }
+
+    /* ── STORY SECTION ── */
+    .story-section {
+      padding: 96px 56px;
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 80px;
+      align-items: start;
+      background: var(--cream);
+    }
+
+    .section-h2 {
+      font-family: 'Cormorant Garamond', Georgia, serif;
+      font-size: 38px; color: var(--brown); font-weight: 400;
+      line-height: 1.18; margin-bottom: 20px;
+    }
+
+    .pull-quote {
+      font-family: 'Cormorant Garamond', Georgia, serif;
+      font-size: 26px; color: var(--brown); font-weight: 400;
+      font-style: italic; line-height: 1.45;
+      padding: 28px 0;
+      border-top: 1.5px solid var(--terracotta);
+      border-bottom: 1.5px solid var(--terracotta);
+      margin: 28px 0;
+    }
+
+    /* ── VETTING STRIP ── */
+    .vetting-strip {
+      background: var(--sage);
+      padding: 80px 56px;
+    }
+
+    .vetting-strip .eyebrow { color: var(--brown); opacity: 0.7; }
+
+    .vs-title {
+      font-family: 'Cormorant Garamond', Georgia, serif;
+      font-size: 38px; color: var(--brown-deep); font-weight: 400;
+      margin-bottom: 8px;
+    }
+
+    .vs-sub { font-size: 14px; color: var(--brown); font-weight: 300; margin-bottom: 44px; opacity: 0.75; }
+
+    .vs-grid {
+      display: grid;
+      grid-template-columns: repeat(5, 1fr);
+      gap: 12px;
+    }
+
+    .vs-card {
+      background: rgba(255,255,255,0.5);
+      border-radius: 18px;
+      padding: 22px 18px;
+      transition: transform 0.2s;
+    }
+    .vs-card:hover { transform: translateY(-3px); }
+
+    .vs-num {
+      font-family: 'Cormorant Garamond', Georgia, serif;
+      font-size: 34px; color: var(--terracotta); font-weight: 400;
+      line-height: 1; margin-bottom: 12px;
+    }
+
+    .vs-name { font-size: 13px; font-weight: 500; color: var(--brown-deep); margin-bottom: 5px; }
+    .vs-desc { font-size: 12px; color: var(--brown); line-height: 1.55; opacity: 0.7; }
+
+    /* ── GUARANTEE ── */
+    .guarantee {
+      background: var(--brown-deep);
+      padding: 96px 56px;
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 80px;
+      align-items: center;
+    }
+
+    .g-eyebrow { font-size: 11px; letter-spacing: 0.16em; text-transform: uppercase; color: var(--sage); font-weight: 500; margin-bottom: 16px; }
+
+    .g-title {
+      font-family: 'Cormorant Garamond', Georgia, serif;
+      font-size: 40px; color: var(--cream); font-weight: 400;
+      line-height: 1.15; margin-bottom: 18px;
+    }
+    .g-title em { font-style: italic; color: var(--blush); }
+
+    .g-body { font-size: 15px; color: rgba(247,243,238,0.58); font-weight: 300; line-height: 1.8; }
+
+    .g-items { display: flex; flex-direction: column; gap: 20px; }
+
+    .g-item { display: flex; gap: 16px; align-items: flex-start; }
+
+    .g-icon {
+      width: 38px; height: 38px; border-radius: 50%;
+      background: rgba(200,213,192,0.18);
+      display: flex; align-items: center; justify-content: center;
+      flex-shrink: 0; margin-top: 2px;
+    }
+
+    .g-item-title { font-size: 14px; font-weight: 500; color: var(--cream); margin-bottom: 4px; }
+    .g-item-body { font-size: 13px; color: rgba(247,243,238,0.52); font-weight: 300; line-height: 1.65; }
+
+    /* ── CTA ── */
+    .cta-section {
+      background: var(--warm);
+      padding: 96px 56px;
+      text-align: center;
+    }
+
+    .cta-section h2 {
+      font-family: 'Cormorant Garamond', Georgia, serif;
+      font-size: 40px; color: var(--brown); font-weight: 400;
+      margin-bottom: 10px;
+    }
+
+    .cta-section p { font-size: 15px; color: var(--text-mid); font-weight: 300; margin-bottom: 36px; }
+
+    .btn-row { display: flex; gap: 12px; justify-content: center; flex-wrap: wrap; }
+
+    /* ── FOOTER ── */
+    footer {
+      background: var(--cream);
+      padding: 36px 56px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      border-top: 1px solid var(--border);
+      flex-wrap: wrap;
+      gap: 16px;
+    }
+    .footer-links { display: flex; gap: 28px; font-size: 13px; color: var(--text-light); }
+    .footer-links a:hover { color: var(--text-mid); }
+    .footer-copy { font-size: 12px; color: var(--text-light); }
+
+    /* ── ANIMATIONS ── */
+    @keyframes fadeUp { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
+    .fade-up { animation: fadeUp 0.7s ease both; }
+    .delay-1 { animation-delay: 0.1s; }
+    .delay-2 { animation-delay: 0.22s; }
+    .delay-3 { animation-delay: 0.34s; }
+
+    /* ── RESPONSIVE ── */
+    @media (max-width: 960px) {
+      nav { padding: 0 24px; }
+      .nav-links { display: none; }
+      .hero-band { padding: 64px 32px; grid-template-columns: 1fr; gap: 48px; }
+      .display-h1 { font-size: 40px; }
+      .story-section { padding: 64px 32px; grid-template-columns: 1fr; gap: 48px; }
+      .vetting-strip { padding: 64px 32px; }
+      .vs-grid { grid-template-columns: 1fr 1fr; }
+      .guarantee { padding: 64px 32px; grid-template-columns: 1fr; gap: 48px; }
+      .cta-section { padding: 64px 32px; }
+      footer { padding: 28px 24px; flex-direction: column; align-items: flex-start; }
+    }
+
+    @media (max-width: 600px) {
+      .vs-grid { grid-template-columns: 1fr; }
+      .hero-band { padding: 48px 20px; }
+      .story-section { padding: 48px 20px; }
+      .vetting-strip { padding: 48px 20px; }
+      .guarantee { padding: 48px 20px; }
+      .cta-section { padding: 48px 20px; }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- NAV -->
+  <nav>
+    <div class="nav-links">
+      <a href="index.html">Home</a>
+      <a href="#" class="active">About</a>
+      <a href="index.html#services">Services</a>
+      <a href="index.html#how">How it works</a>
+    </div>
+
+    <a href="index.html" class="nav-logo" aria-label="Truffl Pets home">
+      <svg width="130" height="44" viewBox="0 0 200 68" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <circle cx="22" cy="11" r="8.5" fill="none" stroke="#C4866A" stroke-width="2.5"/>
+        <circle cx="22" cy="11" r="4" fill="#F7F3EE"/>
+        <rect x="18.5" y="17" width="7" height="12" rx="2.5" fill="#C4866A"/>
+        <circle cx="22" cy="47" r="21" fill="#C4866A"/>
+        <circle cx="22" cy="47" r="17" fill="none" stroke="#B8795C" stroke-width="0.7" opacity="0.5"/>
+        <text x="22" y="43" font-family="'Cormorant Garamond', Georgia, serif" font-size="10" font-weight="400" fill="#F7F3EE" text-anchor="middle" letter-spacing="-0.2">truffl</text>
+        <line x1="8" y1="47" x2="36" y2="47" stroke="#F7F3EE" stroke-width="0.5" opacity="0.4"/>
+        <text x="22" y="55" font-family="'DM Sans', sans-serif" font-size="5" fill="#F7F3EE" text-anchor="middle" letter-spacing="2" opacity="0.7">PETS</text>
+        <text x="54" y="48" font-family="'Cormorant Garamond', Georgia, serif" font-size="30" font-weight="400" fill="#5C4033" letter-spacing="-0.5">truffl</text>
+        <text x="56" y="61" font-family="'DM Sans', sans-serif" font-size="9" fill="#A8978E" letter-spacing="3.5" font-weight="400">PETS</text>
+      </svg>
+    </a>
+
+    <div class="nav-actions">
+      <a href="#">Sign in</a>
+      <a href="#" class="btn-primary">Book a carer</a>
+    </div>
+  </nav>
+
+  <!-- HERO BAND -->
+  <section class="hero-band">
+    <div>
+      <p class="eyebrow fade-up delay-1">Our story</p>
+      <h1 class="display-h1 fade-up delay-2">Meet Flick.<br>The reason <em>all of this exists.</em></h1>
+      <div class="body-text fade-up delay-3">
+        <p>For years, we tried everything to find Flick a consistent, reliable walker — someone who'd actually care. We cycled through independent walkers, small businesses, apps. Some were fine. Most weren't.</p>
+        <p>The ones we trusted eventually fell through: a move, a schedule change, back to square one. We finally found someone great. Then we moved apartment. She couldn't service our new area.</p>
+        <p>We were starting over again. And we'd been at this for years.</p>
+      </div>
+    </div>
+
+    <div class="flick-frame fade-up delay-3">
+      <!--
+        Image file: flick.jpg
+        Place flick.jpg in the same folder as this HTML file.
+      -->
+      <img src="flick.jpg" alt="Flick — a Springer Spaniel and the inspiration behind Truffl Pets" loading="eager"/>
+      <div class="flick-caption">
+        <div class="breed-dot"></div>
+        Flick · Springer Spaniel
+      </div>
+    </div>
+  </section>
+
+  <!-- STORY SECTION -->
+  <section class="story-section">
+    <div>
+      <p class="eyebrow">The problem we're solving</p>
+      <h2 class="section-h2">That problem shouldn't exist. So we decided to fix it.</h2>
+      <div class="body-text">
+        <p>Truffl Pets is built on one idea: that pet owners deserve to actually trust who's looking after their animals — and to know, in real time, that everything is fine.</p>
+        <p>Every carer on our platform is interviewed, identity checked, police checked, and observed before they ever take a solo booking. Every walk is GPS tracked. Every visit comes with a photo update.</p>
+        <p>No more wondering. No more hoping for the best.</p>
+      </div>
+    </div>
+    <div>
+      <div class="pull-quote">"We finally found someone great. Then we moved apartment. She couldn't service our new area. We were starting over again."</div>
+      <div class="body-text">
+        <p>That experience — repeated by thousands of pet owners across Sydney — is exactly why Truffl exists. Not as another place to find a walker. As a platform where quality is the only option.</p>
+        <p>We partner with vets and industry experts to keep our standards current, and we offer ongoing training to all of our carers in animal handling, breed-specific care, and pet first aid.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- VETTING STRIP -->
+  <section class="vetting-strip">
+    <p class="eyebrow">How we vet every carer</p>
+    <h2 class="vs-title">Nobody joins Truffl by just signing up.</h2>
+    <p class="vs-sub">Every carer goes through our full process before they can accept a single booking.</p>
+    <div class="vs-grid">
+      <div class="vs-card">
+        <div class="vs-num">01</div>
+        <div class="vs-name">Formal interview</div>
+        <div class="vs-desc">Every applicant is interviewed in person before being considered</div>
+      </div>
+      <div class="vs-card">
+        <div class="vs-num">02</div>
+        <div class="vs-name">Identity verified</div>
+        <div class="vs-desc">Government ID checked and confirmed before onboarding</div>
+      </div>
+      <div class="vs-card">
+        <div class="vs-num">03</div>
+        <div class="vs-name">Police checked</div>
+        <div class="vs-desc">Full background check required, renewed annually</div>
+      </div>
+      <div class="vs-card">
+        <div class="vs-num">04</div>
+        <div class="vs-name">Walk demonstration</div>
+        <div class="vs-desc">Supervised walk observed before any solo bookings are accepted</div>
+      </div>
+      <div class="vs-card">
+        <div class="vs-num">05</div>
+        <div class="vs-name">Emergency protocol</div>
+        <div class="vs-desc">Trained on Truffl procedures for incidents and emergencies</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- GUARANTEE -->
+  <section class="guarantee">
+    <div>
+      <p class="g-eyebrow">Our promise</p>
+      <h2 class="g-title">Your pet's wellbeing<br>isn't a metric.<br><em>It's the whole point.</em></h2>
+      <p class="g-body">We partner with vets and industry experts to offer ongoing training in animal handling, breed-specific care, and pet first aid. And if you're ever unhappy with a booking, we'll make it right.</p>
+    </div>
+    <div class="g-items">
+      <div class="g-item">
+        <div class="g-icon">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#C8D5C0" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+          </svg>
+        </div>
+        <div>
+          <div class="g-item-title">Satisfaction guarantee</div>
+          <div class="g-item-body">Not happy with a booking? We'll refund it, no questions asked.</div>
+        </div>
+      </div>
+      <div class="g-item">
+        <div class="g-icon">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#C8D5C0" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="12" cy="12" r="10"/>
+            <polyline points="12 6 12 12 16 14"/>
+          </svg>
+        </div>
+        <div>
+          <div class="g-item-title">Real-time updates</div>
+          <div class="g-item-body">GPS tracking and photo updates on every single walk and visit.</div>
+        </div>
+      </div>
+      <div class="g-item">
+        <div class="g-icon">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#C8D5C0" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/>
+            <circle cx="9" cy="7" r="4"/>
+            <path d="M23 21v-2a4 4 0 00-3-3.87"/>
+            <path d="M16 3.13a4 4 0 010 7.75"/>
+          </svg>
+        </div>
+        <div>
+          <div class="g-item-title">Vet partnerships</div>
+          <div class="g-item-body">We work with vets and industry experts to keep our standards current.</div>
+        </div>
+      </div>
+      <div class="g-item">
+        <div class="g-icon">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#C8D5C0" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+            <polyline points="9 11 12 14 22 4"/>
+            <path d="M21 12v7a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h11"/>
+          </svg>
+        </div>
+        <div>
+          <div class="g-item-title">Ongoing monitoring</div>
+          <div class="g-item-body">Carers are continuously monitored. Low ratings trigger immediate review.</div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- CTA -->
+  <section class="cta-section">
+    <p class="eyebrow" style="text-align:center">Ready?</p>
+    <h2>Join the Truffl family</h2>
+    <p>Whether you're looking for care or want to offer it — we'd love to have you.</p>
+    <div class="btn-row">
+      <a href="#" class="btn-primary btn-primary-lg">Find a carer near you</a>
+      <a href="#" class="btn-ghost">Register as a trusted carer</a>
+    </div>
+  </section>
+
+  <!-- FOOTER -->
+  <footer>
+    <svg width="100" height="36" viewBox="0 0 200 68" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <circle cx="22" cy="11" r="8.5" fill="none" stroke="#C4866A" stroke-width="2.5" opacity="0.6"/>
+      <circle cx="22" cy="11" r="4" fill="#F7F3EE"/>
+      <rect x="18.5" y="17" width="7" height="12" rx="2.5" fill="#C4866A" opacity="0.6"/>
+      <circle cx="22" cy="47" r="21" fill="#C4866A" opacity="0.6"/>
+      <text x="22" y="43" font-family="'Cormorant Garamond', Georgia, serif" font-size="10" fill="#F7F3EE" text-anchor="middle">truffl</text>
+      <line x1="8" y1="47" x2="36" y2="47" stroke="#F7F3EE" stroke-width="0.5" opacity="0.4"/>
+      <text x="22" y="55" font-family="'DM Sans', sans-serif" font-size="5" fill="#F7F3EE" text-anchor="middle" letter-spacing="2" opacity="0.6">PETS</text>
+      <text x="54" y="48" font-family="'Cormorant Garamond', Georgia, serif" font-size="30" fill="#A8978E" font-weight="400" letter-spacing="-0.5">truffl</text>
+    </svg>
+    <div class="footer-links">
+      <a href="#">For carers</a>
+      <a href="about.html">About</a>
+      <a href="#">Contact</a>
+      <a href="#">Privacy</a>
+    </div>
+    <div class="footer-copy">© 2025 Truffl Pets · Sydney, NSW</div>
+  </footer>
+
+</body>
+</html>
