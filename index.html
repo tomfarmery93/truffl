@@ -3,61 +3,542 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Truffl</title>
+  <title>Truffl Pets — Sydney's trusted pet care</title>
+  <meta name="description" content="Vetted, trusted pet care professionals in Sydney. GPS tracked walks, real-time updates, police checked carers.">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,500;1,400;1,500&family=DM+Sans:opsz,wght@9..40,300;9..40,400;9..40,500&display=swap" rel="stylesheet">
   <style>
-    * { margin: 0; padding: 0; box-sizing: border-box; }
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
-    body {
-      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif;
-      background: #0a0a0a;
-      color: #fafafa;
-      min-height: 100vh;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      text-align: center;
+    :root {
+      --cream: #F7F3EE;
+      --warm: #EDE7DC;
+      --sage: #C8D5C0;
+      --sage-dark: #8A9E82;
+      --blush: #E8D5CC;
+      --terracotta: #C4866A;
+      --terracotta-dark: #B8795C;
+      --brown: #5C4033;
+      --brown-deep: #3A2E28;
+      --text: #3A2E28;
+      --text-mid: #7A6860;
+      --text-light: #A8978E;
+      --border: rgba(92,64,51,0.12);
     }
 
-    .container {
-      max-width: 560px;
-      padding: 2rem;
-    }
+    html { font-size: 16px; scroll-behavior: smooth; }
+    body { font-family: 'DM Sans', sans-serif; background: var(--cream); color: var(--text); line-height: 1.6; -webkit-font-smoothing: antialiased; }
+    a { text-decoration: none; color: inherit; }
 
-    h1 {
-      font-size: 3rem;
-      font-weight: 700;
-      letter-spacing: -0.02em;
-      margin-bottom: 1rem;
-    }
+    /* ── ANN BAR ── */
+    .ann-bar { background: var(--sage); text-align: center; padding: 10px 20px; font-size: 12px; letter-spacing: 0.08em; color: var(--brown); font-weight: 500; text-transform: uppercase; }
 
-    .accent {
-      color: #c8a46e;
-    }
+    /* ── NAV ── */
+    nav { background: var(--cream); padding: 0 56px; height: 68px; display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid var(--border); position: sticky; top: 0; z-index: 100; }
+    .nav-links { display: flex; gap: 36px; font-size: 13px; color: var(--text-mid); }
+    .nav-links a { transition: color 0.2s; letter-spacing: 0.02em; }
+    .nav-links a:hover { color: var(--text); }
+    .nav-logo { display: flex; align-items: center; cursor: pointer; }
+    .nav-logo svg { width: 130px; height: auto; }
+    .nav-actions { display: flex; gap: 24px; align-items: center; font-size: 13px; color: var(--text-mid); }
+    .nav-actions a { transition: color 0.2s; }
+    .nav-actions a:hover { color: var(--text); }
 
-    p {
-      font-size: 1.15rem;
-      line-height: 1.6;
-      color: #999;
-      margin-bottom: 2rem;
-    }
+    .btn-primary { background: var(--terracotta); color: white; border: none; padding: 10px 22px; border-radius: 40px; font-size: 13px; font-weight: 500; cursor: pointer; letter-spacing: 0.02em; transition: background 0.2s, transform 0.15s; font-family: 'DM Sans', sans-serif; display: inline-block; }
+    .btn-primary:hover { background: var(--terracotta-dark); transform: translateY(-1px); }
+    .btn-primary-lg { padding: 14px 32px; font-size: 15px; }
+    .btn-ghost { background: transparent; color: var(--brown); border: 1.5px solid rgba(92,64,51,0.25); padding: 13px 26px; border-radius: 40px; font-size: 15px; cursor: pointer; letter-spacing: 0.02em; font-family: 'DM Sans', sans-serif; transition: border-color 0.2s, transform 0.15s; display: inline-block; }
+    .btn-ghost:hover { border-color: var(--brown); transform: translateY(-1px); }
 
-    .badge {
-      display: inline-block;
-      padding: 0.5rem 1.5rem;
-      border: 1px solid #333;
-      border-radius: 999px;
-      font-size: 0.85rem;
-      color: #c8a46e;
-      letter-spacing: 0.08em;
-      text-transform: uppercase;
+    /* ── HERO ── */
+    .hero { display: grid; grid-template-columns: 1fr 1fr; min-height: calc(100vh - 100px); overflow: hidden; }
+    .hero-left { background: var(--warm); display: flex; flex-direction: column; justify-content: center; padding: 80px 72px 80px 56px; }
+    .eyebrow { font-size: 11px; letter-spacing: 0.16em; text-transform: uppercase; color: var(--sage-dark); font-weight: 500; margin-bottom: 20px; }
+    .hero-h1 { font-family: 'Cormorant Garamond', Georgia, serif; font-size: 58px; line-height: 1.08; color: var(--brown); margin-bottom: 24px; font-weight: 400; }
+    .hero-h1 em { font-style: italic; color: var(--terracotta); }
+    .hero-body { font-size: 15px; color: var(--text-mid); line-height: 1.75; max-width: 380px; margin-bottom: 40px; font-weight: 300; }
+    .hero-actions { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; }
+    .hero-trust { display: flex; gap: 24px; margin-top: 52px; padding-top: 32px; border-top: 1px solid var(--border); flex-wrap: wrap; }
+    .trust-item { display: flex; align-items: center; gap: 8px; font-size: 12px; color: var(--text-light); }
+    .trust-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--sage-dark); flex-shrink: 0; }
+
+    .hero-right { position: relative; overflow: hidden; background: #EAD9CB; }
+    .hero-scene { width: 100%; height: 100%; position: relative; }
+    .hero-scene svg.bg-illo { position: absolute; inset: 0; width: 100%; height: 100%; }
+
+    .live-pill { position: absolute; top: 40px; left: 36px; background: white; border-radius: 40px; padding: 9px 16px; display: flex; align-items: center; gap: 8px; font-size: 13px; font-weight: 500; color: var(--text); box-shadow: 0 4px 20px rgba(60,40,30,0.10); }
+    .live-blink { width: 8px; height: 8px; border-radius: 50%; background: var(--sage-dark); animation: blink 1.6s ease-in-out infinite; flex-shrink: 0; }
+    @keyframes blink { 0%, 100% { opacity: 1; } 50% { opacity: 0.25; } }
+
+    .hero-card { position: absolute; bottom: 52px; right: 36px; background: white; border-radius: 16px; padding: 16px 18px; width: 210px; box-shadow: 0 8px 32px rgba(60,40,30,0.12); }
+    .hc-title { font-size: 11px; font-weight: 500; color: var(--text); margin-bottom: 10px; letter-spacing: 0.03em; }
+    .hc-row { display: flex; align-items: center; gap: 7px; font-size: 12px; color: var(--text-mid); margin-bottom: 6px; }
+    .hc-dot { width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0; }
+    .hc-time { font-size: 10px; color: var(--text-light); margin-top: 10px; padding-top: 10px; border-top: 1px solid rgba(92,64,51,0.08); }
+
+    /* ── STRIP ── */
+    .strip { background: var(--sage); padding: 16px 56px; display: flex; justify-content: center; align-items: center; flex-wrap: wrap; }
+    .strip-item { font-size: 11px; letter-spacing: 0.12em; text-transform: uppercase; color: var(--brown); font-weight: 500; padding: 6px 28px; }
+    .strip-divider { width: 1px; height: 16px; background: rgba(92,64,51,0.2); }
+
+    /* ── SHARED ── */
+    .section-eyebrow { font-size: 11px; letter-spacing: 0.16em; text-transform: uppercase; color: var(--sage-dark); font-weight: 500; margin-bottom: 14px; }
+    .section-h2 { font-family: 'Cormorant Garamond', Georgia, serif; font-size: 42px; color: var(--brown); font-weight: 400; line-height: 1.15; margin-bottom: 12px; }
+    .section-sub { font-size: 15px; color: var(--text-mid); font-weight: 300; line-height: 1.75; max-width: 480px; }
+
+    /* ── SERVICES ── */
+    .services { padding: 100px 56px; background: var(--cream); text-align: center; }
+    .services .section-sub { margin: 0 auto 56px; }
+    .services-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; text-align: left; }
+    .svc-card { border-radius: 20px; padding: 32px 24px; position: relative; overflow: hidden; cursor: pointer; transition: transform 0.25s ease; display: block; }
+    .svc-card:hover { transform: translateY(-5px); }
+    .svc-card:nth-child(1) { background: var(--warm); }
+    .svc-card:nth-child(2) { background: var(--blush); }
+    .svc-card:nth-child(3) { background: var(--sage); }
+    .svc-card:nth-child(4) { background: #E8E0D5; }
+    .svc-num { font-family: 'Cormorant Garamond', Georgia, serif; font-size: 52px; color: rgba(92,64,51,0.07); position: absolute; top: 10px; right: 14px; font-weight: 500; line-height: 1; user-select: none; }
+    .svc-icon { width: 46px; height: 46px; border-radius: 50%; background: rgba(255,255,255,0.55); display: flex; align-items: center; justify-content: center; margin-bottom: 20px; }
+    .svc-name { font-family: 'Cormorant Garamond', Georgia, serif; font-size: 20px; color: var(--brown); margin-bottom: 8px; font-weight: 400; }
+    .svc-desc { font-size: 13px; color: var(--text-mid); font-weight: 300; line-height: 1.65; margin-bottom: 18px; }
+    .svc-price { font-size: 12px; font-weight: 500; color: var(--terracotta); letter-spacing: 0.04em; }
+
+    /* ── WHY ── */
+    .why { padding: 100px 56px; background: var(--warm); display: grid; grid-template-columns: 1fr 1fr; gap: 96px; align-items: center; }
+    .why-checks { display: flex; flex-direction: column; gap: 14px; margin-top: 36px; }
+    .check-item { display: flex; align-items: flex-start; gap: 12px; font-size: 14px; color: var(--text-mid); line-height: 1.6; }
+    .check-circle { width: 24px; height: 24px; border-radius: 50%; background: var(--sage); display: flex; align-items: center; justify-content: center; flex-shrink: 0; margin-top: 1px; }
+    .vetting-cards { display: flex; flex-direction: column; gap: 10px; }
+    .vc { background: var(--cream); border-radius: 16px; padding: 18px 22px; display: flex; align-items: center; gap: 18px; transition: transform 0.2s; }
+    .vc:hover { transform: translateX(4px); }
+    .vc-num { font-family: 'Cormorant Garamond', Georgia, serif; font-size: 30px; color: var(--terracotta); font-weight: 400; width: 32px; flex-shrink: 0; line-height: 1; }
+    .vc-title { font-size: 14px; font-weight: 500; color: var(--brown); margin-bottom: 2px; }
+    .vc-sub { font-size: 12px; color: var(--text-light); font-weight: 300; }
+
+    /* ── HOW ── */
+    .how { padding: 100px 56px; background: var(--cream); text-align: center; }
+    .how-steps { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin-top: 64px; }
+    .step { padding: 32px 20px; text-align: center; }
+    .step-circle { width: 56px; height: 56px; border-radius: 50%; background: var(--warm); border: 1.5px solid rgba(196,134,106,0.3); display: flex; align-items: center; justify-content: center; margin: 0 auto 20px; font-family: 'Cormorant Garamond', Georgia, serif; font-size: 22px; color: var(--terracotta); font-weight: 400; }
+    .step-title { font-family: 'Cormorant Garamond', Georgia, serif; font-size: 18px; color: var(--brown); margin-bottom: 10px; font-weight: 400; }
+    .step-desc { font-size: 13px; color: var(--text-mid); font-weight: 300; line-height: 1.7; }
+
+    /* ── CTA ── */
+    .cta-section { padding: 120px 56px; text-align: center; background: var(--brown-deep); position: relative; overflow: hidden; }
+    .cta-blob { position: absolute; border-radius: 50%; pointer-events: none; }
+    .cta-blob-1 { width: 500px; height: 500px; background: rgba(196,134,106,0.12); top: -150px; right: -100px; }
+    .cta-blob-2 { width: 320px; height: 320px; background: rgba(200,213,192,0.08); bottom: -100px; left: 40px; }
+    .cta-eyebrow { font-size: 11px; letter-spacing: 0.16em; text-transform: uppercase; color: var(--sage); font-weight: 500; margin-bottom: 20px; position: relative; }
+    .cta-h2 { font-family: 'Cormorant Garamond', Georgia, serif; font-size: 52px; color: var(--cream); margin-bottom: 16px; font-weight: 400; line-height: 1.15; position: relative; }
+    .cta-h2 em { font-style: italic; color: var(--blush); }
+    .cta-sub { font-size: 15px; color: rgba(247,243,238,0.55); font-weight: 300; margin-bottom: 44px; position: relative; max-width: 400px; margin-left: auto; margin-right: auto; }
+    .cta-btn { background: var(--cream); color: var(--brown); border: none; padding: 16px 40px; border-radius: 40px; font-size: 15px; font-weight: 500; cursor: pointer; font-family: 'DM Sans', sans-serif; position: relative; transition: opacity 0.2s, transform 0.15s; display: inline-block; }
+    .cta-btn:hover { opacity: 0.92; transform: translateY(-2px); }
+    .cta-note { font-size: 12px; color: rgba(247,243,238,0.3); margin-top: 18px; position: relative; }
+
+    /* ── FOOTER ── */
+    footer { background: var(--cream); padding: 36px 56px; display: flex; justify-content: space-between; align-items: center; border-top: 1px solid var(--border); flex-wrap: wrap; gap: 16px; }
+    .footer-links { display: flex; gap: 28px; font-size: 13px; color: var(--text-light); }
+    .footer-links a:hover { color: var(--text-mid); }
+    .footer-copy { font-size: 12px; color: var(--text-light); }
+
+    /* ── ANIMATIONS ── */
+    @keyframes fadeUp { from { opacity: 0; transform: translateY(22px); } to { opacity: 1; transform: translateY(0); } }
+    .fade-up { animation: fadeUp 0.7s ease both; }
+    .delay-1 { animation-delay: 0.10s; }
+    .delay-2 { animation-delay: 0.22s; }
+    .delay-3 { animation-delay: 0.34s; }
+    .delay-4 { animation-delay: 0.46s; }
+    .delay-5 { animation-delay: 0.58s; }
+
+    /* ── RESPONSIVE ── */
+    @media (max-width: 960px) {
+      nav { padding: 0 24px; }
+      .nav-links { display: none; }
+      .hero { grid-template-columns: 1fr; min-height: auto; }
+      .hero-left { padding: 64px 32px; }
+      .hero-h1 { font-size: 44px; }
+      .hero-right { height: 420px; }
+      .strip { padding: 14px 24px; }
+      .strip-item { padding: 6px 14px; font-size: 10px; }
+      .services { padding: 72px 24px; }
+      .services-grid { grid-template-columns: 1fr 1fr; }
+      .why { padding: 72px 24px; grid-template-columns: 1fr; gap: 48px; }
+      .how { padding: 72px 24px; }
+      .how-steps { grid-template-columns: 1fr 1fr; }
+      .cta-section { padding: 80px 24px; }
+      .cta-h2 { font-size: 38px; }
+      footer { padding: 28px 24px; flex-direction: column; align-items: flex-start; }
+    }
+    @media (max-width: 600px) {
+      .services-grid { grid-template-columns: 1fr; }
+      .how-steps { grid-template-columns: 1fr; }
+      .hero-trust { gap: 14px; }
+      .strip-divider { display: none; }
     }
   </style>
 </head>
 <body>
-  <div class="container">
-    <h1>truffl<span class="accent">.</span></h1>
-    <p>Something good is coming. Stay tuned.</p>
-    <span class="badge">Coming Soon</span>
+
+  <div class="ann-bar">Free for providers during our launch period &nbsp;·&nbsp; Sydney's most trusted pet care</div>
+
+  <nav>
+    <div class="nav-links">
+      <a href="#services">Services</a>
+      <a href="#why">Our carers</a>
+      <a href="#how">How it works</a>
+    </div>
+    <a href="#" class="nav-logo" aria-label="Truffl Pets home">
+      <svg width="130" height="44" viewBox="0 0 200 68" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <circle cx="22" cy="11" r="8.5" fill="none" stroke="#C4866A" stroke-width="2.5"/>
+        <circle cx="22" cy="11" r="4" fill="#F7F3EE"/>
+        <rect x="18.5" y="17" width="7" height="12" rx="2.5" fill="#C4866A"/>
+        <circle cx="22" cy="47" r="21" fill="#C4866A"/>
+        <circle cx="22" cy="47" r="17" fill="none" stroke="#B8795C" stroke-width="0.7" opacity="0.5"/>
+        <text x="22" y="43" font-family="'Cormorant Garamond', Georgia, serif" font-size="10" font-weight="400" fill="#F7F3EE" text-anchor="middle" letter-spacing="-0.2">truffl</text>
+        <line x1="8" y1="47" x2="36" y2="47" stroke="#F7F3EE" stroke-width="0.5" opacity="0.4"/>
+        <text x="22" y="55" font-family="'DM Sans', sans-serif" font-size="5" fill="#F7F3EE" text-anchor="middle" letter-spacing="2" opacity="0.7">PETS</text>
+        <text x="54" y="48" font-family="'Cormorant Garamond', Georgia, serif" font-size="30" font-weight="400" fill="#5C4033" letter-spacing="-0.5">truffl</text>
+        <text x="56" y="61" font-family="'DM Sans', sans-serif" font-size="9" fill="#A8978E" letter-spacing="3.5" font-weight="400">PETS</text>
+      </svg>
+    </a>
+    <div class="nav-actions">
+      <a href="#">Sign in</a>
+      <a href="#" class="btn-primary">Book a carer</a>
+    </div>
+  </nav>
+
+  <!-- HERO -->
+  <section class="hero">
+    <div class="hero-left">
+      <p class="eyebrow fade-up delay-1">Sydney's trusted pet care</p>
+      <h1 class="hero-h1 fade-up delay-2">Your pet,<br>looked after <em>properly.</em></h1>
+      <p class="hero-body fade-up delay-3">Every carer is vetted, every walk is GPS tracked, and you'll get real updates — not silence. Pet care the way it should be.</p>
+      <div class="hero-actions fade-up delay-4">
+        <a href="#" class="btn-primary btn-primary-lg">Find a carer near you</a>
+        <a href="#how" class="btn-ghost">How it works</a>
+      </div>
+      <div class="hero-trust fade-up delay-5">
+        <div class="trust-item"><div class="trust-dot"></div>Police checked</div>
+        <div class="trust-item"><div class="trust-dot"></div>GPS tracked walks</div>
+        <div class="trust-item"><div class="trust-dot"></div>Photo updates</div>
+      </div>
+    </div>
+
+    <div class="hero-right">
+      <div class="hero-scene">
+        <svg class="bg-illo" viewBox="0 0 700 780" preserveAspectRatio="xMidYMid slice" xmlns="http://www.w3.org/2000/svg">
+
+          <!-- Sky/background -->
+          <rect width="700" height="780" fill="#EAD9CB"/>
+
+          <!-- Large background circle — sage, gives depth -->
+          <circle cx="390" cy="370" r="270" fill="#C8D5C0" opacity="0.6"/>
+
+          <!-- Ground -->
+          <rect x="0" y="630" width="700" height="150" fill="#D4C0AE" opacity="0.5"/>
+
+          <!-- Ground shadow under dog -->
+          <ellipse cx="330" cy="638" rx="145" ry="18" fill="#B8A090" opacity="0.22"/>
+
+          <!-- ══ DOG — flat folk-art style ══ -->
+
+          <!-- Tail: thick rounded sausage curving up behind body -->
+          <path d="M455 500 Q530 440 510 350 Q498 300 470 318" stroke="#C4866A" stroke-width="46" fill="none" stroke-linecap="round"/>
+          <path d="M455 500 Q526 444 508 357 Q497 308 472 322" stroke="#D9A080" stroke-width="20" fill="none" stroke-linecap="round" opacity="0.4"/>
+
+          <!-- Body: wide friendly oval -->
+          <ellipse cx="320" cy="520" rx="150" ry="105" fill="#C4866A"/>
+
+          <!-- Belly: lighter patch -->
+          <ellipse cx="320" cy="535" rx="90" ry="68" fill="#D9A080"/>
+
+          <!-- Back legs -->
+          <rect x="190" y="590" width="62" height="80" rx="31" fill="#B8795C"/>
+          <rect x="380" y="590" width="62" height="80" rx="31" fill="#B8795C"/>
+
+          <!-- Front legs — slightly forward -->
+          <rect x="238" y="600" width="56" height="75" rx="28" fill="#C4866A"/>
+          <rect x="334" y="600" width="56" height="75" rx="28" fill="#C4866A"/>
+
+          <!-- Paws — rounded rectangles -->
+          <rect x="186" y="656" width="70" height="28" rx="14" fill="#9A5E48"/>
+          <rect x="376" y="656" width="70" height="28" rx="14" fill="#9A5E48"/>
+          <rect x="232" y="658" width="62" height="26" rx="13" fill="#9A5E48"/>
+          <rect x="330" y="658" width="62" height="26" rx="13" fill="#9A5E48"/>
+
+          <!-- Neck connector -->
+          <rect x="282" y="400" width="90" height="90" rx="38" fill="#C4866A"/>
+
+          <!-- Head: big friendly circle -->
+          <circle cx="327" cy="355" r="108" fill="#C4866A"/>
+
+          <!-- Ear left — long floppy -->
+          <ellipse cx="238" cy="330" rx="36" ry="62" fill="#B8795C" transform="rotate(-12 238 330)"/>
+          <!-- Ear right -->
+          <ellipse cx="416" cy="330" rx="36" ry="62" fill="#B8795C" transform="rotate(12 416 330)"/>
+
+          <!-- Head patch — darker forehead -->
+          <ellipse cx="327" cy="318" rx="68" ry="55" fill="#B8795C" opacity="0.4"/>
+
+          <!-- Muzzle: big friendly oval -->
+          <ellipse cx="327" cy="388" rx="56" ry="42" fill="#D9A080"/>
+
+          <!-- Nose: rounded rect -->
+          <rect x="308" y="368" width="38" height="26" rx="13" fill="#7A4830"/>
+          <!-- Nose highlight -->
+          <ellipse cx="320" cy="374" rx="7" ry="4.5" fill="white" opacity="0.3"/>
+
+          <!-- Mouth: happy W shape -->
+          <path d="M302 402 Q316 418 327 408 Q338 418 352 402" stroke="#9A5E48" stroke-width="3.5" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+
+          <!-- Eye left: white + pupil + shine -->
+          <circle cx="292" cy="340" r="18" fill="white"/>
+          <circle cx="292" cy="340" r="11" fill="#3A2E28"/>
+          <circle cx="286" cy="334" r="4.5" fill="white"/>
+
+          <!-- Eye right -->
+          <circle cx="362" cy="340" r="18" fill="white"/>
+          <circle cx="362" cy="340" r="11" fill="#3A2E28"/>
+          <circle cx="356" cy="334" r="4.5" fill="white"/>
+
+          <!-- Eyebrows: friendly arched lines -->
+          <path d="M275 318 Q292 308 309 316" stroke="#9A5E48" stroke-width="4" fill="none" stroke-linecap="round"/>
+          <path d="M345 316 Q362 308 379 318" stroke="#9A5E48" stroke-width="4" fill="none" stroke-linecap="round"/>
+
+          <!-- Collar: sage band -->
+          <rect x="270" y="445" width="118" height="24" rx="12" fill="#8A9E82"/>
+          <!-- Collar detail line -->
+          <rect x="319" y="441" width="18" height="32" rx="6" fill="#6E8068"/>
+          <!-- Tag: little terracotta circle -->
+          <circle cx="328" cy="476" r="10" fill="#C4866A"/>
+          <text x="328" y="480" font-family="Georgia, serif" font-size="8" fill="white" text-anchor="middle" font-style="italic">t</text>
+
+          <!-- ══ BOTANICAL DETAILS — folk art style ══ -->
+
+          <!-- Left plant cluster -->
+          <rect x="82" y="590" width="9" height="55" rx="4.5" fill="#8A9E82"/>
+          <!-- Leaves left -->
+          <ellipse cx="87" cy="578" rx="22" ry="28" fill="#8A9E82"/>
+          <ellipse cx="66" cy="592" rx="16" ry="21" fill="#A0B498" transform="rotate(-28 66 592)"/>
+          <ellipse cx="108" cy="592" rx="16" ry="21" fill="#A0B498" transform="rotate(28 108 592)"/>
+          <!-- Small flower -->
+          <circle cx="87" cy="648" r="10" fill="#C4866A"/>
+          <circle cx="73" cy="655" r="7" fill="#D9A080"/>
+          <circle cx="101" cy="655" r="7" fill="#B8795C"/>
+          <rect x="83" y="648" width="8" height="32" rx="4" fill="#8A9E82"/>
+
+          <!-- Right plant cluster -->
+          <rect x="598" y="595" width="9" height="50" rx="4.5" fill="#8A9E82"/>
+          <ellipse cx="602" cy="583" rx="20" ry="26" fill="#8A9E82"/>
+          <ellipse cx="582" cy="596" rx="15" ry="20" fill="#A0B498" transform="rotate(-24 582 596)"/>
+          <ellipse cx="622" cy="596" rx="15" ry="20" fill="#A0B498" transform="rotate(24 622 596)"/>
+          <circle cx="602" cy="648" r="9" fill="#C4866A"/>
+          <circle cx="589" cy="654" r="6" fill="#D9A080"/>
+          <circle cx="615" cy="654" r="6" fill="#B8795C"/>
+          <rect x="598" y="648" width="8" height="30" rx="4" fill="#8A9E82"/>
+
+          <!-- Small accent dots / sparkles -->
+          <circle cx="155" cy="200" r="5" fill="#C4866A" opacity="0.45"/>
+          <circle cx="570" cy="168" r="6" fill="#8A9E82" opacity="0.45"/>
+          <circle cx="110" cy="420" r="4" fill="#D9A080" opacity="0.55"/>
+          <circle cx="610" cy="480" r="5" fill="#C8D5C0" opacity="0.65"/>
+          <circle cx="190" cy="700" r="3.5" fill="#C4866A" opacity="0.4"/>
+          <circle cx="540" cy="710" r="3.5" fill="#8A9E82" opacity="0.4"/>
+
+          <!-- Small star shapes -->
+          <path d="M580 240 L584 252 L572 244 L588 244 L576 252Z" fill="#C4866A" opacity="0.3"/>
+          <path d="M130 310 L133 319 L124 313 L136 313 L127 319Z" fill="#8A9E82" opacity="0.35"/>
+
+        </svg>
+
+        <!-- Live pill -->
+        <div class="live-pill">
+          <div class="live-blink"></div>
+          Biscuit is on a walk
+        </div>
+
+        <!-- Update card -->
+        <div class="hero-card">
+          <div class="hc-title">Update from Sarah W.</div>
+          <div class="hc-row">
+            <div class="hc-dot" style="background:#8A9E82"></div>
+            Happy and energetic
+          </div>
+          <div class="hc-row">
+            <div class="hc-dot" style="background:#C4866A"></div>
+            1.4 km · 22 mins in
+          </div>
+          <div class="hc-time">Centennial Park · 8:04am</div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- STRIP -->
+  <div class="strip">
+    <div class="strip-item">Police checked carers</div>
+    <div class="strip-divider"></div>
+    <div class="strip-item">Live GPS on every walk</div>
+    <div class="strip-divider"></div>
+    <div class="strip-item">Mandatory photo updates</div>
+    <div class="strip-divider"></div>
+    <div class="strip-item">Pet first aid certified</div>
   </div>
+
+  <!-- SERVICES -->
+  <section class="services" id="services">
+    <p class="section-eyebrow">What we offer</p>
+    <h2 class="section-h2">Everything your pet needs</h2>
+    <p class="section-sub">All services are delivered by vetted, verified professionals — not just anyone who signed up.</p>
+    <div class="services-grid">
+      <a href="#" class="svc-card">
+        <div class="svc-num">01</div>
+        <div class="svc-icon">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#C4866A" stroke-width="1.5" stroke-linecap="round"><path d="M17 8h2a2 2 0 012 2v6a2 2 0 01-2 2h-2v4l-4-4H9a2 2 0 01-2-2v-1"/><path d="M15 3H5a2 2 0 00-2 2v8a2 2 0 002 2h2v4l4-4h4a2 2 0 002-2V5a2 2 0 00-2-2z"/></svg>
+        </div>
+        <div class="svc-name">Dog walking</div>
+        <div class="svc-desc">30 or 60 minute walks with real-time GPS and a photo update so you know exactly where they are.</div>
+        <div class="svc-price">From $28 / walk</div>
+      </a>
+      <a href="#" class="svc-card">
+        <div class="svc-num">02</div>
+        <div class="svc-icon">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#5C4033" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
+        </div>
+        <div class="svc-name">Dog boarding</div>
+        <div class="svc-desc">Your dog stays in a real home, not a cage. Daily updates, plenty of love, and a warm bed.</div>
+        <div class="svc-price">From $55 / night</div>
+      </a>
+      <a href="#" class="svc-card">
+        <div class="svc-num">03</div>
+        <div class="svc-icon">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#3A5035" stroke-width="1.5" stroke-linecap="round"><path d="M20.84 4.61a5.5 5.5 0 00-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 00-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 000-7.78z"/></svg>
+        </div>
+        <div class="svc-name">Dog sitting</div>
+        <div class="svc-desc">In-home visits so your dog stays comfortable in their own environment while you're away.</div>
+        <div class="svc-price">From $40 / visit</div>
+      </a>
+      <a href="#" class="svc-card">
+        <div class="svc-num">04</div>
+        <div class="svc-icon">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#7A6860" stroke-width="1.5" stroke-linecap="round"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2z"/><path d="M8 14s1.5 2 4 2 4-2 4-2"/><line x1="9" y1="9" x2="9.01" y2="9"/><line x1="15" y1="9" x2="15.01" y2="9"/></svg>
+        </div>
+        <div class="svc-name">Cat sitting</div>
+        <div class="svc-desc">Regular visits, feeding, play and photo updates so you know your cat is happy and settled.</div>
+        <div class="svc-price">From $30 / visit</div>
+      </a>
+    </div>
+  </section>
+
+  <!-- WHY TRUFFL -->
+  <section class="why" id="why">
+    <div>
+      <p class="section-eyebrow">Why Truffl</p>
+      <h2 class="section-h2">We took the trust problem seriously</h2>
+      <p class="section-sub">Other platforms let anyone sign up and call themselves a carer. We don't. Every Truffl provider goes through a rigorous process before they can accept a single booking.</p>
+      <div class="why-checks">
+        <div class="check-item">
+          <div class="check-circle"><svg width="11" height="9" viewBox="0 0 11 9" fill="none"><path d="M1 4.5L4 7.5L10 1" stroke="#5C4033" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
+          GPS tracked walks — see the exact route in real time
+        </div>
+        <div class="check-item">
+          <div class="check-circle"><svg width="11" height="9" viewBox="0 0 11 9" fill="none"><path d="M1 4.5L4 7.5L10 1" stroke="#5C4033" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
+          Mandatory photo updates on every visit or walk
+        </div>
+        <div class="check-item">
+          <div class="check-circle"><svg width="11" height="9" viewBox="0 0 11 9" fill="none"><path d="M1 4.5L4 7.5L10 1" stroke="#5C4033" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
+          Knowledge assessment before any booking is accepted
+        </div>
+        <div class="check-item">
+          <div class="check-circle"><svg width="11" height="9" viewBox="0 0 11 9" fill="none"><path d="M1 4.5L4 7.5L10 1" stroke="#5C4033" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
+          Ongoing monitoring — carers stay accountable
+        </div>
+      </div>
+    </div>
+    <div class="vetting-cards">
+      <div class="vc">
+        <div class="vc-num">01</div>
+        <div><div class="vc-title">Formal interview</div><div class="vc-sub">Every applicant is interviewed before being considered</div></div>
+      </div>
+      <div class="vc">
+        <div class="vc-num">02</div>
+        <div><div class="vc-title">Identity verified</div><div class="vc-sub">Government ID checked before onboarding</div></div>
+      </div>
+      <div class="vc">
+        <div class="vc-num">03</div>
+        <div><div class="vc-title">Police checked</div><div class="vc-sub">Full background check, renewed annually</div></div>
+      </div>
+      <div class="vc">
+        <div class="vc-num">04</div>
+        <div><div class="vc-title">Walk demonstration</div><div class="vc-sub">Supervised walk before any solo bookings</div></div>
+      </div>
+      <div class="vc">
+        <div class="vc-num">05</div>
+        <div><div class="vc-title">Emergency protocol</div><div class="vc-sub">Trained on Truffl's emergency procedures</div></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- HOW IT WORKS -->
+  <section class="how" id="how">
+    <p class="section-eyebrow">The process</p>
+    <h2 class="section-h2">Simple from the start</h2>
+    <div class="how-steps">
+      <div class="step">
+        <div class="step-circle">1</div>
+        <div class="step-title">Tell us about your pet</div>
+        <div class="step-desc">Add your pet's details, personality, and any special needs. The more we know, the better the match.</div>
+      </div>
+      <div class="step">
+        <div class="step-circle">2</div>
+        <div class="step-title">Get matched</div>
+        <div class="step-desc">We suggest vetted carers near you who suit your pet's breed, temperament, and schedule.</div>
+      </div>
+      <div class="step">
+        <div class="step-circle">3</div>
+        <div class="step-title">Book with confidence</div>
+        <div class="step-desc">Confirm your booking and pay securely. Every carer has been through our full vetting process.</div>
+      </div>
+      <div class="step">
+        <div class="step-circle">4</div>
+        <div class="step-title">Relax — we've got it</div>
+        <div class="step-desc">Track the walk live, receive photo updates, and know your pet is exactly where they should be.</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- CTA -->
+  <section class="cta-section">
+    <div class="cta-blob cta-blob-1"></div>
+    <div class="cta-blob cta-blob-2"></div>
+    <p class="cta-eyebrow">Ready?</p>
+    <h2 class="cta-h2">Stop worrying.<br>Start <em>trusting.</em></h2>
+    <p class="cta-sub">Join Sydney pet owners who know exactly where their animals are and how they're doing — every single time.</p>
+    <a href="#" class="cta-btn">Find a carer near you</a>
+    <p class="cta-note">Free to book &nbsp;·&nbsp; Cancel up to 24hrs before &nbsp;·&nbsp; No hidden fees</p>
+  </section>
+
+  <!-- FOOTER -->
+  <footer>
+    <svg width="100" height="36" viewBox="0 0 200 68" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <circle cx="22" cy="11" r="8.5" fill="none" stroke="#C4866A" stroke-width="2.5" opacity="0.6"/>
+      <circle cx="22" cy="11" r="4" fill="#F7F3EE"/>
+      <rect x="18.5" y="17" width="7" height="12" rx="2.5" fill="#C4866A" opacity="0.6"/>
+      <circle cx="22" cy="47" r="21" fill="#C4866A" opacity="0.6"/>
+      <text x="22" y="43" font-family="'Cormorant Garamond', Georgia, serif" font-size="10" fill="#F7F3EE" text-anchor="middle">truffl</text>
+      <line x1="8" y1="47" x2="36" y2="47" stroke="#F7F3EE" stroke-width="0.5" opacity="0.4"/>
+      <text x="22" y="55" font-family="'DM Sans', sans-serif" font-size="5" fill="#F7F3EE" text-anchor="middle" letter-spacing="2" opacity="0.6">PETS</text>
+      <text x="54" y="48" font-family="'Cormorant Garamond', Georgia, serif" font-size="30" fill="#A8978E" font-weight="400" letter-spacing="-0.5">truffl</text>
+    </svg>
+    <div class="footer-links">
+      <a href="#">For carers</a>
+      <a href="#">About</a>
+      <a href="#">Contact</a>
+      <a href="#">Privacy</a>
+    </div>
+    <div class="footer-copy">© 2025 Truffl Pets · Sydney, NSW</div>
+  </footer>
+
 </body>
 </html>
