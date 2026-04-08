@@ -1,0 +1,592 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Find a Carer — Truffl Pets</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,500;0,600;1,400;1,500&family=DM+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --cream: #FAF7F2;
+    --warm-white: #FFFDF9;
+    --sage: #8B9E7E;
+    --sage-light: #C2D1B5;
+    --sage-dark: #6B7E5E;
+    --terracotta: #C4755B;
+    --terracotta-light: #D4917B;
+    --blush: #E8C4B8;
+    --brown: #3D2B1F;
+    --brown-light: #5C4033;
+    --brown-muted: #8B7355;
+    --text-primary: #3D2B1F;
+    --text-secondary: #6B5B4E;
+    --text-muted: #9B8B7E;
+    --border: #E8E0D6;
+    --border-focus: #C4755B;
+    --success: #5B8C5A;
+    --success-bg: #EDF5ED;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    font-family: 'DM Sans', sans-serif;
+    background: var(--cream);
+    color: var(--text-primary);
+    min-height: 100vh;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  /* Nav */
+  .nav {
+    position: sticky;
+    top: 0;
+    z-index: 100;
+    background: var(--warm-white);
+    border-bottom: 1px solid var(--border);
+    padding: 0 2rem;
+    height: 64px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+  .nav-logo {
+    font-family: 'Cormorant Garamond', serif;
+    font-style: italic;
+    font-weight: 500;
+    font-size: 1.6rem;
+    color: var(--terracotta);
+    text-decoration: none;
+    letter-spacing: -0.02em;
+  }
+  .nav-logo span { color: var(--brown); }
+  .nav-links { display: flex; gap: 1.5rem; align-items: center; }
+  .nav-links a {
+    font-size: 0.85rem;
+    color: var(--text-secondary);
+    text-decoration: none;
+    transition: color 0.2s;
+  }
+  .nav-links a:hover { color: var(--terracotta); }
+  .nav-links .btn-nav {
+    padding: 8px 18px;
+    background: var(--terracotta);
+    color: white;
+    border-radius: 8px;
+    font-weight: 500;
+    transition: all 0.2s;
+  }
+  .nav-links .btn-nav:hover { background: var(--terracotta-light); color: white; }
+
+  /* Page layout */
+  .page-wrapper {
+    max-width: 960px;
+    margin: 0 auto;
+    padding: 2.5rem 1.5rem 4rem;
+  }
+
+  /* Search header */
+  .search-header {
+    text-align: center;
+    margin-bottom: 2rem;
+  }
+  .search-header h1 {
+    font-family: 'Cormorant Garamond', serif;
+    font-weight: 500;
+    font-size: 2.4rem;
+    color: var(--brown);
+    margin-bottom: 0.5rem;
+    letter-spacing: -0.02em;
+  }
+  .search-header p {
+    color: var(--text-secondary);
+    font-size: 0.95rem;
+    max-width: 480px;
+    margin: 0 auto;
+    line-height: 1.6;
+  }
+
+  /* Filter bar */
+  .filter-bar {
+    background: var(--warm-white);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    padding: 1.25rem 1.5rem;
+    display: flex;
+    gap: 1rem;
+    align-items: end;
+    margin-bottom: 2rem;
+    flex-wrap: wrap;
+  }
+  .filter-group {
+    flex: 1;
+    min-width: 160px;
+  }
+  .filter-group label {
+    display: block;
+    font-size: 0.78rem;
+    font-weight: 500;
+    color: var(--text-muted);
+    margin-bottom: 5px;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+  }
+  .filter-group input,
+  .filter-group select {
+    width: 100%;
+    padding: 10px 12px;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    font-family: 'DM Sans', sans-serif;
+    font-size: 0.88rem;
+    color: var(--text-primary);
+    background: var(--cream);
+    outline: none;
+    transition: border-color 0.2s;
+  }
+  .filter-group input:focus,
+  .filter-group select:focus {
+    border-color: var(--border-focus);
+  }
+  .filter-btn {
+    padding: 10px 24px;
+    background: var(--terracotta);
+    color: white;
+    border: none;
+    border-radius: 8px;
+    font-family: 'DM Sans', sans-serif;
+    font-size: 0.88rem;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s;
+    white-space: nowrap;
+  }
+  .filter-btn:hover { background: var(--terracotta-light); }
+
+  /* Results */
+  .results-info {
+    font-size: 0.85rem;
+    color: var(--text-muted);
+    margin-bottom: 1rem;
+  }
+  .results-grid {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 1rem;
+  }
+
+  /* Provider card */
+  .provider-card {
+    background: var(--warm-white);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    padding: 1.5rem;
+    display: grid;
+    grid-template-columns: 64px 1fr auto;
+    gap: 1.25rem;
+    align-items: start;
+    transition: all 0.2s;
+    cursor: pointer;
+  }
+  .provider-card:hover {
+    border-color: var(--sage-light);
+    box-shadow: 0 4px 16px rgba(61,43,31,0.06);
+    transform: translateY(-2px);
+  }
+
+  .avatar {
+    width: 64px;
+    height: 64px;
+    border-radius: 50%;
+    background: var(--blush);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-family: 'Cormorant Garamond', serif;
+    font-size: 1.4rem;
+    font-weight: 600;
+    color: var(--brown);
+    flex-shrink: 0;
+  }
+
+  .provider-info h3 {
+    font-family: 'Cormorant Garamond', serif;
+    font-weight: 500;
+    font-size: 1.2rem;
+    color: var(--brown);
+    margin-bottom: 2px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .verified-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 3px;
+    font-family: 'DM Sans', sans-serif;
+    font-size: 0.7rem;
+    font-weight: 600;
+    color: var(--sage-dark);
+    background: var(--success-bg);
+    padding: 2px 8px;
+    border-radius: 20px;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+  }
+  .provider-suburb {
+    font-size: 0.82rem;
+    color: var(--text-muted);
+    margin-bottom: 0.5rem;
+  }
+  .provider-bio {
+    font-size: 0.88rem;
+    color: var(--text-secondary);
+    line-height: 1.5;
+    margin-bottom: 0.75rem;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
+  .provider-services {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+  }
+  .service-tag {
+    font-size: 0.75rem;
+    padding: 4px 10px;
+    background: var(--cream);
+    border: 1px solid var(--border);
+    border-radius: 20px;
+    color: var(--text-secondary);
+    white-space: nowrap;
+  }
+
+  .provider-rating {
+    text-align: right;
+    flex-shrink: 0;
+  }
+  .rating-stars {
+    font-size: 0.9rem;
+    color: var(--terracotta);
+    margin-bottom: 2px;
+  }
+  .rating-count {
+    font-size: 0.75rem;
+    color: var(--text-muted);
+  }
+  .rating-new {
+    font-size: 0.75rem;
+    color: var(--text-muted);
+    font-style: italic;
+  }
+
+  /* Empty state */
+  .empty-state {
+    text-align: center;
+    padding: 4rem 2rem;
+  }
+  .empty-state .empty-icon {
+    font-size: 3rem;
+    margin-bottom: 1rem;
+    opacity: 0.5;
+  }
+  .empty-state h3 {
+    font-family: 'Cormorant Garamond', serif;
+    font-size: 1.4rem;
+    font-weight: 500;
+    color: var(--brown);
+    margin-bottom: 0.5rem;
+  }
+  .empty-state p {
+    color: var(--text-muted);
+    font-size: 0.9rem;
+    max-width: 360px;
+    margin: 0 auto;
+    line-height: 1.5;
+  }
+
+  /* Loading */
+  .loading-state {
+    text-align: center;
+    padding: 3rem 2rem;
+  }
+  .loading-dots {
+    display: inline-flex;
+    gap: 6px;
+  }
+  .loading-dots span {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: var(--terracotta);
+    animation: bounce 1.2s infinite;
+  }
+  .loading-dots span:nth-child(2) { animation-delay: 0.15s; }
+  .loading-dots span:nth-child(3) { animation-delay: 0.3s; }
+  @keyframes bounce {
+    0%, 80%, 100% { opacity: 0.3; transform: scale(0.8); }
+    40% { opacity: 1; transform: scale(1.2); }
+  }
+  .loading-text {
+    margin-top: 1rem;
+    font-size: 0.85rem;
+    color: var(--text-muted);
+  }
+
+  /* Responsive */
+  @media (max-width: 700px) {
+    .provider-card {
+      grid-template-columns: 48px 1fr;
+      gap: 1rem;
+    }
+    .avatar { width: 48px; height: 48px; font-size: 1.1rem; }
+    .provider-rating {
+      grid-column: 2;
+      text-align: left;
+    }
+    .filter-bar { flex-direction: column; }
+    .filter-group { min-width: 100%; }
+    .page-wrapper { padding: 1.5rem 1rem 3rem; }
+    .search-header h1 { font-size: 1.8rem; }
+  }
+
+  @keyframes fadeIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+  .fade-in { animation: fadeIn 0.3s ease; }
+</style>
+</head>
+<body>
+
+<nav class="nav">
+  <a href="index.html" class="nav-logo"><span>truffl</span> pets</a>
+  <div class="nav-links">
+    <a href="about/index.html">About</a>
+    <a href="signup/index.html" class="btn-nav">Sign up</a>
+  </div>
+</nav>
+
+<div class="page-wrapper">
+
+  <div class="search-header">
+    <h1>Find a trusted carer</h1>
+    <p>Every carer on Truffl is vetted, interviewed, and verified. Search by what you need and where you are.</p>
+  </div>
+
+  <!-- Filters -->
+  <div class="filter-bar">
+    <div class="filter-group">
+      <label>Service</label>
+      <select id="filterService">
+        <option value="">All services</option>
+        <option value="dog_walking">Dog walking</option>
+        <option value="dog_sitting">Dog sitting</option>
+        <option value="dog_boarding">Dog boarding</option>
+        <option value="cat_sitting">Cat sitting</option>
+        <option value="cat_boarding">Cat boarding</option>
+        <option value="pet_sitting">Other pet sitting</option>
+      </select>
+    </div>
+    <div class="filter-group">
+      <label>Suburb</label>
+      <input type="text" id="filterSuburb" placeholder="e.g. Summer Hill">
+    </div>
+    <button class="filter-btn" onclick="searchProviders()">Search</button>
+  </div>
+
+  <!-- Results area -->
+  <div id="resultsArea">
+    <div class="loading-state" id="loadingState">
+      <div class="loading-dots"><span></span><span></span><span></span></div>
+      <div class="loading-text">Finding carers near you...</div>
+    </div>
+  </div>
+
+</div>
+
+<script>
+const SUPABASE_URL = 'https://gadflsntbnbnnxbpiral.supabase.co';
+const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImdhZGZsc250Ym5ibm54YnBpcmFsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzUwNjcwNTcsImV4cCI6MjA5MDY0MzA1N30.g5ZrqeAX9U5l7oDZEbQFrU5j10828dUF0QuJ0ZlHXK8';
+
+const SERVICE_LABELS = {
+  dog_walking: 'Dog walking',
+  dog_sitting: 'Dog sitting',
+  dog_boarding: 'Dog boarding',
+  cat_sitting: 'Cat sitting',
+  cat_boarding: 'Cat boarding',
+  pet_sitting: 'Other pet sitting'
+};
+
+async function supabaseGet(table, params = '') {
+  const res = await fetch(`${SUPABASE_URL}/rest/v1/${table}?${params}`, {
+    headers: {
+      'apikey': SUPABASE_ANON_KEY,
+      'Authorization': `Bearer ${SUPABASE_ANON_KEY}`
+    }
+  });
+  if (!res.ok) {
+    const err = await res.json();
+    throw new Error(err.message || 'Query failed');
+  }
+  return await res.json();
+}
+
+function getInitials(first, last) {
+  return ((first || '')[0] || '') + ((last || '')[0] || '');
+}
+
+function renderStars(rating) {
+  if (!rating) return '';
+  const full = Math.floor(rating);
+  const half = rating - full >= 0.5;
+  let stars = '★'.repeat(full);
+  if (half) stars += '½';
+  return stars;
+}
+
+function renderCard(provider) {
+  const initials = getInitials(provider.first_name, provider.last_name);
+  const services = provider.services ? provider.services.split(',').map(s => s.trim()) : [];
+  const hasRating = provider.avg_rating && provider.total_reviews > 0;
+
+  const serviceTagsHtml = services.map(s => 
+    `<span class="service-tag">${SERVICE_LABELS[s] || s.replace(/_/g, ' ')}</span>`
+  ).join('');
+
+  const ratingHtml = hasRating 
+    ? `<div class="rating-stars">${renderStars(provider.avg_rating)} ${provider.avg_rating.toFixed(1)}</div>
+       <div class="rating-count">${provider.total_reviews} review${provider.total_reviews !== 1 ? 's' : ''}</div>`
+    : `<div class="rating-new">New carer</div>`;
+
+  const verifiedHtml = provider.is_verified 
+    ? `<span class="verified-badge">
+        <svg width="10" height="10" viewBox="0 0 12 12" fill="none"><path d="M2.5 6.5L5 9L9.5 3.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        Verified
+      </span>` 
+    : '';
+
+  return `
+    <div class="provider-card fade-in">
+      <div class="avatar">${initials}</div>
+      <div class="provider-info">
+        <h3>${provider.first_name} ${(provider.last_name || '')[0] || ''}.${verifiedHtml}</h3>
+        <div class="provider-suburb">${provider.suburb || 'Sydney'}</div>
+        <div class="provider-bio">${provider.bio || 'Experienced pet carer ready to help.'}</div>
+        <div class="provider-services">${serviceTagsHtml}</div>
+      </div>
+      <div class="provider-rating">${ratingHtml}</div>
+    </div>
+  `;
+}
+
+function renderEmpty(suburb) {
+  const suburbMsg = suburb ? ` in ${suburb}` : '';
+  return `
+    <div class="empty-state fade-in">
+      <div class="empty-icon">🔍</div>
+      <h3>No carers found${suburbMsg}</h3>
+      <p>We're still growing our network. Try broadening your search, or check back soon — new carers join every week.</p>
+    </div>
+  `;
+}
+
+async function searchProviders() {
+  const area = document.getElementById('resultsArea');
+  const service = document.getElementById('filterService').value;
+  const suburb = document.getElementById('filterSuburb').value.trim();
+
+  area.innerHTML = `
+    <div class="loading-state">
+      <div class="loading-dots"><span></span><span></span><span></span></div>
+      <div class="loading-text">Finding carers${suburb ? ' near ' + suburb : ''}...</div>
+    </div>
+  `;
+
+  try {
+    // First try the view
+    let params = 'select=*';
+    let providers;
+
+    try {
+      providers = await supabaseGet('provider_search_view', params);
+    } catch (e) {
+      // If view doesn't work (RLS issues), fall back to direct table query
+      providers = await fallbackSearch();
+    }
+
+    // Client-side filtering
+    let filtered = providers;
+
+    if (suburb) {
+      const suburbLower = suburb.toLowerCase();
+      filtered = filtered.filter(p => 
+        (p.suburb || '').toLowerCase().includes(suburbLower)
+      );
+    }
+
+    if (service) {
+      filtered = filtered.filter(p => 
+        (p.services || '').includes(service)
+      );
+    }
+
+    // Render
+    if (filtered.length === 0) {
+      area.innerHTML = renderEmpty(suburb);
+    } else {
+      const info = `<div class="results-info">${filtered.length} carer${filtered.length !== 1 ? 's' : ''} found${suburb ? ' near ' + suburb : ''}</div>`;
+      const cards = filtered.map(p => renderCard(p)).join('');
+      area.innerHTML = info + `<div class="results-grid">${cards}</div>`;
+    }
+
+  } catch (err) {
+    area.innerHTML = `
+      <div class="empty-state fade-in">
+        <div class="empty-icon">⚠️</div>
+        <h3>Something went wrong</h3>
+        <p>${err.message}</p>
+      </div>
+    `;
+  }
+}
+
+// Fallback: query tables directly if view has issues
+async function fallbackSearch() {
+  const profiles = await supabaseGet('provider_profiles', 'select=id,user_id,bio,suburb,radius_km,avg_rating,total_reviews,is_verified,is_active');
+  const users = await supabaseGet('users', 'select=id,first_name,last_name&role=eq.provider');
+  const services = await supabaseGet('provider_services', 'select=provider_id,service_type&is_available=eq.true');
+
+  // Build user lookup
+  const userMap = {};
+  users.forEach(u => userMap[u.id] = u);
+
+  // Build services lookup
+  const serviceMap = {};
+  services.forEach(s => {
+    if (!serviceMap[s.provider_id]) serviceMap[s.provider_id] = [];
+    serviceMap[s.provider_id].push(s.service_type);
+  });
+
+  // Combine
+  return profiles.map(p => ({
+    ...p,
+    first_name: userMap[p.user_id]?.first_name || '',
+    last_name: userMap[p.user_id]?.last_name || '',
+    services: (serviceMap[p.user_id] || []).join(', ')
+  }));
+}
+
+// Also search when pressing Enter in the suburb field
+document.getElementById('filterSuburb').addEventListener('keydown', e => {
+  if (e.key === 'Enter') searchProviders();
+});
+
+// Load all providers on page load
+document.addEventListener('DOMContentLoaded', () => {
+  searchProviders();
+});
+</script>
+
+</body>
+</html>
