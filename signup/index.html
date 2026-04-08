@@ -1,0 +1,922 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Join Truffl Pets — Find Trusted Pet Care</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,500;0,600;1,400;1,500&family=DM+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --cream: #FAF7F2;
+    --warm-white: #FFFDF9;
+    --sage: #8B9E7E;
+    --sage-light: #C2D1B5;
+    --sage-dark: #6B7E5E;
+    --terracotta: #C4755B;
+    --terracotta-light: #D4917B;
+    --blush: #E8C4B8;
+    --brown: #3D2B1F;
+    --brown-light: #5C4033;
+    --brown-muted: #8B7355;
+    --text-primary: #3D2B1F;
+    --text-secondary: #6B5B4E;
+    --text-muted: #9B8B7E;
+    --border: #E8E0D6;
+    --border-focus: #C4755B;
+    --error: #C0392B;
+    --error-bg: #FDF0EE;
+    --success: #5B8C5A;
+    --success-bg: #EDF5ED;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    font-family: 'DM Sans', sans-serif;
+    background: var(--cream);
+    color: var(--text-primary);
+    min-height: 100vh;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  .nav {
+    position: sticky;
+    top: 0;
+    z-index: 100;
+    background: var(--warm-white);
+    border-bottom: 1px solid var(--border);
+    padding: 0 2rem;
+    height: 64px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+  .nav-logo {
+    font-family: 'Cormorant Garamond', serif;
+    font-style: italic;
+    font-weight: 500;
+    font-size: 1.6rem;
+    color: var(--terracotta);
+    text-decoration: none;
+    letter-spacing: -0.02em;
+  }
+  .nav-logo span { color: var(--brown); }
+  .nav-back {
+    font-size: 0.85rem;
+    color: var(--text-secondary);
+    text-decoration: none;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    transition: color 0.2s;
+  }
+  .nav-back:hover { color: var(--terracotta); }
+
+  .page-wrapper {
+    max-width: 640px;
+    margin: 0 auto;
+    padding: 3rem 1.5rem 4rem;
+  }
+
+  .page-header {
+    text-align: center;
+    margin-bottom: 2.5rem;
+  }
+  .page-header h1 {
+    font-family: 'Cormorant Garamond', serif;
+    font-weight: 500;
+    font-size: 2.2rem;
+    color: var(--brown);
+    margin-bottom: 0.6rem;
+    letter-spacing: -0.02em;
+  }
+  .page-header p {
+    color: var(--text-secondary);
+    font-size: 0.95rem;
+    line-height: 1.6;
+    max-width: 440px;
+    margin: 0 auto;
+  }
+
+  /* Steps */
+  .steps {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-bottom: 2.5rem;
+  }
+  .step-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .step-dot {
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    border: 2px solid var(--border);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.8rem;
+    font-weight: 600;
+    color: var(--text-muted);
+    transition: all 0.3s ease;
+    flex-shrink: 0;
+  }
+  .step-dot.active { border-color: var(--terracotta); background: var(--terracotta); color: white; }
+  .step-dot.done { border-color: var(--success); background: var(--success); color: white; }
+  .step-label {
+    font-size: 0.78rem;
+    color: var(--text-muted);
+    white-space: nowrap;
+    transition: color 0.3s;
+  }
+  .step-label.active { color: var(--text-primary); font-weight: 500; }
+  .step-label.done { color: var(--success); }
+  .step-line {
+    width: 40px;
+    height: 2px;
+    background: var(--border);
+    margin: 0 8px;
+    transition: background 0.3s;
+    flex-shrink: 0;
+  }
+  .step-line.done { background: var(--success); }
+
+  /* Form Card */
+  .form-card {
+    background: var(--warm-white);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: 2rem;
+    margin-bottom: 1.5rem;
+  }
+  .form-card h2 {
+    font-family: 'Cormorant Garamond', serif;
+    font-weight: 500;
+    font-size: 1.4rem;
+    color: var(--brown);
+    margin-bottom: 0.4rem;
+  }
+  .form-card > p {
+    color: var(--text-secondary);
+    font-size: 0.85rem;
+    margin-bottom: 1.5rem;
+    line-height: 1.5;
+  }
+
+  /* Pet illustration header */
+  .pet-header {
+    text-align: center;
+    margin-bottom: 1.5rem;
+    padding: 1.2rem 0;
+  }
+  .pet-header .pet-emoji {
+    font-size: 2.8rem;
+    margin-bottom: 0.5rem;
+    display: block;
+    line-height: 1;
+  }
+  .pet-header .pet-tagline {
+    font-family: 'Cormorant Garamond', serif;
+    font-style: italic;
+    font-size: 1rem;
+    color: var(--text-muted);
+  }
+
+  /* Form elements */
+  .field { margin-bottom: 1.25rem; }
+  .field label {
+    display: block;
+    font-size: 0.82rem;
+    font-weight: 500;
+    color: var(--text-primary);
+    margin-bottom: 6px;
+  }
+  .field label .optional {
+    color: var(--text-muted);
+    font-weight: 400;
+    font-size: 0.78rem;
+  }
+  .field input[type="text"],
+  .field input[type="email"],
+  .field input[type="password"],
+  .field input[type="tel"],
+  .field input[type="number"],
+  .field textarea,
+  .field select {
+    width: 100%;
+    padding: 10px 14px;
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    font-family: 'DM Sans', sans-serif;
+    font-size: 0.9rem;
+    color: var(--text-primary);
+    background: var(--warm-white);
+    transition: border-color 0.2s, box-shadow 0.2s;
+    outline: none;
+  }
+  .field input:focus, .field textarea:focus, .field select:focus {
+    border-color: var(--border-focus);
+    box-shadow: 0 0 0 3px rgba(196,117,91,0.12);
+  }
+  .field textarea { resize: vertical; min-height: 80px; }
+  .field-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1rem;
+  }
+  .field-hint {
+    font-size: 0.78rem;
+    color: var(--text-muted);
+    margin-top: 4px;
+  }
+
+  /* Species selector */
+  .species-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: 10px;
+  }
+  .species-card {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 6px;
+    padding: 16px 12px;
+    border: 2px solid var(--border);
+    border-radius: 12px;
+    cursor: pointer;
+    transition: all 0.2s;
+    user-select: none;
+  }
+  .species-card:hover { border-color: var(--sage-light); background: rgba(139,158,126,0.04); }
+  .species-card.selected { border-color: var(--terracotta); background: rgba(196,117,91,0.06); }
+  .species-card .species-icon { font-size: 1.8rem; line-height: 1; }
+  .species-card .species-name { font-size: 0.82rem; font-weight: 500; color: var(--text-primary); }
+  .species-card input { display: none; }
+
+  /* Toggle row */
+  .toggle-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 10px 0;
+  }
+  .toggle-row label { margin-bottom: 0; }
+  .toggle {
+    position: relative;
+    width: 44px;
+    height: 24px;
+    cursor: pointer;
+  }
+  .toggle input { display: none; }
+  .toggle-track {
+    position: absolute;
+    inset: 0;
+    background: var(--border);
+    border-radius: 12px;
+    transition: background 0.2s;
+  }
+  .toggle input:checked + .toggle-track { background: var(--sage); }
+  .toggle-thumb {
+    position: absolute;
+    top: 2px;
+    left: 2px;
+    width: 20px;
+    height: 20px;
+    background: white;
+    border-radius: 50%;
+    transition: transform 0.2s;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.15);
+  }
+  .toggle input:checked ~ .toggle-thumb { transform: translateX(20px); }
+
+  /* Buttons */
+  .btn-row { display: flex; gap: 12px; margin-top: 1.5rem; }
+  .btn {
+    padding: 12px 28px;
+    border-radius: 10px;
+    font-family: 'DM Sans', sans-serif;
+    font-size: 0.9rem;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s;
+    border: none;
+    outline: none;
+  }
+  .btn-primary { background: var(--terracotta); color: white; flex: 1; }
+  .btn-primary:hover { background: var(--terracotta-light); transform: translateY(-1px); }
+  .btn-primary:active { transform: translateY(0); }
+  .btn-primary:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
+  .btn-secondary { background: transparent; color: var(--text-secondary); border: 1px solid var(--border); }
+  .btn-secondary:hover { border-color: var(--text-muted); }
+
+  /* Messages */
+  .msg {
+    padding: 12px 16px;
+    border-radius: 10px;
+    font-size: 0.85rem;
+    margin-bottom: 1.25rem;
+    display: none;
+    line-height: 1.5;
+  }
+  .msg.error { background: var(--error-bg); color: var(--error); display: block; }
+  .msg.success { background: var(--success-bg); color: var(--success); display: block; }
+
+  /* Success */
+  .success-card { text-align: center; padding: 3rem 2rem; }
+  .success-icon {
+    width: 64px;
+    height: 64px;
+    background: var(--success-bg);
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin: 0 auto 1.5rem;
+  }
+  .success-card h2 {
+    font-family: 'Cormorant Garamond', serif;
+    font-size: 1.8rem;
+    font-weight: 500;
+    color: var(--brown);
+    margin-bottom: 0.75rem;
+  }
+  .success-card p {
+    color: var(--text-secondary);
+    font-size: 0.92rem;
+    line-height: 1.6;
+    max-width: 420px;
+    margin: 0 auto;
+  }
+  .success-card .next-steps {
+    margin-top: 2rem;
+    padding-top: 1.5rem;
+    border-top: 1px solid var(--border);
+  }
+  .success-card .next-steps a {
+    display: inline-block;
+    padding: 12px 32px;
+    background: var(--terracotta);
+    color: white;
+    text-decoration: none;
+    border-radius: 10px;
+    font-weight: 500;
+    font-size: 0.9rem;
+    transition: all 0.2s;
+  }
+  .success-card .next-steps a:hover { background: var(--terracotta-light); transform: translateY(-1px); }
+
+  .spinner {
+    width: 18px;
+    height: 18px;
+    border: 2px solid rgba(255,255,255,0.3);
+    border-top-color: white;
+    border-radius: 50%;
+    animation: spin 0.6s linear infinite;
+    display: inline-block;
+    vertical-align: middle;
+    margin-right: 8px;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  @media (max-width: 600px) {
+    .page-wrapper { padding: 2rem 1rem 3rem; }
+    .form-card { padding: 1.5rem; }
+    .field-row { grid-template-columns: 1fr; }
+    .species-grid { grid-template-columns: 1fr 1fr 1fr; }
+    .step-label { display: none; }
+    .step-line { width: 24px; }
+    .page-header h1 { font-size: 1.8rem; }
+  }
+
+  .form-step { display: none; }
+  .form-step.active { display: block; animation: fadeIn 0.3s ease; }
+  @keyframes fadeIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+
+  /* Collapsible vet/medical section */
+  .section-toggle {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 12px 0;
+    cursor: pointer;
+    border-top: 1px solid var(--border);
+    margin-top: 0.5rem;
+    user-select: none;
+  }
+  .section-toggle span {
+    font-size: 0.85rem;
+    font-weight: 500;
+    color: var(--text-secondary);
+  }
+  .section-toggle .chevron {
+    transition: transform 0.2s;
+    color: var(--text-muted);
+  }
+  .section-toggle.open .chevron { transform: rotate(180deg); }
+  .section-content {
+    display: none;
+    padding-top: 0.5rem;
+  }
+  .section-content.open { display: block; animation: fadeIn 0.2s ease; }
+</style>
+</head>
+<body>
+
+<nav class="nav">
+  <a href="index.html" class="nav-logo"><span>truffl</span> pets</a>
+  <a href="index.html" class="nav-back">
+    <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M10 12L6 8L10 4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+    Back to home
+  </a>
+</nav>
+
+<div class="page-wrapper">
+
+  <div class="page-header">
+    <h1>Find your perfect carer</h1>
+    <p>Create an account, tell us about your pet, and we'll match you with trusted, vetted professionals in your area.</p>
+  </div>
+
+  <!-- Steps -->
+  <div class="steps">
+    <div class="step-item"><div class="step-dot active" id="sd1">1</div><span class="step-label active" id="sl1">Account</span></div>
+    <div class="step-line" id="line1"></div>
+    <div class="step-item"><div class="step-dot" id="sd2">2</div><span class="step-label" id="sl2">Your details</span></div>
+    <div class="step-line" id="line2"></div>
+    <div class="step-item"><div class="step-dot" id="sd3">3</div><span class="step-label" id="sl3">Your pet</span></div>
+    <div class="step-line" id="line3"></div>
+    <div class="step-item"><div class="step-dot" id="sd4">4</div><span class="step-label" id="sl4">Done</span></div>
+  </div>
+
+  <div id="formMsg" class="msg"></div>
+
+  <!-- STEP 1: Account -->
+  <div class="form-step active" id="step1">
+    <div class="form-card">
+      <h2>Create your account</h2>
+      <p>Quick and easy — just the basics to get you started.</p>
+
+      <div class="field-row">
+        <div class="field">
+          <label>First name</label>
+          <input type="text" id="firstName" placeholder="e.g. Sarah">
+        </div>
+        <div class="field">
+          <label>Last name</label>
+          <input type="text" id="lastName" placeholder="e.g. Mitchell">
+        </div>
+      </div>
+
+      <div class="field">
+        <label>Email address</label>
+        <input type="email" id="email" placeholder="you@example.com">
+      </div>
+
+      <div class="field">
+        <label>Phone number</label>
+        <input type="tel" id="phone" placeholder="0412 345 678">
+      </div>
+
+      <div class="field">
+        <label>Password</label>
+        <input type="password" id="password" placeholder="At least 8 characters">
+        <div class="field-hint">Minimum 8 characters</div>
+      </div>
+
+      <div class="field">
+        <label>Confirm password</label>
+        <input type="password" id="passwordConfirm" placeholder="Re-enter your password">
+      </div>
+
+      <div class="btn-row">
+        <button class="btn btn-primary" onclick="submitStep1()">Continue</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- STEP 2: Profile / Location -->
+  <div class="form-step" id="step2">
+    <div class="form-card">
+      <h2>Where are you based?</h2>
+      <p>We'll use this to find carers near you.</p>
+
+      <div class="field">
+        <label>Suburb</label>
+        <input type="text" id="suburb" placeholder="e.g. Summer Hill">
+      </div>
+
+      <div class="field-row">
+        <div class="field">
+          <label>Postcode <span class="optional">(optional)</span></label>
+          <input type="text" id="postcode" placeholder="e.g. 2130">
+        </div>
+        <div class="field">
+          <label>Address <span class="optional">(optional)</span></label>
+          <input type="text" id="address" placeholder="Street address">
+        </div>
+      </div>
+
+      <div class="field-row">
+        <div class="field">
+          <label>Emergency contact <span class="optional">(optional)</span></label>
+          <input type="text" id="emergencyContact" placeholder="Contact name">
+        </div>
+        <div class="field">
+          <label>Emergency phone <span class="optional">(optional)</span></label>
+          <input type="tel" id="emergencyPhone" placeholder="0412 345 678">
+        </div>
+      </div>
+
+      <div class="btn-row">
+        <button class="btn btn-secondary" onclick="goToStep(1)">Back</button>
+        <button class="btn btn-primary" onclick="submitStep2()">Continue</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- STEP 3: Add Pet -->
+  <div class="form-step" id="step3">
+    <div class="form-card">
+      <div class="pet-header">
+        <span class="pet-emoji" id="petEmoji">🐾</span>
+        <span class="pet-tagline">Tell us about your furry friend</span>
+      </div>
+
+      <div class="field">
+        <label>What kind of pet?</label>
+        <div class="species-grid">
+          <label class="species-card" onclick="selectSpecies(this, 'dog')">
+            <input type="radio" name="species" value="dog">
+            <span class="species-icon">🐕</span>
+            <span class="species-name">Dog</span>
+          </label>
+          <label class="species-card" onclick="selectSpecies(this, 'cat')">
+            <input type="radio" name="species" value="cat">
+            <span class="species-icon">🐈</span>
+            <span class="species-name">Cat</span>
+          </label>
+          <label class="species-card" onclick="selectSpecies(this, 'other')">
+            <input type="radio" name="species" value="other">
+            <span class="species-icon">🐾</span>
+            <span class="species-name">Other</span>
+          </label>
+        </div>
+      </div>
+
+      <div class="field">
+        <label>Pet's name</label>
+        <input type="text" id="petName" placeholder="e.g. Flick">
+      </div>
+
+      <div class="field">
+        <label>Breed <span class="optional">(optional)</span></label>
+        <input type="text" id="petBreed" placeholder="e.g. Springer Spaniel">
+      </div>
+
+      <div class="field-row">
+        <div class="field">
+          <label>Age <span class="optional">(years, approximate is fine)</span></label>
+          <input type="number" id="petAge" placeholder="e.g. 4" min="0" max="30">
+        </div>
+        <div class="field">
+          <label>Weight <span class="optional">(kg, optional)</span></label>
+          <input type="number" id="petWeight" placeholder="e.g. 18" min="0" max="200" step="0.5">
+        </div>
+      </div>
+
+      <div class="field-row">
+        <div class="field">
+          <label>Sex</label>
+          <select id="petSex">
+            <option value="unknown">Prefer not to say / unsure</option>
+            <option value="male">Male</option>
+            <option value="female">Female</option>
+          </select>
+        </div>
+        <div class="field">
+          <label>Desexed?</label>
+          <select id="petDesexed">
+            <option value="">Not sure</option>
+            <option value="true">Yes</option>
+            <option value="false">No</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="field">
+        <label>Microchip number <span class="optional">(optional)</span></label>
+        <input type="text" id="petMicrochip" placeholder="If you have it handy">
+      </div>
+
+      <!-- Collapsible vet & notes -->
+      <div class="section-toggle" onclick="toggleSection(this)">
+        <span>Vet details & notes (optional)</span>
+        <svg class="chevron" width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M4 6L8 10L12 6" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      </div>
+      <div class="section-content" id="vetSection">
+        <div class="field-row">
+          <div class="field">
+            <label>Vet clinic name</label>
+            <input type="text" id="vetName" placeholder="e.g. Inner West Vet">
+          </div>
+          <div class="field">
+            <label>Vet phone</label>
+            <input type="tel" id="vetPhone" placeholder="02 1234 5678">
+          </div>
+        </div>
+        <div class="field">
+          <label>Medical notes</label>
+          <textarea id="medicalNotes" placeholder="Any allergies, medications, conditions we should know about?"></textarea>
+        </div>
+        <div class="field">
+          <label>Behaviour notes</label>
+          <textarea id="behaviourNotes" placeholder="How are they with other dogs? Anxious? Reactive? A total angel? Anything helps."></textarea>
+        </div>
+      </div>
+
+      <div class="btn-row">
+        <button class="btn btn-secondary" onclick="goToStep(2)">Back</button>
+        <button class="btn btn-primary" onclick="submitStep3()">Complete signup</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- STEP 4: Success -->
+  <div class="form-step" id="step4">
+    <div class="form-card success-card">
+      <div class="success-icon">
+        <svg width="28" height="28" viewBox="0 0 24 24" fill="none"><path d="M5 13l4 4L19 7" stroke="#5B8C5A" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      </div>
+      <h2>Welcome to Truffl.</h2>
+      <p id="successMsg">You and your pet are all set. We'll match you with trusted, vetted carers in your area — no more guesswork, no more crossed fingers.</p>
+      <div class="next-steps">
+        <a href="index.html">Browse carers</a>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<script>
+const SUPABASE_URL = 'https://gadflsntbnbnnxbpiral.supabase.co';
+const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImdhZGZsc250Ym5ibm54YnBpcmFsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzUwNjcwNTcsImV4cCI6MjA5MDY0MzA1N30.g5ZrqeAX9U5l7oDZEbQFrU5j10828dUF0QuJ0ZlHXK8';
+
+const supabase = {
+  headers() {
+    const h = {
+      'Content-Type': 'application/json',
+      'apikey': SUPABASE_ANON_KEY,
+      'Authorization': `Bearer ${SUPABASE_ANON_KEY}`
+    };
+    if (this._accessToken) h['Authorization'] = `Bearer ${this._accessToken}`;
+    return h;
+  },
+  _accessToken: null,
+  _userId: null,
+
+  async signUp(email, password, metadata) {
+    const res = await fetch(`${SUPABASE_URL}/auth/v1/signup`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'apikey': SUPABASE_ANON_KEY },
+      body: JSON.stringify({ email, password, data: metadata })
+    });
+    const data = await res.json();
+    if (data.error || data.msg) throw new Error(data.error?.message || data.msg || 'Signup failed');
+    this._accessToken = data.access_token;
+    this._userId = data.user?.id;
+    return data;
+  },
+
+  async insert(table, row) {
+    const res = await fetch(`${SUPABASE_URL}/rest/v1/${table}`, {
+      method: 'POST',
+      headers: { ...this.headers(), 'Prefer': 'return=representation' },
+      body: JSON.stringify(row)
+    });
+    if (!res.ok) {
+      const err = await res.json();
+      throw new Error(err.message || `Insert into ${table} failed`);
+    }
+    return await res.json();
+  },
+
+  async patch(table, matchCol, matchVal, updates) {
+    const res = await fetch(`${SUPABASE_URL}/rest/v1/${table}?${matchCol}=eq.${matchVal}`, {
+      method: 'PATCH',
+      headers: { ...this.headers(), 'Prefer': 'return=representation' },
+      body: JSON.stringify(updates)
+    });
+    if (!res.ok) {
+      const err = await res.json();
+      throw new Error(err.message || `Update ${table} failed`);
+    }
+    return await res.json();
+  }
+};
+
+let currentStep = 1;
+let userData = {};
+let customerProfileId = null;
+let selectedSpecies = null;
+
+// ─── Species selector ───
+function selectSpecies(el, species) {
+  document.querySelectorAll('.species-card').forEach(c => c.classList.remove('selected'));
+  el.classList.add('selected');
+  el.querySelector('input').checked = true;
+  selectedSpecies = species;
+
+  const emoji = document.getElementById('petEmoji');
+  if (species === 'dog') emoji.textContent = '🐕';
+  else if (species === 'cat') emoji.textContent = '🐈';
+  else emoji.textContent = '🐾';
+}
+
+// ─── Collapsible section ───
+function toggleSection(el) {
+  el.classList.toggle('open');
+  const content = el.nextElementSibling;
+  content.classList.toggle('open');
+}
+
+// ─── Step nav ───
+function goToStep(n) {
+  document.querySelector('.form-step.active')?.classList.remove('active');
+  document.getElementById(`step${n}`).classList.add('active');
+  currentStep = n;
+  for (let i = 1; i <= 4; i++) {
+    const dot = document.getElementById(`sd${i}`);
+    const label = document.getElementById(`sl${i}`);
+    dot.className = 'step-dot';
+    label.className = 'step-label';
+    if (i < n) { dot.classList.add('done'); label.classList.add('done'); dot.innerHTML = '✓'; }
+    else if (i === n) { dot.classList.add('active'); label.classList.add('active'); dot.innerHTML = i; }
+    else { dot.innerHTML = i; }
+    if (i < 4) document.getElementById(`line${i}`).className = i < n ? 'step-line done' : 'step-line';
+  }
+  clearMsg();
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+function showMsg(text, type) {
+  const el = document.getElementById('formMsg');
+  el.textContent = text;
+  el.className = `msg ${type}`;
+}
+function clearMsg() { document.getElementById('formMsg').className = 'msg'; }
+
+function setLoading(btn, loading) {
+  if (loading) {
+    btn.disabled = true;
+    btn._origText = btn.textContent;
+    btn.innerHTML = '<span class="spinner"></span>Saving...';
+  } else {
+    btn.disabled = false;
+    btn.textContent = btn._origText || 'Continue';
+  }
+}
+
+// ─── Step 1: Account ───
+async function submitStep1() {
+  clearMsg();
+  const firstName = document.getElementById('firstName').value.trim();
+  const lastName = document.getElementById('lastName').value.trim();
+  const email = document.getElementById('email').value.trim();
+  const phone = document.getElementById('phone').value.trim();
+  const password = document.getElementById('password').value;
+  const passwordConfirm = document.getElementById('passwordConfirm').value;
+
+  if (!firstName || !lastName || !email || !password) return showMsg('Please fill in all required fields.', 'error');
+  if (password.length < 8) return showMsg('Password must be at least 8 characters.', 'error');
+  if (password !== passwordConfirm) return showMsg('Passwords don\'t match.', 'error');
+
+  const btn = document.querySelector('#step1 .btn-primary');
+  setLoading(btn, true);
+
+  try {
+    await supabase.signUp(email, password, {
+      first_name: firstName,
+      last_name: lastName,
+      phone: phone,
+      role: 'customer'
+    });
+
+    userData = { firstName, lastName, email, phone };
+
+    // Update the users row created by trigger
+    if (supabase._userId) {
+      try {
+        await supabase.patch('users', 'id', supabase._userId, {
+          first_name: firstName,
+          last_name: lastName,
+          phone: phone,
+          role: 'customer'
+        });
+      } catch (e) { /* trigger may have set these already */ }
+    }
+
+    goToStep(2);
+  } catch (err) {
+    showMsg(err.message || 'Something went wrong creating your account.', 'error');
+  } finally {
+    setLoading(btn, false);
+  }
+}
+
+// ─── Step 2: Profile / Location ───
+async function submitStep2() {
+  clearMsg();
+  const suburb = document.getElementById('suburb').value.trim();
+  const postcode = document.getElementById('postcode').value.trim();
+  const address = document.getElementById('address').value.trim();
+  const emergencyContact = document.getElementById('emergencyContact').value.trim();
+  const emergencyPhone = document.getElementById('emergencyPhone').value.trim();
+
+  if (!suburb) return showMsg('Please enter your suburb so we can find carers near you.', 'error');
+
+  const btn = document.querySelector('#step2 .btn-primary');
+  setLoading(btn, true);
+
+  try {
+    const result = await supabase.insert('customer_profiles', {
+      user_id: supabase._userId,
+      suburb: suburb,
+      postcode: postcode || null,
+      address: address || null,
+      emergency_contact: emergencyContact || null,
+      emergency_phone: emergencyPhone || null
+    });
+
+    // Get back the generated customer_profiles.id for the pet insert
+    if (Array.isArray(result) && result.length > 0) {
+      customerProfileId = result[0].id;
+    }
+
+    goToStep(3);
+  } catch (err) {
+    showMsg(err.message || 'Something went wrong saving your details.', 'error');
+  } finally {
+    setLoading(btn, false);
+  }
+}
+
+// ─── Step 3: Add Pet ───
+async function submitStep3() {
+  clearMsg();
+  const petName = document.getElementById('petName').value.trim();
+  const petBreed = document.getElementById('petBreed').value.trim();
+  const petAge = document.getElementById('petAge').value;
+  const petWeight = document.getElementById('petWeight').value;
+  const petSex = document.getElementById('petSex').value;
+  const petDesexed = document.getElementById('petDesexed').value;
+  const petMicrochip = document.getElementById('petMicrochip').value.trim();
+  const vetName = document.getElementById('vetName').value.trim();
+  const vetPhone = document.getElementById('vetPhone').value.trim();
+  const medicalNotes = document.getElementById('medicalNotes').value.trim();
+  const behaviourNotes = document.getElementById('behaviourNotes').value.trim();
+
+  if (!selectedSpecies) return showMsg('Please select what kind of pet you have.', 'error');
+  if (!petName) return showMsg('What\'s your pet\'s name?', 'error');
+  if (!customerProfileId) return showMsg('Something went wrong — please go back and try again.', 'error');
+
+  const btn = document.querySelector('#step3 .btn-primary');
+  setLoading(btn, true);
+
+  try {
+    await supabase.insert('pets', {
+      customer_id: customerProfileId,
+      name: petName,
+      species: selectedSpecies,
+      breed: petBreed || null,
+      age_years: petAge ? parseInt(petAge) : null,
+      weight_kg: petWeight ? parseFloat(petWeight) : null,
+      sex: petSex || 'unknown',
+      is_desexed: petDesexed === 'true' ? true : petDesexed === 'false' ? false : null,
+      microchip_no: petMicrochip || null,
+      vet_name: vetName || null,
+      vet_phone: vetPhone || null,
+      medical_notes: medicalNotes || null,
+      behaviour_notes: behaviourNotes || null,
+      is_active: true
+    });
+
+    // Personalise success message
+    const msg = document.getElementById('successMsg');
+    msg.textContent = `You and ${petName} are all set. We'll match you with trusted, vetted carers in your area — no more guesswork, no more crossed fingers.`;
+
+    goToStep(4);
+  } catch (err) {
+    showMsg(err.message || 'Something went wrong saving your pet\'s details.', 'error');
+  } finally {
+    setLoading(btn, false);
+  }
+}
+</script>
+
+</body>
+</html>
