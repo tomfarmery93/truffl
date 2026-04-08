@@ -447,7 +447,7 @@ function renderStars(rating) {
 
 function renderCard(provider) {
   const initials = getInitials(provider.first_name, provider.last_name);
-  const services = provider.services ? provider.services.split(',').map(s => s.trim()) : [];
+  const services = Array.isArray(provider.services) ? provider.services : (provider.services ? provider.services.split(',').map(s => s.trim()) : []);
   const hasRating = provider.avg_rating && provider.total_reviews > 0;
 
   const serviceTagsHtml = services.map(s => 
@@ -526,9 +526,10 @@ async function searchProviders() {
     }
 
     if (service) {
-      filtered = filtered.filter(p => 
-        (p.services || '').includes(service)
-      );
+filtered = filtered.filter(p => {
+  const svcList = Array.isArray(p.services) ? p.services : (p.services || '').split(',');
+  return svcList.some(s => s.trim() === service);
+});
     }
 
     // Render
