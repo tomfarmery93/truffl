@@ -480,7 +480,7 @@ function renderCard(provider) {
     : '';
 
   return `
-    <div class="provider-card fade-in">
+    <a href="/carer/?id=${provider.user_id || provider.id}" class="provider-card fade-in" style="text-decoration:none;color:inherit;">
       <div class="avatar">${initials}</div>
       <div class="provider-info">
         <h3>${provider.first_name} ${(provider.last_name || '')[0] || ''}.${verifiedHtml}</h3>
@@ -489,7 +489,7 @@ function renderCard(provider) {
         <div class="provider-services">${serviceTagsHtml}</div>
       </div>
       <div class="provider-rating">${ratingHtml}</div>
-    </div>
+    </a>
   `;
 }
 
