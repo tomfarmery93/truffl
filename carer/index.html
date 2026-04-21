@@ -1,0 +1,382 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Carer Profile — Truffl Pets</title>
+<link rel="icon" type="image/svg+xml" href="/favicon.svg">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,500;0,600;1,400;1,500&family=DM+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --cream: #FAF7F2;
+    --warm-white: #FFFDF9;
+    --sage: #8B9E7E;
+    --sage-light: #C2D1B5;
+    --sage-dark: #6B7E5E;
+    --terracotta: #C4755B;
+    --terracotta-light: #D4917B;
+    --blush: #E8C4B8;
+    --brown: #3D2B1F;
+    --brown-light: #5C4033;
+    --brown-muted: #8B7355;
+    --text-primary: #3D2B1F;
+    --text-secondary: #6B5B4E;
+    --text-muted: #9B8B7E;
+    --border: #E8E0D6;
+    --success: #5B8C5A;
+    --success-bg: #EDF5ED;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: 'DM Sans', sans-serif; background: var(--cream);
+    color: var(--text-primary); min-height: 100vh; -webkit-font-smoothing: antialiased;
+  }
+
+  .nav {
+    position: sticky; top: 0; z-index: 100; background: var(--warm-white);
+    border-bottom: 1px solid var(--border); padding: 0 2rem; height: 64px;
+    display: flex; align-items: center; justify-content: space-between;
+  }
+  .nav-logo { display: flex; align-items: center; text-decoration: none; }
+  .nav-right { display: flex; align-items: center; gap: 20px; font-size: 13px; }
+  .nav-right a { color: var(--text-secondary); text-decoration: none; transition: color 0.2s; }
+  .nav-right a:hover { color: var(--terracotta); }
+  .btn-nav {
+    background: var(--terracotta); color: white; padding: 8px 18px;
+    border-radius: 8px; font-weight: 500; transition: all 0.2s; text-decoration: none; font-size: 13px;
+  }
+  .btn-nav:hover { background: var(--terracotta-light); color: white; }
+
+  .page-wrapper { max-width: 800px; margin: 0 auto; padding: 2.5rem 1.5rem 4rem; }
+
+  .back-link {
+    display: inline-flex; align-items: center; gap: 6px; font-size: 0.85rem;
+    color: var(--text-muted); text-decoration: none; margin-bottom: 1.5rem; transition: color 0.2s;
+  }
+  .back-link:hover { color: var(--terracotta); }
+
+  /* Profile header */
+  .profile-header {
+    display: flex; gap: 24px; align-items: start; margin-bottom: 2rem;
+  }
+  .avatar {
+    width: 88px; height: 88px; border-radius: 50%; background: var(--blush);
+    display: flex; align-items: center; justify-content: center;
+    font-family: 'Cormorant Garamond', serif; font-size: 2rem; font-weight: 600;
+    color: var(--brown); flex-shrink: 0;
+  }
+  .profile-info { flex: 1; }
+  .profile-name {
+    font-family: 'Cormorant Garamond', serif; font-weight: 500;
+    font-size: 1.8rem; color: var(--brown); margin-bottom: 4px;
+    display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+  }
+  .verified-badge {
+    display: inline-flex; align-items: center; gap: 4px;
+    font-family: 'DM Sans', sans-serif; font-size: 0.72rem; font-weight: 600;
+    color: var(--sage-dark); background: var(--success-bg);
+    padding: 3px 10px; border-radius: 20px; text-transform: uppercase; letter-spacing: 0.03em;
+  }
+  .profile-suburb { font-size: 0.9rem; color: var(--text-muted); margin-bottom: 8px; }
+  .profile-rating { display: flex; align-items: center; gap: 8px; font-size: 0.9rem; }
+  .stars { color: var(--terracotta); letter-spacing: 2px; }
+  .rating-text { color: var(--text-muted); font-size: 0.82rem; }
+
+  /* Sections */
+  .section {
+    background: var(--warm-white); border: 1px solid var(--border);
+    border-radius: 14px; padding: 1.5rem; margin-bottom: 1rem;
+  }
+  .section-title {
+    font-family: 'Cormorant Garamond', serif; font-weight: 500;
+    font-size: 1.15rem; color: var(--brown); margin-bottom: 0.75rem;
+  }
+
+  /* Bio */
+  .bio-text { font-size: 0.9rem; color: var(--text-secondary); line-height: 1.7; }
+
+  /* Tags */
+  .tag-grid { display: flex; flex-wrap: wrap; gap: 8px; }
+  .tag {
+    font-size: 0.8rem; padding: 6px 14px; background: var(--cream);
+    border: 1px solid var(--border); border-radius: 20px; color: var(--text-secondary);
+  }
+  .tag.service { background: rgba(139,158,126,0.08); border-color: var(--sage-light); color: var(--sage-dark); }
+
+  /* Verification cards */
+  .checks-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+  .check-card {
+    display: flex; align-items: center; gap: 10px; padding: 12px 14px;
+    background: var(--cream); border-radius: 10px;
+  }
+  .check-icon {
+    width: 32px; height: 32px; border-radius: 50%; display: flex;
+    align-items: center; justify-content: center; flex-shrink: 0;
+  }
+  .check-icon.approved { background: var(--success-bg); }
+  .check-icon.pending { background: #FEF3E2; }
+  .check-icon.missing { background: #F5F5F5; }
+  .check-name { font-size: 0.82rem; font-weight: 500; color: var(--text-primary); }
+  .check-status { font-size: 0.72rem; color: var(--text-muted); }
+  .check-status.approved { color: var(--success); }
+  .check-status.pending { color: #C0862B; }
+
+  /* Attributes */
+  .attr-grid { display: flex; flex-wrap: wrap; gap: 8px; }
+  .attr-pill {
+    display: flex; align-items: center; gap: 6px; font-size: 0.8rem;
+    padding: 6px 14px; background: var(--cream); border-radius: 20px;
+    color: var(--text-secondary); border: 1px solid var(--border);
+  }
+  .attr-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--sage); flex-shrink: 0; }
+
+  /* CTA */
+  .cta-bar {
+    background: var(--warm-white); border: 1px solid var(--border);
+    border-radius: 14px; padding: 1.5rem; text-align: center;
+  }
+  .cta-bar h3 {
+    font-family: 'Cormorant Garamond', serif; font-weight: 500;
+    font-size: 1.2rem; color: var(--brown); margin-bottom: 6px;
+  }
+  .cta-bar p { font-size: 0.85rem; color: var(--text-muted); margin-bottom: 1rem; }
+  .btn-book {
+    display: inline-block; padding: 12px 36px; background: var(--terracotta);
+    color: white; border-radius: 10px; font-weight: 500; font-size: 0.9rem;
+    text-decoration: none; transition: all 0.2s; border: none; cursor: pointer;
+    font-family: 'DM Sans', sans-serif;
+  }
+  .btn-book:hover { background: var(--terracotta-light); transform: translateY(-1px); }
+
+  /* Experience badge */
+  .exp-badge {
+    display: inline-flex; align-items: center; gap: 6px; font-size: 0.8rem;
+    color: var(--text-muted); margin-top: 6px;
+  }
+
+  /* Loading & Error */
+  .loading-state { text-align: center; padding: 4rem 2rem; }
+  .loading-dots { display: inline-flex; gap: 6px; }
+  .loading-dots span {
+    width: 8px; height: 8px; border-radius: 50%; background: var(--terracotta);
+    animation: bounce 1.2s infinite;
+  }
+  .loading-dots span:nth-child(2) { animation-delay: 0.15s; }
+  .loading-dots span:nth-child(3) { animation-delay: 0.3s; }
+  @keyframes bounce { 0%,80%,100% { opacity:0.3; transform:scale(0.8); } 40% { opacity:1; transform:scale(1.2); } }
+  .loading-text { margin-top: 1rem; font-size: 0.85rem; color: var(--text-muted); }
+
+  .error-state { text-align: center; padding: 4rem 2rem; }
+  .error-state h2 {
+    font-family: 'Cormorant Garamond', serif; font-size: 1.6rem;
+    color: var(--brown); margin-bottom: 0.5rem;
+  }
+  .error-state p { color: var(--text-muted); font-size: 0.9rem; }
+
+  @media (max-width: 600px) {
+    .page-wrapper { padding: 1.5rem 1rem 3rem; }
+    .profile-header { flex-direction: column; align-items: center; text-align: center; }
+    .profile-name { justify-content: center; }
+    .checks-grid { grid-template-columns: 1fr; }
+    .avatar { width: 72px; height: 72px; font-size: 1.6rem; }
+  }
+
+  @keyframes fadeIn { from { opacity:0; transform:translateY(8px); } to { opacity:1; transform:translateY(0); } }
+  .fade-in { animation: fadeIn 0.3s ease; }
+</style>
+</head>
+<body>
+
+<nav class="nav">
+  <a href="/" class="nav-logo" aria-label="Truffl Pets home">
+    <svg width="150" height="48" viewBox="0 0 180 56" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <circle cx="20" cy="5.5" r="6" fill="none" stroke="#C4866A" stroke-width="2.5"/>
+      <circle cx="20" cy="5.5" r="2.8" fill="#FFFDF9"/>
+      <rect x="16.5" y="10.5" width="7" height="9" rx="3" fill="#C4866A"/>
+      <circle cx="20" cy="33" r="20" fill="#C4866A"/>
+      <circle cx="20" cy="33" r="15.5" fill="none" stroke="#B8795C" stroke-width="0.6" opacity="0.45"/>
+      <line x1="7" y1="33" x2="33" y2="33" stroke="#FFFDF9" stroke-width="0.5" opacity="0.3"/>
+      <text x="20" y="35.5" font-family="'Cormorant Garamond', Georgia, serif" font-size="14" font-style="italic" font-weight="400" fill="#FFFDF9" text-anchor="middle" letter-spacing="-0.3">truffl</text>
+      <text x="52" y="30" font-family="'Cormorant Garamond', Georgia, serif" font-size="32" font-style="italic" font-weight="400" fill="#3D2B1F" letter-spacing="-0.5">truffl</text>
+      <text x="52" y="50" font-family="'DM Sans', sans-serif" font-size="12" font-weight="600" fill="#B0A090" letter-spacing="4">PETS</text>
+    </svg>
+  </a>
+  <div class="nav-right">
+    <a href="/login/">Sign in</a>
+    <a href="/search/" class="btn-nav">Find a carer</a>
+  </div>
+</nav>
+
+<div class="page-wrapper">
+  <a href="/search/" class="back-link">
+    <svg width="14" height="14" viewBox="0 0 16 16" fill="none"><path d="M10 12L6 8L10 4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+    Back to search
+  </a>
+
+  <div id="profileContent">
+    <div class="loading-state">
+      <div class="loading-dots"><span></span><span></span><span></span></div>
+      <div class="loading-text">Loading profile...</div>
+    </div>
+  </div>
+</div>
+
+<script>
+const SUPABASE_URL = 'https://gadflsntbnbnnxbpiral.supabase.co';
+const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImdhZGZsc250Ym5ibm54YnBpcmFsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzUwNjcwNTcsImV4cCI6MjA5MDY0MzA1N30.g5ZrqeAX9U5l7oDZEbQFrU5j10828dUF0QuJ0ZlHXK8';
+
+const SERVICE_LABELS = {
+  dog_walking: 'Dog walking', dog_sitting: 'Dog sitting', dog_boarding: 'Dog boarding',
+  cat_sitting: 'Cat sitting', cat_boarding: 'Cat boarding', pet_sitting: 'Other pet sitting'
+};
+
+const ATTR_LABELS = {
+  has_car: 'Own vehicle', outdoor_space: 'Garden / yard', large_dogs_ok: 'Large dogs OK',
+  cat_experience: 'Cat experience', puppy_experience: 'Puppy experience',
+  senior_pets_ok: 'Senior / special needs', reactive_dogs_ok: 'Reactive dogs OK',
+  water_confident: 'Water / swim confident'
+};
+
+const CHECK_LABELS = {
+  police_check: 'Police check', identity: 'Identity verified', pet_first_aid: 'Pet first aid',
+  animal_training: 'Animal training', public_liability: 'Public liability insurance',
+  walk_demo: 'Walk demonstration', interview: 'Formal interview', emergency_protocol: 'Emergency protocol'
+};
+
+async function sbGet(table, params) {
+  const r = await fetch(`${SUPABASE_URL}/rest/v1/${table}?${params}`, {
+    headers: { 'apikey': SUPABASE_ANON_KEY, 'Authorization': `Bearer ${SUPABASE_ANON_KEY}` }
+  });
+  if (!r.ok) throw new Error('Failed to load data');
+  return await r.json();
+}
+
+function getInitials(first, last) {
+  return ((first || '')[0] || '') + ((last || '')[0] || '');
+}
+
+function renderStars(rating) {
+  if (!rating) return '';
+  const full = Math.floor(rating);
+  let s = '';
+  for (let i = 0; i < 5; i++) s += i < full ? '★' : '☆';
+  return s;
+}
+
+function renderProfile(user, profile, services, attributes, checks) {
+  const name = `${user.first_name} ${user.last_name}`;
+  const initials = getInitials(user.first_name, user.last_name);
+  const hasRating = profile.avg_rating && profile.total_reviews > 0;
+
+  document.title = `${name} — Truffl Pets`;
+
+  const verifiedHtml = profile.is_verified
+    ? `<span class="verified-badge"><svg width="10" height="10" viewBox="0 0 12 12" fill="none"><path d="M2.5 6.5L5 9L9.5 3.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>Verified</span>`
+    : '';
+
+  const ratingHtml = hasRating
+    ? `<div class="profile-rating"><span class="stars">${renderStars(profile.avg_rating)}</span><span>${profile.avg_rating.toFixed(1)}</span><span class="rating-text">(${profile.total_reviews} review${profile.total_reviews !== 1 ? 's' : ''})</span></div>`
+    : `<div class="profile-rating"><span class="rating-text">New carer — no reviews yet</span></div>`;
+
+  const expHtml = profile.experience_years
+    ? `<div class="exp-badge"><svg width="14" height="14" viewBox="0 0 16 16" fill="none"><circle cx="8" cy="8" r="6" stroke="currentColor" stroke-width="1.2"/><path d="M8 5v3l2 1.5" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/></svg>${profile.experience_years} years experience</div>`
+    : '';
+
+  const servicesHtml = services.length > 0
+    ? `<div class="section fade-in"><div class="section-title">Services offered</div><div class="tag-grid">${services.map(s => `<span class="tag service">${SERVICE_LABELS[s.service_type] || s.service_type.replace(/_/g, ' ')}</span>`).join('')}</div></div>`
+    : '';
+
+  const attrsHtml = attributes.length > 0
+    ? `<div class="section fade-in"><div class="section-title">Capabilities</div><div class="attr-grid">${attributes.map(a => `<span class="attr-pill"><span class="attr-dot"></span>${ATTR_LABELS[a.attribute] || a.attribute.replace(/_/g, ' ')}</span>`).join('')}</div></div>`
+    : '';
+
+  const approvedChecks = checks.filter(c => c.status === 'approved');
+  const pendingChecks = checks.filter(c => c.status === 'pending');
+
+  let checksHtml = '';
+  if (approvedChecks.length > 0 || pendingChecks.length > 0) {
+    const cards = [...approvedChecks.map(c => `
+      <div class="check-card">
+        <div class="check-icon approved"><svg width="14" height="14" viewBox="0 0 16 16" fill="none"><path d="M4 8.5L7 11.5L12.5 5" stroke="#5B8C5A" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
+        <div><div class="check-name">${CHECK_LABELS[c.check_type] || c.check_type.replace(/_/g, ' ')}</div><div class="check-status approved">Verified</div></div>
+      </div>
+    `), ...pendingChecks.map(c => `
+      <div class="check-card">
+        <div class="check-icon pending"><svg width="14" height="14" viewBox="0 0 16 16" fill="none"><circle cx="8" cy="8" r="5" stroke="#C0862B" stroke-width="1.5"/><path d="M8 5.5v3" stroke="#C0862B" stroke-width="1.5" stroke-linecap="round"/><circle cx="8" cy="11" r="0.5" fill="#C0862B"/></svg></div>
+        <div><div class="check-name">${CHECK_LABELS[c.check_type] || c.check_type.replace(/_/g, ' ')}</div><div class="check-status pending">Pending</div></div>
+      </div>
+    `)];
+    checksHtml = `<div class="section fade-in"><div class="section-title">Verification & checks</div><div class="checks-grid">${cards.join('')}</div></div>`;
+  }
+
+  // If verified but no individual checks recorded, show a generic verified message
+  if (profile.is_verified && approvedChecks.length === 0 && pendingChecks.length === 0) {
+    checksHtml = `<div class="section fade-in"><div class="section-title">Verification</div><div class="check-card"><div class="check-icon approved"><svg width="14" height="14" viewBox="0 0 16 16" fill="none"><path d="M4 8.5L7 11.5L12.5 5" stroke="#5B8C5A" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg></div><div><div class="check-name">Truffl Verified</div><div class="check-status approved">This carer has completed our full vetting process</div></div></div></div>`;
+  }
+
+  const radiusHtml = profile.radius_km
+    ? `<span style="font-size:0.82rem;color:var(--text-muted);margin-left:8px;">· Services within ${profile.radius_km}km</span>`
+    : '';
+
+  return `
+    <div class="profile-header fade-in">
+      <div class="avatar">${initials}</div>
+      <div class="profile-info">
+        <div class="profile-name">${name}${verifiedHtml}</div>
+        <div class="profile-suburb">${profile.suburb || 'Sydney'}${radiusHtml}</div>
+        ${ratingHtml}
+        ${expHtml}
+      </div>
+    </div>
+
+    ${profile.bio ? `<div class="section fade-in"><div class="section-title">About</div><div class="bio-text">${profile.bio.replace(/\n/g, '<br>')}</div></div>` : ''}
+
+    ${servicesHtml}
+    ${attrsHtml}
+    ${checksHtml}
+
+    <div class="cta-bar fade-in" style="margin-top:1.5rem;">
+      <h3>Want to book ${user.first_name}?</h3>
+      <p>All bookings are confirmed directly with the carer. No hidden fees.</p>
+      <button class="btn-book" onclick="alert('Booking flow coming soon!')">Request a booking</button>
+    </div>
+  `;
+}
+
+async function loadProfile() {
+  const area = document.getElementById('profileContent');
+  const params = new URLSearchParams(window.location.search);
+  const userId = params.get('id');
+
+  if (!userId) {
+    area.innerHTML = `<div class="error-state"><h2>No carer specified</h2><p>Head back to <a href="/search/" style="color:var(--terracotta);">search</a> and click on a carer to view their profile.</p></div>`;
+    return;
+  }
+
+  try {
+    // Fetch all data in parallel
+    const [users, profiles, services, attributes, checks] = await Promise.all([
+      sbGet('users', `id=eq.${userId}&select=first_name,last_name`),
+      sbGet('provider_profiles', `user_id=eq.${userId}&select=*`),
+      sbGet('provider_services', `provider_id=eq.${userId}&select=service_type,is_available&is_available=eq.true`),
+      sbGet('provider_attributes', `provider_id=eq.${userId}&select=attribute,value&value=eq.true`),
+      sbGet('provider_checks', `provider_id=eq.${userId}&select=check_type,status`).catch(() => [])
+    ]);
+
+    if (!users.length || !profiles.length) {
+      area.innerHTML = `<div class="error-state"><h2>Carer not found</h2><p>This profile doesn't exist or isn't available. <a href="/search/" style="color:var(--terracotta);">Back to search</a></p></div>`;
+      return;
+    }
+
+    area.innerHTML = renderProfile(users[0], profiles[0], services, attributes, checks);
+  } catch (err) {
+    area.innerHTML = `<div class="error-state"><h2>Something went wrong</h2><p>${err.message}. <a href="/search/" style="color:var(--terracotta);">Back to search</a></p></div>`;
+  }
+}
+
+document.addEventListener('DOMContentLoaded', loadProfile);
+</script>
+</body>
+</html>
