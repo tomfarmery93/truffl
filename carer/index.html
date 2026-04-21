@@ -340,7 +340,7 @@ function renderProfile(user, profile, services, attributes, checks) {
     <div class="cta-bar fade-in" style="margin-top:1.5rem;">
       <h3>Want to book ${user.first_name}?</h3>
       <p>All bookings are confirmed directly with the carer. No hidden fees.</p>
-      <button class="btn-book" onclick="alert('Booking flow coming soon!')">Request a booking</button>
+      <button class="btn-book" onclick="window.location.href='/book/?provider=' + new URLSearchParams(window.location.search).get('id')">Request a booking</button>
     </div>
   `;
 }
