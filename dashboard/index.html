@@ -332,7 +332,7 @@ function renderBookingsTab() {
           ${b.customer_notes ? `<div class="bc-notes">"${b.customer_notes}"</div>` : ''}
         </div>
         <div class="bc-actions">
-          <button class="bc-btn start-walk" onclick="alert('Walk tracking coming soon!')">Start walk</button>
+          <button class="bc-btn start-walk" onclick="window.location.href='/walk/?booking=${b.id}'">Start walk</button>
         </div>
       </div>
     `).join('');
