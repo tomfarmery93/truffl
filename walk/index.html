@@ -1,0 +1,582 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Walk — Truffl Pets</title>
+<link rel="icon" type="image/svg+xml" href="/favicon.svg">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,500;1,400;1,500&family=DM+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css"/>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+<style>
+  :root {
+    --cream:#FAF7F2; --warm-white:#FFFDF9; --sage:#8B9E7E; --sage-light:#C2D1B5;
+    --sage-dark:#6B7E5E; --terracotta:#C4755B; --terracotta-light:#D4917B;
+    --blush:#E8C4B8; --brown:#3D2B1F; --brown-muted:#8B7355;
+    --text-primary:#3D2B1F; --text-secondary:#6B5B4E; --text-muted:#9B8B7E;
+    --border:#E8E0D6; --border-focus:#C4755B;
+    --error:#C0392B; --error-bg:#FDF0EE; --success:#5B8C5A; --success-bg:#EDF5ED;
+    --warning:#C0862B; --warning-bg:#FEF3E2;
+  }
+  *{margin:0;padding:0;box-sizing:border-box;}
+  body{font-family:'DM Sans',sans-serif;background:var(--cream);color:var(--text-primary);min-height:100vh;-webkit-font-smoothing:antialiased;}
+
+  .nav{position:sticky;top:0;z-index:200;background:var(--warm-white);border-bottom:1px solid var(--border);padding:0 1.25rem;height:56px;display:flex;align-items:center;justify-content:space-between;}
+  .nav-logo{display:flex;align-items:center;text-decoration:none;}
+  .nav-back{font-size:0.85rem;color:var(--text-secondary);text-decoration:none;display:flex;align-items:center;gap:6px;}
+
+  .page-wrapper{max-width:560px;margin:0 auto;padding:1rem 1rem 6rem;}
+
+  /* Status bar */
+  .status-bar{display:flex;align-items:center;justify-content:center;gap:8px;padding:10px;border-radius:10px;font-size:0.85rem;font-weight:500;margin-bottom:1rem;}
+  .status-bar.active{background:var(--success-bg);color:var(--success);}
+  .status-bar.idle{background:var(--warning-bg);color:var(--warning);}
+  .status-bar.done{background:var(--cream);color:var(--text-muted);border:1px solid var(--border);}
+  .pulse{width:8px;height:8px;border-radius:50%;background:currentColor;animation:pulse 1.5s infinite;}
+  @keyframes pulse{0%,100%{opacity:1;}50%{opacity:0.3;}}
+
+  /* Stats row */
+  .stats-row{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:1rem;}
+  .stat-card{background:var(--warm-white);border:1px solid var(--border);border-radius:10px;padding:12px;text-align:center;}
+  .stat-value{font-size:1.3rem;font-weight:600;color:var(--brown);}
+  .stat-label{font-size:0.72rem;color:var(--text-muted);margin-top:2px;}
+
+  /* Map */
+  .map-container{border-radius:14px;overflow:hidden;border:1px solid var(--border);margin-bottom:1rem;position:relative;}
+  #map{height:280px;width:100%;background:var(--cream);}
+  .map-overlay{position:absolute;top:10px;left:10px;z-index:400;background:white;border-radius:8px;padding:6px 12px;font-size:0.78rem;font-weight:500;color:var(--text-secondary);box-shadow:0 2px 8px rgba(0,0,0,0.1);}
+
+  /* GPS notice */
+  .gps-notice{background:var(--warning-bg);border-radius:10px;padding:12px 14px;font-size:0.8rem;color:var(--warning);line-height:1.5;margin-bottom:1rem;display:flex;align-items:start;gap:10px;}
+  .gps-notice svg{flex-shrink:0;margin-top:2px;}
+
+  /* Walk controls */
+  .walk-controls{margin-bottom:1.5rem;}
+  .btn-walk{width:100%;padding:16px;border-radius:12px;font-family:'DM Sans',sans-serif;font-size:1rem;font-weight:600;cursor:pointer;border:none;transition:all 0.2s;display:flex;align-items:center;justify-content:center;gap:8px;}
+  .btn-start{background:var(--success);color:white;}
+  .btn-start:hover{opacity:0.9;}
+  .btn-end{background:var(--error);color:white;}
+  .btn-end:hover{opacity:0.9;}
+  .btn-end:disabled{opacity:0.5;cursor:not-allowed;}
+
+  /* Updates section */
+  .section-title{font-family:'Cormorant Garamond',serif;font-weight:500;font-size:1.1rem;color:var(--brown);margin-bottom:0.75rem;}
+
+  /* Mood chips */
+  .mood-chips{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:1rem;}
+  .mood-chip{padding:8px 14px;border:1px solid var(--border);border-radius:20px;font-size:0.8rem;color:var(--text-secondary);cursor:pointer;transition:all 0.2s;background:var(--warm-white);}
+  .mood-chip:hover{border-color:var(--sage);}
+  .mood-chip.sent{border-color:var(--success);background:var(--success-bg);color:var(--success);cursor:default;}
+
+  /* Comment box */
+  .comment-box{display:flex;gap:8px;margin-bottom:1rem;}
+  .comment-box textarea{flex:1;padding:10px 12px;border:1px solid var(--border);border-radius:10px;font-family:'DM Sans',sans-serif;font-size:0.88rem;resize:none;height:44px;outline:none;transition:border-color 0.2s;}
+  .comment-box textarea:focus{border-color:var(--border-focus);}
+  .btn-send{padding:10px 16px;background:var(--terracotta);color:white;border:none;border-radius:10px;font-size:0.82rem;font-weight:500;cursor:pointer;font-family:'DM Sans',sans-serif;white-space:nowrap;}
+  .btn-send:hover{background:var(--terracotta-light);}
+
+  /* Photo upload */
+  .photo-upload{margin-bottom:1rem;}
+  .photo-btn{display:flex;align-items:center;justify-content:center;gap:8px;padding:12px;border:1.5px dashed var(--border);border-radius:10px;cursor:pointer;font-size:0.85rem;color:var(--text-muted);transition:all 0.2s;background:var(--warm-white);width:100%;}
+  .photo-btn:hover{border-color:var(--terracotta);color:var(--terracotta);}
+  .photo-btn input{display:none;}
+  .photo-preview{display:flex;flex-wrap:wrap;gap:8px;margin-top:8px;}
+  .photo-thumb{width:64px;height:64px;border-radius:8px;object-fit:cover;border:1px solid var(--border);}
+
+  /* Update feed */
+  .update-feed{display:flex;flex-direction:column;gap:8px;margin-top:1rem;}
+  .update-item{display:flex;gap:10px;padding:10px 12px;background:var(--warm-white);border:1px solid var(--border);border-radius:10px;font-size:0.82rem;}
+  .update-icon{width:28px;height:28px;border-radius:50%;display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:0.75rem;}
+  .update-icon.mood{background:var(--success-bg);color:var(--success);}
+  .update-icon.comment{background:rgba(196,117,91,0.1);color:var(--terracotta);}
+  .update-icon.photo{background:rgba(139,158,126,0.1);color:var(--sage-dark);}
+  .update-text{color:var(--text-secondary);line-height:1.4;}
+  .update-time{font-size:0.7rem;color:var(--text-muted);margin-top:2px;}
+  .update-photo{width:100%;max-width:200px;border-radius:8px;margin-top:6px;}
+
+  /* End walk requirements */
+  .end-requirements{background:var(--cream);border-radius:10px;padding:12px 14px;margin-bottom:1rem;font-size:0.82rem;}
+  .req-item{display:flex;align-items:center;gap:8px;padding:4px 0;color:var(--text-muted);}
+  .req-item.done{color:var(--success);}
+  .req-check{width:16px;height:16px;border-radius:50%;border:1.5px solid var(--border);display:flex;align-items:center;justify-content:center;flex-shrink:0;}
+  .req-item.done .req-check{border-color:var(--success);background:var(--success);}
+
+  /* Summary card */
+  .summary-card{background:var(--warm-white);border:1px solid var(--border);border-radius:14px;padding:1.5rem;text-align:center;}
+  .summary-card h2{font-family:'Cormorant Garamond',serif;font-size:1.6rem;color:var(--brown);margin-bottom:0.5rem;}
+  .summary-stats{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin:1.5rem 0;}
+  .summary-stat{padding:12px;background:var(--cream);border-radius:10px;}
+  .summary-stat .stat-value{font-size:1.1rem;}
+
+  .msg{padding:12px 16px;border-radius:10px;font-size:0.85rem;margin-bottom:1rem;display:none;line-height:1.5;}
+  .msg.error{background:var(--error-bg);color:var(--error);display:block;}
+  .msg.success{background:var(--success-bg);color:var(--success);display:block;}
+
+  .login-prompt{text-align:center;padding:4rem 2rem;}
+  .login-prompt h2{font-family:'Cormorant Garamond',serif;font-size:1.6rem;color:var(--brown);margin-bottom:0.5rem;}
+  .login-prompt p{color:var(--text-muted);font-size:0.9rem;margin-bottom:1.5rem;}
+  .login-prompt a{display:inline-block;padding:12px 32px;background:var(--terracotta);color:white;border-radius:10px;font-weight:500;text-decoration:none;}
+
+  @keyframes fadeIn{from{opacity:0;transform:translateY(6px);}to{opacity:1;transform:translateY(0);}}
+  .fade-in{animation:fadeIn 0.3s ease;}
+
+  @media(max-width:600px){
+    .page-wrapper{padding:0.75rem 0.75rem 6rem;}
+    #map{height:220px;}
+  }
+</style>
+</head>
+<body>
+
+<nav class="nav">
+  <a href="/" class="nav-logo" aria-label="Truffl Pets home">
+    <svg width="120" height="40" viewBox="0 0 180 56" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <circle cx="20" cy="5.5" r="6" fill="none" stroke="#C4866A" stroke-width="2.5"/>
+      <circle cx="20" cy="5.5" r="2.8" fill="#FFFDF9"/>
+      <rect x="16.5" y="10.5" width="7" height="9" rx="3" fill="#C4866A"/>
+      <circle cx="20" cy="33" r="20" fill="#C4866A"/>
+      <circle cx="20" cy="33" r="15.5" fill="none" stroke="#B8795C" stroke-width="0.6" opacity="0.45"/>
+      <line x1="7" y1="33" x2="33" y2="33" stroke="#FFFDF9" stroke-width="0.5" opacity="0.3"/>
+      <text x="20" y="35.5" font-family="'Cormorant Garamond',Georgia,serif" font-size="14" font-style="italic" font-weight="400" fill="#FFFDF9" text-anchor="middle" letter-spacing="-0.3">truffl</text>
+      <text x="52" y="30" font-family="'Cormorant Garamond',Georgia,serif" font-size="32" font-style="italic" font-weight="400" fill="#3D2B1F" letter-spacing="-0.5">truffl</text>
+      <text x="52" y="50" font-family="'DM Sans',sans-serif" font-size="12" font-weight="600" fill="#B0A090" letter-spacing="4">PETS</text>
+    </svg>
+  </a>
+  <a href="/dashboard/" class="nav-back">
+    <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M10 12L6 8L10 4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+    Dashboard
+  </a>
+</nav>
+
+<div class="page-wrapper">
+  <div id="walkMsg" class="msg"></div>
+  <div id="walkContent">
+    <div style="text-align:center;padding:3rem;color:var(--text-muted);font-size:0.85rem;">Loading walk...</div>
+  </div>
+</div>
+
+<script>
+const SUPABASE_URL='https://gadflsntbnbnnxbpiral.supabase.co';
+const SUPABASE_ANON_KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImdhZGZsc250Ym5ibm54YnBpcmFsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzUwNjcwNTcsImV4cCI6MjA5MDY0MzA1N30.g5ZrqeAX9U5l7oDZEbQFrU5j10828dUF0QuJ0ZlHXK8';
+
+let authToken=null, authUid=null;
+let booking=null, walkSession=null, map=null, polyline=null;
+let gpsPoints=[], watchId=null, timerInterval=null, wakeLock=null;
+let hasComment=false, hasPhoto=false;
+let updates=[];
+let customerName='', petName='', petBreed='';
+
+function h(token){const hd={'Content-Type':'application/json','apikey':SUPABASE_ANON_KEY,'Authorization':`Bearer ${SUPABASE_ANON_KEY}`};if(token)hd['Authorization']=`Bearer ${token}`;return hd;}
+async function sbGet(t,p){const r=await fetch(`${SUPABASE_URL}/rest/v1/${t}?${p}`,{headers:h(authToken)});if(!r.ok){const e=await r.json();throw new Error(e.message);}return await r.json();}
+async function sbInsert(t,row){const r=await fetch(`${SUPABASE_URL}/rest/v1/${t}`,{method:'POST',headers:{...h(authToken),'Prefer':'return=representation'},body:JSON.stringify(row)});if(!r.ok){const e=await r.json();throw new Error(e.message);}return await r.json();}
+async function sbPatch(t,col,val,upd){const r=await fetch(`${SUPABASE_URL}/rest/v1/${t}?${col}=eq.${val}`,{method:'PATCH',headers:{...h(authToken),'Prefer':'return=representation'},body:JSON.stringify(upd)});if(!r.ok){const e=await r.json();throw new Error(e.message);}return await r.json();}
+
+function showMsg(t,type){const el=document.getElementById('walkMsg');el.textContent=t;el.className=`msg ${type}`;}
+function clearMsg(){document.getElementById('walkMsg').className='msg';}
+
+function formatDuration(seconds){
+  const m=Math.floor(seconds/60), s=seconds%60;
+  return m > 0 ? `${m}m ${s}s` : `${s}s`;
+}
+function formatDistance(metres){
+  return metres >= 1000 ? (metres/1000).toFixed(2)+' km' : metres+' m';
+}
+function formatTime(iso){
+  return new Date(iso).toLocaleTimeString('en-AU',{hour:'numeric',minute:'2-digit',hour12:true});
+}
+
+function calcDistance(lat1,lng1,lat2,lng2){
+  const R=6371e3, p=Math.PI/180;
+  const a=Math.sin((lat2-lat1)*p/2)**2+Math.cos(lat1*p)*Math.cos(lat2*p)*Math.sin((lng2-lng1)*p/2)**2;
+  return R*2*Math.atan2(Math.sqrt(a),Math.sqrt(1-a));
+}
+
+function getTotalDistance(){
+  let d=0;
+  for(let i=1;i<gpsPoints.length;i++){
+    d+=calcDistance(gpsPoints[i-1].lat,gpsPoints[i-1].lng,gpsPoints[i].lat,gpsPoints[i].lng);
+  }
+  return Math.round(d);
+}
+
+function getElapsedSeconds(){
+  if(!walkSession) return 0;
+  const start=new Date(walkSession.started_at);
+  return Math.floor((Date.now()-start.getTime())/1000);
+}
+
+function updateStats(){
+  const distEl=document.getElementById('statDistance');
+  const durEl=document.getElementById('statDuration');
+  const pingsEl=document.getElementById('statPings');
+  if(distEl) distEl.textContent=formatDistance(getTotalDistance());
+  if(durEl) durEl.textContent=formatDuration(getElapsedSeconds());
+  if(pingsEl) pingsEl.textContent=gpsPoints.length;
+}
+
+function updateRequirements(){
+  const commentReq=document.getElementById('reqComment');
+  const photoReq=document.getElementById('reqPhoto');
+  const endBtn=document.getElementById('btnEndWalk');
+  if(commentReq){
+    commentReq.className=hasComment?'req-item done':'req-item';
+    commentReq.querySelector('.req-check').innerHTML=hasComment?'<svg width="8" height="8" viewBox="0 0 12 12" fill="none"><path d="M2.5 6.5L5 9L9.5 3.5" stroke="white" stroke-width="1.5" stroke-linecap="round"/></svg>':'';
+  }
+  if(photoReq){
+    photoReq.className=hasPhoto?'req-item done':'req-item';
+    photoReq.querySelector('.req-check').innerHTML=hasPhoto?'<svg width="8" height="8" viewBox="0 0 12 12" fill="none"><path d="M2.5 6.5L5 9L9.5 3.5" stroke="white" stroke-width="1.5" stroke-linecap="round"/></svg>':'';
+  }
+  if(endBtn) endBtn.disabled=!(hasComment && hasPhoto);
+}
+
+function addUpdateToFeed(type, message, photoUrl){
+  const feed=document.getElementById('updateFeed');
+  if(!feed) return;
+  const iconClass=type==='mood'?'mood':type==='photo'?'photo':'comment';
+  const iconSymbol=type==='mood'?'😊':type==='photo'?'📷':'💬';
+  let photoHtml=photoUrl?`<img src="${photoUrl}" class="update-photo" alt="Walk photo">` :'';
+  feed.innerHTML=`
+    <div class="update-item fade-in">
+      <div class="update-icon ${iconClass}">${iconSymbol}</div>
+      <div>
+        <div class="update-text">${message||''}</div>
+        ${photoHtml}
+        <div class="update-time">${formatTime(new Date().toISOString())}</div>
+      </div>
+    </div>
+  `+feed.innerHTML;
+}
+
+async function requestWakeLock(){
+  try{if('wakeLock' in navigator){wakeLock=await navigator.wakeLock.request('screen');}}catch(e){}
+}
+
+function initMap(lat,lng){
+  map=L.map('map').setView([lat,lng],16);
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:19,attribution:'© OpenStreetMap'}).addTo(map);
+  polyline=L.polyline([],{color:'#C4755B',weight:4,opacity:0.8}).addTo(map);
+  L.circleMarker([lat,lng],{radius:6,color:'#5B8C5A',fillColor:'#5B8C5A',fillOpacity:1}).addTo(map);
+}
+
+function updateMap(lat,lng){
+  if(!map) return;
+  polyline.addLatLng([lat,lng]);
+  map.setView([lat,lng],16);
+  if(window._currentMarker) map.removeLayer(window._currentMarker);
+  window._currentMarker=L.circleMarker([lat,lng],{radius:8,color:'#C4755B',fillColor:'#C4755B',fillOpacity:1}).addTo(map);
+}
+
+async function startGpsTracking(){
+  if(!navigator.geolocation){showMsg('GPS not available on this device.','error');return;}
+  watchId=navigator.geolocation.watchPosition(
+    async(pos)=>{
+      const pt={lat:pos.coords.latitude,lng:pos.coords.longitude,acc:Math.round(pos.coords.accuracy)};
+      gpsPoints.push(pt);
+      updateMap(pt.lat,pt.lng);
+      updateStats();
+      try{
+        await sbInsert('gps_pings',{walk_session_id:walkSession.id,lat:pt.lat,lng:pt.lng,accuracy_metres:pt.acc,recorded_at:new Date().toISOString()});
+      }catch(e){}
+    },
+    (err)=>{showMsg('GPS error: '+err.message,'error');},
+    {enableHighAccuracy:true,maximumAge:5000,timeout:15000}
+  );
+}
+
+async function startWalk(){
+  clearMsg();
+  try{
+    const result=await sbInsert('walk_sessions',{booking_id:booking.id,provider_id:authUid,status:'active',started_at:new Date().toISOString()});
+    walkSession=Array.isArray(result)?result[0]:result;
+    await sbPatch('bookings','id',booking.id,{status:'in_progress'});
+    booking.status='in_progress';
+    await requestWakeLock();
+    renderActiveWalk();
+    startGpsTracking();
+    timerInterval=setInterval(updateStats,1000);
+  }catch(e){showMsg(e.message,'error');}
+}
+
+async function sendMood(chip, mood){
+  clearMsg();
+  try{
+    await sbInsert('walk_updates',{walk_session_id:walkSession.id,provider_id:authUid,update_type:'mood',message:mood});
+    chip.classList.add('sent');
+    chip.onclick=null;
+    addUpdateToFeed('mood',mood);
+    hasComment=true;
+    updateRequirements();
+  }catch(e){showMsg(e.message,'error');}
+}
+
+async function sendComment(){
+  clearMsg();
+  const textarea=document.getElementById('commentText');
+  const msg=textarea.value.trim();
+  if(!msg) return;
+  try{
+    await sbInsert('walk_updates',{walk_session_id:walkSession.id,provider_id:authUid,update_type:'comment',message:msg});
+    textarea.value='';
+    addUpdateToFeed('comment',msg);
+    hasComment=true;
+    updateRequirements();
+  }catch(e){showMsg(e.message,'error');}
+}
+
+async function uploadPhoto(input){
+  clearMsg();
+  const file=input.files[0];
+  if(!file) return;
+
+  const preview=document.getElementById('photoPreview');
+  const reader=new FileReader();
+  reader.onload=function(e){
+    preview.innerHTML+=`<img src="${e.target.result}" class="photo-thumb" alt="Walk photo">`;
+  };
+  reader.readAsDataURL(file);
+
+  try{
+    const fileName=`walk_${walkSession.id}_${Date.now()}.${file.name.split('.').pop()}`;
+    const uploadRes=await fetch(`${SUPABASE_URL}/storage/v1/object/walk-photos/${fileName}`,{
+      method:'POST',
+      headers:{'apikey':SUPABASE_ANON_KEY,'Authorization':`Bearer ${authToken}`,'Content-Type':file.type},
+      body:file
+    });
+
+    let photoUrl;
+    if(uploadRes.ok){
+      photoUrl=`${SUPABASE_URL}/storage/v1/object/public/walk-photos/${fileName}`;
+    }
+
+    await sbInsert('walk_updates',{
+      walk_session_id:walkSession.id,provider_id:authUid,update_type:'photo',
+      message:'Photo update',photo_url:photoUrl||null
+    });
+
+    addUpdateToFeed('photo','Photo uploaded',photoUrl);
+    hasPhoto=true;
+    updateRequirements();
+  }catch(e){
+    await sbInsert('walk_updates',{
+      walk_session_id:walkSession.id,provider_id:authUid,update_type:'photo',
+      message:'Photo update (upload pending)'
+    });
+    hasPhoto=true;
+    updateRequirements();
+    addUpdateToFeed('photo','Photo saved (upload pending)');
+  }
+  input.value='';
+}
+
+async function endWalk(){
+  clearMsg();
+  if(!hasComment||!hasPhoto){showMsg('Please add at least one comment/mood and one photo before ending the walk.','error');return;}
+  try{
+    if(watchId!==null) navigator.geolocation.clearWatch(watchId);
+    if(timerInterval) clearInterval(timerInterval);
+    if(wakeLock){try{wakeLock.release();}catch(e){}}
+
+    const dist=getTotalDistance();
+    const dur=getElapsedSeconds();
+
+    await sbPatch('walk_sessions','id',walkSession.id,{
+      status:'completed',ended_at:new Date().toISOString(),
+      distance_metres:dist,duration_seconds:dur
+    });
+    await sbPatch('bookings','id',booking.id,{status:'completed',completed_at:new Date().toISOString()});
+
+    walkSession.status='completed';
+    walkSession.distance_metres=dist;
+    walkSession.duration_seconds=dur;
+    renderSummary();
+  }catch(e){showMsg(e.message,'error');}
+}
+
+function renderPreWalk(){
+  const area=document.getElementById('walkContent');
+  area.innerHTML=`
+    <div class="status-bar idle"><span>📋</span> Ready to start</div>
+
+    <div style="background:var(--warm-white);border:1px solid var(--border);border-radius:14px;padding:1.25rem;margin-bottom:1rem;">
+      <div style="font-size:0.78rem;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.08em;margin-bottom:8px;">Booking details</div>
+      <div style="font-size:0.95rem;font-weight:500;color:var(--text-primary);">${customerName}</div>
+      <div style="font-size:0.85rem;color:var(--text-muted);">${petName}${petBreed?' · '+petBreed:''}</div>
+      ${booking.customer_notes?`<div style="font-size:0.82rem;color:var(--text-secondary);margin-top:8px;font-style:italic;">"${booking.customer_notes}"</div>`:''}
+    </div>
+
+    <div class="gps-notice">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+      <div><strong>Heads up:</strong> GPS tracking requires this screen to stay open during the walk. Pop your phone in your pocket with the screen on — we'll keep it awake for you. This is how your customer sees the live route.</div>
+    </div>
+
+    <div class="walk-controls">
+      <button class="btn-walk btn-start" onclick="startWalk()">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+        Start walk
+      </button>
+    </div>
+  `;
+}
+
+function renderActiveWalk(){
+  const area=document.getElementById('walkContent');
+  area.innerHTML=`
+    <div class="status-bar active"><div class="pulse"></div> Walk in progress</div>
+
+    <div class="stats-row">
+      <div class="stat-card"><div class="stat-value" id="statDuration">0m 0s</div><div class="stat-label">Duration</div></div>
+      <div class="stat-card"><div class="stat-value" id="statDistance">0 m</div><div class="stat-label">Distance</div></div>
+      <div class="stat-card"><div class="stat-value" id="statPings">0</div><div class="stat-label">GPS pings</div></div>
+    </div>
+
+    <div class="map-container">
+      <div class="map-overlay">Live tracking</div>
+      <div id="map"></div>
+    </div>
+
+    <div class="section-title">Send an update</div>
+    <div class="mood-chips">
+      <span class="mood-chip" onclick="sendMood(this,'Happy and energetic')">😊 Happy and energetic</span>
+      <span class="mood-chip" onclick="sendMood(this,'Calm and relaxed')">😌 Calm and relaxed</span>
+      <span class="mood-chip" onclick="sendMood(this,'Playful and social')">🐕 Playful and social</span>
+      <span class="mood-chip" onclick="sendMood(this,'A bit anxious today')">😟 A bit anxious</span>
+      <span class="mood-chip" onclick="sendMood(this,'Tired but happy')">😴 Tired but happy</span>
+    </div>
+
+    <div class="comment-box">
+      <textarea id="commentText" placeholder="Add a note for the owner..."></textarea>
+      <button class="btn-send" onclick="sendComment()">Send</button>
+    </div>
+
+    <div class="photo-upload">
+      <label class="photo-btn">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
+        Add a photo
+        <input type="file" accept="image/*" capture="environment" onchange="uploadPhoto(this)">
+      </label>
+      <div class="photo-preview" id="photoPreview"></div>
+    </div>
+
+    <div class="end-requirements">
+      <div style="font-size:0.78rem;font-weight:500;color:var(--text-primary);margin-bottom:6px;">Before you can end the walk:</div>
+      <div class="req-item" id="reqComment"><div class="req-check"></div> Add at least one comment or mood update</div>
+      <div class="req-item" id="reqPhoto"><div class="req-check"></div> Upload at least one photo</div>
+    </div>
+
+    <div class="walk-controls">
+      <button class="btn-walk btn-end" id="btnEndWalk" onclick="endWalk()" disabled>
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><rect x="6" y="6" width="12" height="12" rx="2"/></svg>
+        End walk
+      </button>
+    </div>
+
+    <div class="section-title" style="margin-top:1.5rem;">Updates sent</div>
+    <div class="update-feed" id="updateFeed">
+      <div style="text-align:center;padding:1rem;color:var(--text-muted);font-size:0.82rem;">No updates yet — send one above</div>
+    </div>
+  `;
+
+  setTimeout(()=>{
+    if(navigator.geolocation){
+      navigator.geolocation.getCurrentPosition(
+        (pos)=>initMap(pos.coords.latitude,pos.coords.longitude),
+        ()=>initMap(-33.87,151.21)
+      );
+    } else { initMap(-33.87,151.21); }
+  },100);
+
+  updateRequirements();
+}
+
+function renderSummary(){
+  const area=document.getElementById('walkContent');
+  const dist=walkSession.distance_metres||getTotalDistance();
+  const dur=walkSession.duration_seconds||getElapsedSeconds();
+
+  area.innerHTML=`
+    <div class="summary-card fade-in">
+      <div style="font-size:2.4rem;margin-bottom:0.5rem;">🎉</div>
+      <h2>Walk complete!</h2>
+      <p style="color:var(--text-secondary);font-size:0.9rem;">Great job. ${customerName} has been notified.</p>
+
+      <div class="summary-stats">
+        <div class="summary-stat"><div class="stat-value">${formatDuration(dur)}</div><div class="stat-label">Duration</div></div>
+        <div class="summary-stat"><div class="stat-value">${formatDistance(dist)}</div><div class="stat-label">Distance</div></div>
+        <div class="summary-stat"><div class="stat-value">${gpsPoints.length}</div><div class="stat-label">GPS pings</div></div>
+      </div>
+
+      ${gpsPoints.length > 0 ? '<div class="map-container" style="margin-bottom:1rem;"><div id="summaryMap" style="height:200px;"></div></div>' : ''}
+
+      <div style="margin-top:1.5rem;">
+        <a href="/dashboard/" style="display:inline-block;padding:12px 32px;background:var(--terracotta);color:white;border-radius:10px;font-weight:500;text-decoration:none;font-size:0.9rem;">Back to dashboard</a>
+      </div>
+    </div>
+  `;
+
+  if(gpsPoints.length > 0){
+    setTimeout(()=>{
+      const sMap=L.map('summaryMap').fitBounds(gpsPoints.map(p=>[p.lat,p.lng]));
+      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:19}).addTo(sMap);
+      L.polyline(gpsPoints.map(p=>[p.lat,p.lng]),{color:'#C4755B',weight:4}).addTo(sMap);
+      L.circleMarker([gpsPoints[0].lat,gpsPoints[0].lng],{radius:6,color:'#5B8C5A',fillColor:'#5B8C5A',fillOpacity:1}).addTo(sMap).bindPopup('Start');
+      const last=gpsPoints[gpsPoints.length-1];
+      L.circleMarker([last.lat,last.lng],{radius:6,color:'#C0392B',fillColor:'#C0392B',fillOpacity:1}).addTo(sMap).bindPopup('End');
+    },100);
+  }
+}
+
+async function init(){
+  const area=document.getElementById('walkContent');
+  const stored=localStorage.getItem('truffl_session');
+  if(stored){try{const s=JSON.parse(stored);authToken=s.access_token;authUid=s.user_id;}catch(e){}}
+
+  if(!authToken){
+    area.innerHTML=`<div class="login-prompt"><h2>Sign in required</h2><p>You need to be logged in to track a walk.</p><a href="/login/?redirect=${encodeURIComponent(window.location.pathname+window.location.search)}">Sign in</a></div>`;
+    return;
+  }
+
+  const params=new URLSearchParams(window.location.search);
+  const bookingId=params.get('booking');
+
+  if(!bookingId){
+    area.innerHTML=`<div class="login-prompt"><h2>No booking specified</h2><p>Go to your <a href="/dashboard/" style="color:var(--terracotta);">dashboard</a> and start a walk from there.</p></div>`;
+    return;
+  }
+
+  try{
+    const bookings=await sbGet('bookings',`id=eq.${bookingId}&select=*`);
+    if(!bookings.length){area.innerHTML=`<div class="login-prompt"><h2>Booking not found</h2><p><a href="/dashboard/" style="color:var(--terracotta);">Back to dashboard</a></p></div>`;return;}
+    booking=bookings[0];
+
+    // Get customer and pet names
+    try{
+      const custs=await sbGet('customer_profiles',`id=eq.${booking.customer_id}&select=user_id`);
+      if(custs.length){const users=await sbGet('users',`id=eq.${custs[0].user_id}&select=first_name,last_name`);if(users.length)customerName=`${users[0].first_name} ${users[0].last_name}`;}
+      const pets=await sbGet('pets',`id=eq.${booking.pet_id}&select=name,breed`);
+      if(pets.length){petName=pets[0].name;petBreed=pets[0].breed||'';}
+    }catch(e){}
+
+    // Check if walk already started
+    const sessions=await sbGet('walk_sessions',`booking_id=eq.${bookingId}&select=*&order=created_at.desc&limit=1`);
+    if(sessions.length && sessions[0].status==='active'){
+      walkSession=sessions[0];
+      renderActiveWalk();
+      startGpsTracking();
+      timerInterval=setInterval(updateStats,1000);
+      await requestWakeLock();
+    } else if(sessions.length && sessions[0].status==='completed'){
+      walkSession=sessions[0];
+      renderSummary();
+    } else {
+      renderPreWalk();
+    }
+  }catch(e){
+    area.innerHTML=`<div class="login-prompt"><h2>Something went wrong</h2><p>${e.message}</p><a href="/dashboard/">Back to dashboard</a></div>`;
+  }
+}
+
+document.addEventListener('DOMContentLoaded',init);
+</script>
+</body>
+</html>
