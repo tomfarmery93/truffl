@@ -1,0 +1,508 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Dashboard — Truffl Pets</title>
+<link rel="icon" type="image/svg+xml" href="/favicon.svg">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,500;0,600;1,400;1,500&family=DM+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --cream: #FAF7F2; --warm-white: #FFFDF9; --sage: #8B9E7E; --sage-light: #C2D1B5;
+    --sage-dark: #6B7E5E; --terracotta: #C4755B; --terracotta-light: #D4917B;
+    --blush: #E8C4B8; --brown: #3D2B1F; --brown-light: #5C4033; --brown-muted: #8B7355;
+    --text-primary: #3D2B1F; --text-secondary: #6B5B4E; --text-muted: #9B8B7E;
+    --border: #E8E0D6; --border-focus: #C4755B;
+    --error: #C0392B; --error-bg: #FDF0EE; --success: #5B8C5A; --success-bg: #EDF5ED;
+    --warning: #C0862B; --warning-bg: #FEF3E2;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: 'DM Sans', sans-serif; background: var(--cream); color: var(--text-primary); min-height: 100vh; -webkit-font-smoothing: antialiased; }
+
+  .nav {
+    position: sticky; top: 0; z-index: 100; background: var(--warm-white);
+    border-bottom: 1px solid var(--border); padding: 0 2rem; height: 64px;
+    display: flex; align-items: center; justify-content: space-between;
+  }
+  .nav-logo { display: flex; align-items: center; text-decoration: none; }
+  .nav-right { display: flex; align-items: center; gap: 20px; font-size: 13px; }
+  .nav-right a { color: var(--text-secondary); text-decoration: none; transition: color 0.2s; }
+  .nav-right a:hover { color: var(--terracotta); }
+  .nav-user { display: flex; align-items: center; gap: 8px; }
+  .nav-avatar {
+    width: 32px; height: 32px; border-radius: 50%; background: var(--blush);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 0.75rem; font-weight: 600; color: var(--brown);
+  }
+  .nav-name { font-size: 0.85rem; font-weight: 500; color: var(--text-primary); }
+
+  .page-wrapper { max-width: 800px; margin: 0 auto; padding: 2rem 1.5rem 4rem; }
+
+  .welcome {
+    margin-bottom: 2rem;
+  }
+  .welcome h1 {
+    font-family: 'Cormorant Garamond', serif; font-weight: 500;
+    font-size: 1.8rem; color: var(--brown); margin-bottom: 4px;
+  }
+  .welcome p { color: var(--text-muted); font-size: 0.9rem; }
+
+  /* Tab navigation */
+  .tabs {
+    display: flex; gap: 4px; margin-bottom: 1.5rem; overflow-x: auto;
+    border-bottom: 1px solid var(--border); padding-bottom: 0;
+  }
+  .tab {
+    padding: 10px 18px; font-size: 0.85rem; font-weight: 500;
+    color: var(--text-muted); cursor: pointer; transition: all 0.2s;
+    border-bottom: 2px solid transparent; white-space: nowrap;
+    background: none; border-top: none; border-left: none; border-right: none;
+    font-family: 'DM Sans', sans-serif;
+  }
+  .tab:hover { color: var(--text-secondary); }
+  .tab.active { color: var(--terracotta); border-bottom-color: var(--terracotta); }
+
+  .tab-content { display: none; }
+  .tab-content.active { display: block; animation: fadeIn 0.25s ease; }
+
+  /* Cards */
+  .card {
+    background: var(--warm-white); border: 1px solid var(--border);
+    border-radius: 14px; padding: 1.5rem; margin-bottom: 1rem;
+  }
+  .card-title {
+    font-family: 'Cormorant Garamond', serif; font-weight: 500;
+    font-size: 1.15rem; color: var(--brown); margin-bottom: 0.75rem;
+  }
+
+  /* Booking cards */
+  .booking-card {
+    background: var(--warm-white); border: 1px solid var(--border);
+    border-radius: 12px; padding: 1.25rem; margin-bottom: 0.75rem;
+    display: flex; justify-content: space-between; align-items: start; gap: 16px;
+  }
+  .bc-info { flex: 1; }
+  .bc-customer { font-size: 0.92rem; font-weight: 500; color: var(--text-primary); margin-bottom: 2px; }
+  .bc-pet { font-size: 0.82rem; color: var(--text-muted); margin-bottom: 6px; }
+  .bc-service {
+    display: inline-block; font-size: 0.75rem; padding: 3px 10px;
+    background: rgba(139,158,126,0.1); border-radius: 20px; color: var(--sage-dark);
+    margin-bottom: 6px;
+  }
+  .bc-time { font-size: 0.82rem; color: var(--text-secondary); }
+  .bc-notes { font-size: 0.8rem; color: var(--text-muted); margin-top: 6px; font-style: italic; }
+  .bc-actions { display: flex; gap: 8px; flex-shrink: 0; }
+  .bc-btn {
+    padding: 8px 16px; border-radius: 8px; font-size: 0.8rem; font-weight: 500;
+    cursor: pointer; border: none; font-family: 'DM Sans', sans-serif; transition: all 0.2s;
+  }
+  .bc-btn.accept { background: var(--success); color: white; }
+  .bc-btn.accept:hover { opacity: 0.9; }
+  .bc-btn.decline { background: transparent; border: 1px solid var(--border); color: var(--text-muted); }
+  .bc-btn.decline:hover { border-color: var(--error); color: var(--error); }
+  .bc-btn.start-walk { background: var(--terracotta); color: white; }
+  .bc-btn.start-walk:hover { background: var(--terracotta-light); }
+
+  .status-badge {
+    display: inline-block; font-size: 0.7rem; font-weight: 600; padding: 3px 10px;
+    border-radius: 20px; text-transform: uppercase; letter-spacing: 0.03em;
+  }
+  .status-pending { background: var(--warning-bg); color: var(--warning); }
+  .status-confirmed { background: var(--success-bg); color: var(--success); }
+
+  /* Empty state */
+  .empty { text-align: center; padding: 2.5rem 1rem; color: var(--text-muted); font-size: 0.9rem; }
+  .empty-icon { font-size: 2rem; margin-bottom: 0.75rem; opacity: 0.4; }
+
+  /* Services management */
+  .svc-list { display: flex; flex-direction: column; gap: 8px; }
+  .svc-item {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 12px 16px; background: var(--cream); border-radius: 10px;
+  }
+  .svc-item-name { font-size: 0.88rem; font-weight: 500; color: var(--text-primary); }
+  .svc-item-status { font-size: 0.78rem; color: var(--success); }
+
+  /* Profile preview */
+  .profile-preview {
+    display: flex; align-items: center; gap: 16px; padding: 16px;
+    background: var(--cream); border-radius: 12px; margin-bottom: 1rem;
+  }
+  .pp-avatar {
+    width: 56px; height: 56px; border-radius: 50%; background: var(--blush);
+    display: flex; align-items: center; justify-content: center;
+    font-family: 'Cormorant Garamond', serif; font-size: 1.4rem; font-weight: 600; color: var(--brown);
+  }
+  .pp-name { font-size: 1rem; font-weight: 500; color: var(--text-primary); }
+  .pp-suburb { font-size: 0.82rem; color: var(--text-muted); }
+  .pp-link {
+    font-size: 0.82rem; color: var(--terracotta); text-decoration: none;
+    margin-top: 4px; display: inline-block;
+  }
+  .pp-link:hover { text-decoration: underline; }
+
+  /* Placeholder cards */
+  .placeholder-card {
+    background: var(--warm-white); border: 1px dashed var(--border);
+    border-radius: 14px; padding: 2rem; text-align: center;
+  }
+  .placeholder-card .ph-icon { font-size: 1.8rem; margin-bottom: 0.75rem; opacity: 0.35; }
+  .placeholder-card h3 {
+    font-family: 'Cormorant Garamond', serif; font-size: 1.1rem;
+    color: var(--brown); margin-bottom: 0.4rem;
+  }
+  .placeholder-card p { font-size: 0.82rem; color: var(--text-muted); line-height: 1.5; }
+
+  /* Msg */
+  .msg { padding: 12px 16px; border-radius: 10px; font-size: 0.85rem; margin-bottom: 1rem; display: none; line-height: 1.5; }
+  .msg.error { background: var(--error-bg); color: var(--error); display: block; }
+  .msg.success { background: var(--success-bg); color: var(--success); display: block; }
+
+  .login-prompt { text-align: center; padding: 4rem 2rem; }
+  .login-prompt h2 { font-family: 'Cormorant Garamond', serif; font-size: 1.6rem; color: var(--brown); margin-bottom: 0.5rem; }
+  .login-prompt p { color: var(--text-muted); font-size: 0.9rem; margin-bottom: 1.5rem; }
+  .login-prompt a { display: inline-block; padding: 12px 32px; background: var(--terracotta); color: white; border-radius: 10px; font-weight: 500; text-decoration: none; }
+
+  @keyframes fadeIn { from { opacity:0; transform:translateY(6px); } to { opacity:1; transform:translateY(0); } }
+
+  @media (max-width: 600px) {
+    .page-wrapper { padding: 1.5rem 1rem 3rem; }
+    .booking-card { flex-direction: column; }
+    .bc-actions { width: 100%; }
+    .bc-btn { flex: 1; text-align: center; }
+    .tabs { gap: 0; }
+    .tab { padding: 10px 14px; font-size: 0.8rem; }
+  }
+</style>
+</head>
+<body>
+
+<nav class="nav">
+  <a href="/" class="nav-logo" aria-label="Truffl Pets home">
+    <svg width="150" height="48" viewBox="0 0 180 56" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <circle cx="20" cy="5.5" r="6" fill="none" stroke="#C4866A" stroke-width="2.5"/>
+      <circle cx="20" cy="5.5" r="2.8" fill="#FFFDF9"/>
+      <rect x="16.5" y="10.5" width="7" height="9" rx="3" fill="#C4866A"/>
+      <circle cx="20" cy="33" r="20" fill="#C4866A"/>
+      <circle cx="20" cy="33" r="15.5" fill="none" stroke="#B8795C" stroke-width="0.6" opacity="0.45"/>
+      <line x1="7" y1="33" x2="33" y2="33" stroke="#FFFDF9" stroke-width="0.5" opacity="0.3"/>
+      <text x="20" y="35.5" font-family="'Cormorant Garamond', Georgia, serif" font-size="14" font-style="italic" font-weight="400" fill="#FFFDF9" text-anchor="middle" letter-spacing="-0.3">truffl</text>
+      <text x="52" y="30" font-family="'Cormorant Garamond', Georgia, serif" font-size="32" font-style="italic" font-weight="400" fill="#3D2B1F" letter-spacing="-0.5">truffl</text>
+      <text x="52" y="50" font-family="'DM Sans', sans-serif" font-size="12" font-weight="600" fill="#B0A090" letter-spacing="4">PETS</text>
+    </svg>
+  </a>
+  <div class="nav-right">
+    <div class="nav-user" id="navUser"></div>
+    <a href="#" onclick="logout()" style="font-size:0.8rem;color:var(--text-muted);">Sign out</a>
+  </div>
+</nav>
+
+<div class="page-wrapper">
+  <div id="dashMsg" class="msg"></div>
+  <div id="dashContent">
+    <div style="text-align:center;padding:3rem;color:var(--text-muted);font-size:0.85rem;">Loading your dashboard...</div>
+  </div>
+</div>
+
+<script>
+const SUPABASE_URL = 'https://gadflsntbnbnnxbpiral.supabase.co';
+const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImdhZGZsc250Ym5ibm54YnBpcmFsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzUwNjcwNTcsImV4cCI6MjA5MDY0MzA1N30.g5ZrqeAX9U5l7oDZEbQFrU5j10828dUF0QuJ0ZlHXK8';
+
+const SERVICE_LABELS = {
+  dog_walking:'Dog walking', dog_sitting:'Dog sitting', dog_boarding:'Dog boarding',
+  cat_sitting:'Cat sitting', cat_boarding:'Cat boarding', pet_sitting:'Other pet sitting'
+};
+
+let authToken = null, authUid = null;
+let userData = null, providerProfile = null, providerServices = [], bookings = [];
+
+function headers(token) {
+  const h = { 'Content-Type':'application/json', 'apikey':SUPABASE_ANON_KEY, 'Authorization':`Bearer ${SUPABASE_ANON_KEY}` };
+  if (token) h['Authorization'] = `Bearer ${token}`;
+  return h;
+}
+async function sbGet(table, params) {
+  const r = await fetch(`${SUPABASE_URL}/rest/v1/${table}?${params}`, { headers: headers(authToken) });
+  if (!r.ok) { const e = await r.json(); throw new Error(e.message); } return await r.json();
+}
+async function sbPatch(table, col, val, updates) {
+  const r = await fetch(`${SUPABASE_URL}/rest/v1/${table}?${col}=eq.${val}`, {
+    method: 'PATCH', headers: { ...headers(authToken), 'Prefer':'return=representation' }, body: JSON.stringify(updates)
+  });
+  if (!r.ok) { const e = await r.json(); throw new Error(e.message); } return await r.json();
+}
+
+function showMsg(t, type) { const el = document.getElementById('dashMsg'); el.textContent = t; el.className = `msg ${type}`; }
+function clearMsg() { document.getElementById('dashMsg').className = 'msg'; }
+
+function logout() {
+  localStorage.removeItem('truffl_session');
+  window.location.href = '/login/';
+}
+
+function switchTab(tabName) {
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+  document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
+  document.querySelector(`.tab[data-tab="${tabName}"]`).classList.add('active');
+  document.getElementById(`tab-${tabName}`).classList.add('active');
+}
+
+function formatDate(iso) {
+  const d = new Date(iso);
+  const opts = { weekday:'short', day:'numeric', month:'short', hour:'numeric', minute:'2-digit', hour12: true };
+  return d.toLocaleDateString('en-AU', opts);
+}
+
+async function acceptBooking(bookingId) {
+  clearMsg();
+  try {
+    await sbPatch('bookings', 'id', bookingId, { status: 'confirmed' });
+    showMsg('Booking confirmed!', 'success');
+    await loadBookings();
+    renderBookingsTab();
+  } catch(e) { showMsg(e.message, 'error'); }
+}
+
+async function declineBooking(bookingId) {
+  clearMsg();
+  try {
+    await sbPatch('bookings', 'id', bookingId, { status: 'cancelled' });
+    showMsg('Booking declined.', 'success');
+    await loadBookings();
+    renderBookingsTab();
+  } catch(e) { showMsg(e.message, 'error'); }
+}
+
+async function loadBookings() {
+  bookings = await sbGet('bookings', `provider_id=eq.${providerProfile.id}&select=*&order=scheduled_at.asc`);
+
+  // Load customer and pet names for each booking
+  for (const b of bookings) {
+    try {
+      const custs = await sbGet('customer_profiles', `id=eq.${b.customer_id}&select=user_id`);
+      if (custs.length) {
+        const users = await sbGet('users', `id=eq.${custs[0].user_id}&select=first_name,last_name`);
+        if (users.length) b._customer_name = `${users[0].first_name} ${users[0].last_name}`;
+      }
+      const pets = await sbGet('pets', `id=eq.${b.pet_id}&select=name,breed,species`);
+      if (pets.length) b._pet = pets[0];
+
+      const svcs = await sbGet('provider_services', `id=eq.${b.service_id}&select=service_type`);
+      if (svcs.length) b._service_type = svcs[0].service_type;
+    } catch(e) {}
+  }
+}
+
+function renderBookingsTab() {
+  const pending = bookings.filter(b => b.status === 'pending');
+  const confirmed = bookings.filter(b => b.status === 'confirmed');
+  const area = document.getElementById('tab-bookings');
+
+  let html = '';
+
+  if (pending.length > 0) {
+    html += `<div class="card-title" style="margin-bottom:0.75rem;">New requests (${pending.length})</div>`;
+    html += pending.map(b => `
+      <div class="booking-card">
+        <div class="bc-info">
+          <div class="bc-customer">${b._customer_name || 'Customer'}</div>
+          <div class="bc-pet">${b._pet ? `${b._pet.name}${b._pet.breed ? ' · ' + b._pet.breed : ''}` : 'Pet'}</div>
+          <span class="bc-service">${SERVICE_LABELS[b._service_type] || b._service_type || 'Service'}</span>
+          <div class="bc-time">${formatDate(b.scheduled_at)}</div>
+          ${b.customer_notes ? `<div class="bc-notes">"${b.customer_notes}"</div>` : ''}
+        </div>
+        <div class="bc-actions">
+          <button class="bc-btn accept" onclick="acceptBooking('${b.id}')">Accept</button>
+          <button class="bc-btn decline" onclick="declineBooking('${b.id}')">Decline</button>
+        </div>
+      </div>
+    `).join('');
+  }
+
+  if (confirmed.length > 0) {
+    html += `<div class="card-title" style="margin-top:1.5rem;margin-bottom:0.75rem;">Upcoming bookings (${confirmed.length})</div>`;
+    html += confirmed.map(b => `
+      <div class="booking-card">
+        <div class="bc-info">
+          <div class="bc-customer">${b._customer_name || 'Customer'}</div>
+          <div class="bc-pet">${b._pet ? `${b._pet.name}${b._pet.breed ? ' · ' + b._pet.breed : ''}` : 'Pet'}</div>
+          <span class="bc-service">${SERVICE_LABELS[b._service_type] || b._service_type || 'Service'}</span>
+          <div class="bc-time">${formatDate(b.scheduled_at)}</div>
+          ${b.customer_notes ? `<div class="bc-notes">"${b.customer_notes}"</div>` : ''}
+        </div>
+        <div class="bc-actions">
+          <button class="bc-btn start-walk" onclick="alert('Walk tracking coming soon!')">Start walk</button>
+        </div>
+      </div>
+    `).join('');
+  }
+
+  if (pending.length === 0 && confirmed.length === 0) {
+    html = `<div class="empty"><div class="empty-icon">📋</div>No bookings yet. Once customers book you, their requests will appear here.</div>`;
+  }
+
+  area.innerHTML = html;
+}
+
+function renderDashboard() {
+  const initials = ((userData.first_name||'')[0]||'') + ((userData.last_name||'')[0]||'');
+  document.getElementById('navUser').innerHTML = `<div class="nav-avatar">${initials}</div><span class="nav-name">${userData.first_name}</span>`;
+
+  const pending = bookings.filter(b => b.status === 'pending');
+  const confirmed = bookings.filter(b => b.status === 'confirmed');
+  const completed = bookings.filter(b => b.status === 'completed');
+
+  const area = document.getElementById('dashContent');
+  area.innerHTML = `
+    <div class="welcome">
+      <h1>Hey, ${userData.first_name}</h1>
+      <p>${pending.length > 0 ? `You have ${pending.length} new booking request${pending.length !== 1 ? 's' : ''}` : 'Your dashboard — manage bookings, services, and your profile.'}</p>
+    </div>
+
+    <div class="tabs">
+      <button class="tab active" data-tab="bookings" onclick="switchTab('bookings')">Bookings${pending.length > 0 ? ` (${pending.length})` : ''}</button>
+      <button class="tab" data-tab="services" onclick="switchTab('services')">My services</button>
+      <button class="tab" data-tab="profile" onclick="switchTab('profile')">My profile</button>
+      <button class="tab" data-tab="messages" onclick="switchTab('messages')">Messages</button>
+      <button class="tab" data-tab="earnings" onclick="switchTab('earnings')">Earnings</button>
+      <button class="tab" data-tab="settings" onclick="switchTab('settings')">Settings</button>
+    </div>
+
+    <!-- Bookings tab -->
+    <div class="tab-content active" id="tab-bookings"></div>
+
+    <!-- Services tab -->
+    <div class="tab-content" id="tab-services">
+      <div class="card">
+        <div class="card-title">Your services</div>
+        <div class="svc-list">
+          ${providerServices.map(s => `
+            <div class="svc-item">
+              <span class="svc-item-name">${SERVICE_LABELS[s.service_type] || s.service_type.replace(/_/g,' ')}</span>
+              <span class="svc-item-status">${s.is_available ? 'Active' : 'Inactive'}</span>
+            </div>
+          `).join('') || '<div class="empty">No services added yet.</div>'}
+        </div>
+      </div>
+      <div style="margin-top:0.5rem;">
+        <a href="/login/" style="font-size:0.85rem;color:var(--terracotta);">Edit services →</a>
+      </div>
+    </div>
+
+    <!-- Profile tab -->
+    <div class="tab-content" id="tab-profile">
+      <div class="card">
+        <div class="card-title">Your public profile</div>
+        <div class="profile-preview">
+          <div class="pp-avatar">${initials}</div>
+          <div>
+            <div class="pp-name">${userData.first_name} ${userData.last_name}</div>
+            <div class="pp-suburb">${providerProfile.suburb || 'Sydney'}${providerProfile.radius_km ? ' · ' + providerProfile.radius_km + 'km radius' : ''}</div>
+            <a href="/carer/?id=${authUid}" class="pp-link">View as customers see it →</a>
+          </div>
+        </div>
+        ${providerProfile.bio ? `<div style="font-size:0.88rem;color:var(--text-secondary);line-height:1.7;margin-top:0.5rem;">${providerProfile.bio}</div>` : ''}
+        <div style="margin-top:1rem;display:flex;gap:8px;flex-wrap:wrap;">
+          <span class="status-badge ${providerProfile.is_verified ? 'status-confirmed' : 'status-pending'}">${providerProfile.is_verified ? 'Verified' : 'Pending verification'}</span>
+          ${providerProfile.experience_years ? `<span style="font-size:0.78rem;color:var(--text-muted);">${providerProfile.experience_years} years experience</span>` : ''}
+        </div>
+      </div>
+    </div>
+
+    <!-- Messages placeholder -->
+    <div class="tab-content" id="tab-messages">
+      <div class="placeholder-card">
+        <div class="ph-icon">💬</div>
+        <h3>Messages coming soon</h3>
+        <p>You'll be able to chat with customers about booking details, gate codes, and anything else before their visit.</p>
+      </div>
+    </div>
+
+    <!-- Earnings placeholder -->
+    <div class="tab-content" id="tab-earnings">
+      <div class="placeholder-card">
+        <div class="ph-icon">📊</div>
+        <h3>Earnings tracker coming soon</h3>
+        <p>Track your completed bookings and total earnings here. During our launch period, Truffl is free — $0 commission on all bookings.</p>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-top:1rem;">
+        <div style="background:var(--warm-white);border:1px solid var(--border);border-radius:10px;padding:16px;text-align:center;">
+          <div style="font-size:1.4rem;font-weight:500;color:var(--brown);">${completed.length}</div>
+          <div style="font-size:0.78rem;color:var(--text-muted);">Completed</div>
+        </div>
+        <div style="background:var(--warm-white);border:1px solid var(--border);border-radius:10px;padding:16px;text-align:center;">
+          <div style="font-size:1.4rem;font-weight:500;color:var(--brown);">${confirmed.length}</div>
+          <div style="font-size:0.78rem;color:var(--text-muted);">Upcoming</div>
+        </div>
+        <div style="background:var(--warm-white);border:1px solid var(--border);border-radius:10px;padding:16px;text-align:center;">
+          <div style="font-size:1.4rem;font-weight:500;color:var(--success);">$0</div>
+          <div style="font-size:0.78rem;color:var(--text-muted);">Commission</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Settings placeholder -->
+    <div class="tab-content" id="tab-settings">
+      <div class="placeholder-card">
+        <div class="ph-icon">⚙️</div>
+        <h3>Settings coming soon</h3>
+        <p>Change your password, update your email and phone number, and manage notification preferences.</p>
+      </div>
+      <div style="margin-top:1rem;text-align:center;">
+        <a href="#" onclick="logout()" style="font-size:0.85rem;color:var(--error);text-decoration:none;">Sign out of your account</a>
+      </div>
+    </div>
+  `;
+
+  renderBookingsTab();
+}
+
+async function init() {
+  const area = document.getElementById('dashContent');
+
+  const stored = localStorage.getItem('truffl_session');
+  if (stored) {
+    try { const s = JSON.parse(stored); authToken = s.access_token; authUid = s.user_id; } catch(e) {}
+  }
+
+  if (!authToken) {
+    area.innerHTML = `<div class="login-prompt"><h2>Sign in to view your dashboard</h2><p>You need to be logged in to access your carer dashboard.</p><a href="/login/?redirect=/dashboard/">Sign in</a></div>`;
+    return;
+  }
+
+  try {
+    // Check role
+    const users = await sbGet('users', `id=eq.${authUid}&select=first_name,last_name,role`);
+    if (!users.length) { logout(); return; }
+    userData = users[0];
+
+    if (userData.role !== 'provider') {
+      area.innerHTML = `<div class="login-prompt"><h2>This is the carer dashboard</h2><p>You're logged in as a customer. <a href="/search/" style="color:var(--terracotta);">Browse carers instead</a></p></div>`;
+      return;
+    }
+
+    // Load provider profile
+    const profiles = await sbGet('provider_profiles', `user_id=eq.${authUid}&select=*`);
+    if (!profiles.length) {
+      area.innerHTML = `<div class="login-prompt"><h2>Profile not found</h2><p>Something went wrong. Try <a href="/login/" style="color:var(--terracotta);">signing in again</a>.</p></div>`;
+      return;
+    }
+    providerProfile = profiles[0];
+
+    // Load services
+    providerServices = await sbGet('provider_services', `provider_id=eq.${authUid}&select=*`);
+
+    // Load bookings
+    await loadBookings();
+
+    renderDashboard();
+  } catch(e) {
+    area.innerHTML = `<div class="login-prompt"><h2>Something went wrong</h2><p>${e.message}</p><a href="/login/">Try signing in again</a></div>`;
+  }
+}
+
+document.addEventListener('DOMContentLoaded', init);
+</script>
+</body>
+</html>
