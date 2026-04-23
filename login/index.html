@@ -591,12 +591,12 @@ async function doLogin() {
   setLoading(btn, true);
   try {
     await sb.signIn(email, pw);
-    localStorage.setItem('truffl_session', JSON.stringify({ access_token: sb._token, user_id: sb._uid }));
     const users = await sb.get('users', `id=eq.${sb._uid}&select=role`);
     const role = users[0]?.role || 'customer';
+    localStorage.setItem('truffl_session', JSON.stringify({ access_token: sb._token, user_id: sb._uid, role: role }));
     const redirectTo = new URLSearchParams(window.location.search).get('redirect');
     if (redirectTo) window.location.href = redirectTo;
-    else if (role === 'provider') window.location.href = '/search/';
+    else if (role === 'provider') window.location.href = '/dashboard/';
     else window.location.href = '/search/';
   } catch (e) { showMsg(e.message, 'error'); }
   finally { setLoading(btn, false); }
