@@ -356,9 +356,10 @@ async function submitBooking() {
         <div class="success-icon"><svg width="28" height="28" viewBox="0 0 24 24" fill="none"><path d="M5 13l4 4L19 7" stroke="#5B8C5A" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
         <h2>Booking request sent!</h2>
         <p>${providerData.first_name} will review your request and confirm. We'll let you know once they respond.</p>
+        <p style="margin-top:0.75rem;font-size:0.82rem;color:var(--text-muted);">You can track the booking status and live walk from your dashboard.</p>
         <div style="margin-top:2rem;display:flex;gap:12px;justify-content:center;flex-wrap:wrap;">
-          <a href="/search/" style="display:inline-block;padding:12px 28px;background:var(--terracotta);color:white;border-radius:10px;font-weight:500;text-decoration:none;font-size:0.9rem;">Browse more carers</a>
-          <a href="/carer/?id=${new URLSearchParams(window.location.search).get('provider')}" style="display:inline-block;padding:12px 28px;border:1px solid var(--border);color:var(--text-secondary);border-radius:10px;font-weight:500;text-decoration:none;font-size:0.9rem;">Back to profile</a>
+          <a href="/my/" style="display:inline-block;padding:12px 28px;background:var(--terracotta);color:white;border-radius:10px;font-weight:500;text-decoration:none;font-size:0.9rem;">View my bookings</a>
+          <a href="/search/" style="display:inline-block;padding:12px 28px;border:1px solid var(--border);color:var(--text-secondary);border-radius:10px;font-weight:500;text-decoration:none;font-size:0.9rem;">Browse more carers</a>
         </div>
       </div>
     `;
