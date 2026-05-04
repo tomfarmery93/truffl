@@ -243,8 +243,10 @@ function actionButtons(b) {
     if (pendingCancelId === b.id) return cancelConfirmHtml(b.id);
     return `<button class="btn-ghost danger" onclick="showCancelConfirm('${b.id}')">Cancel</button>`;
   }
-  if (b.status === 'completed' && b._provider_user_id) {
-    return `<a href="/book/?provider=${b._provider_user_id}" class="btn-ghost">Book again</a>`;
+  if (b.status === 'completed') {
+    const viewWalk = `<a href="/track/?booking=${b.id}" class="btn-ghost">View walk</a>`;
+    const bookAgain = b._provider_user_id ? `<a href="/book/?provider=${b._provider_user_id}" class="btn-ghost">Book again</a>` : '';
+    return [viewWalk, bookAgain].filter(Boolean).join('');
   }
   return '';
 }
