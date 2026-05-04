@@ -597,7 +597,7 @@ async function doLogin() {
     const redirectTo = new URLSearchParams(window.location.search).get('redirect');
     if (redirectTo) window.location.href = redirectTo;
     else if (role === 'provider') window.location.href = '/dashboard/';
-    else window.location.href = '/search/';
+    else window.location.href = '/my/';
   } catch (e) { showMsg(e.message, 'error'); }
   finally { setLoading(btn, false); }
 }
