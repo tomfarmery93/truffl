@@ -244,9 +244,12 @@ function actionButtons(b) {
     return `<button class="btn-ghost danger" onclick="showCancelConfirm('${b.id}')">Cancel</button>`;
   }
   if (b.status === 'completed') {
+    const reviewBtn = b._has_review
+      ? `<a href="/review/?booking=${b.id}" class="btn-ghost">Edit review</a>`
+      : `<a href="/review/?booking=${b.id}" class="btn-track">Leave a review</a>`;
     const viewWalk = `<a href="/track/?booking=${b.id}" class="btn-ghost">View walk</a>`;
     const bookAgain = b._provider_user_id ? `<a href="/book/?provider=${b._provider_user_id}" class="btn-ghost">Book again</a>` : '';
-    return [viewWalk, bookAgain].filter(Boolean).join('');
+    return [reviewBtn, viewWalk, bookAgain].filter(Boolean).join('');
   }
   return '';
 }
@@ -544,6 +547,13 @@ async function init() {
 
     const rawBookings = await sbGet('bookings', `customer_id=eq.${customerProfile.id}&select=*&order=scheduled_at.desc`);
 
+    // Fetch all reviews this customer has left, so we can show "Leave"/"Edit" review buttons on completed bookings
+    let reviewedBookingIds = new Set();
+    try {
+      const myReviews = await sbGet('reviews', `customer_id=eq.${customerProfile.id}&select=booking_id`);
+      reviewedBookingIds = new Set(myReviews.map(r => r.booking_id));
+    } catch(e) { /* table may be empty or restricted; treat as none reviewed */ }
+
     for (const b of rawBookings) {
       try {
         const provProfiles = await sbGet('provider_profiles', `id=eq.${b.provider_id}&select=user_id`);
@@ -560,6 +570,7 @@ async function init() {
           const sessions = await sbGet('walk_sessions', `booking_id=eq.${b.id}&status=eq.active&select=id&limit=1`);
           b._has_active_walk = sessions.length > 0;
         }
+        b._has_review = reviewedBookingIds.has(b.id);
       } catch(e) {}
     }
     bookings = rawBookings;
