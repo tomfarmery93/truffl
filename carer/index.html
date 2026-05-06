@@ -156,6 +156,64 @@
     color: var(--text-muted); margin-top: 6px;
   }
 
+  /* Reviews */
+  .reviews-summary {
+    display: flex; align-items: baseline; gap: 12px; margin-bottom: 1rem; flex-wrap: wrap;
+  }
+  .reviews-avg {
+    font-family: 'Cormorant Garamond', serif; font-size: 1.6rem; font-weight: 500; color: var(--brown);
+  }
+  .reviews-stars { color: var(--terracotta); letter-spacing: 2px; font-size: 1rem; }
+  .reviews-count { font-size: 0.82rem; color: var(--text-muted); }
+  .review-item {
+    padding: 1rem 0; border-top: 1px solid var(--border);
+  }
+  .review-item:first-child { border-top: none; padding-top: 0; }
+  .review-header {
+    display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 6px;
+  }
+  .review-author {
+    display: flex; align-items: center; gap: 10px;
+  }
+  .review-author-avatar {
+    width: 32px; height: 32px; border-radius: 50%; background: var(--blush);
+    display: flex; align-items: center; justify-content: center;
+    font-family: 'Cormorant Garamond', serif; font-size: 0.85rem; font-weight: 600;
+    color: var(--brown); flex-shrink: 0;
+  }
+  .review-author-name { font-size: 0.88rem; font-weight: 500; color: var(--text-primary); }
+  .review-date { font-size: 0.75rem; color: var(--text-muted); }
+  .review-rating { color: var(--terracotta); letter-spacing: 1px; font-size: 0.85rem; margin-bottom: 6px; }
+  .review-comment {
+    font-size: 0.88rem; color: var(--text-secondary); line-height: 1.6;
+  }
+  .reviews-empty {
+    text-align: center; padding: 1rem; color: var(--text-muted); font-size: 0.85rem;
+  }
+  .reviews-show-more {
+    margin-top: 0.75rem; text-align: center;
+  }
+  .reviews-show-more button {
+    background: transparent; border: 1px solid var(--border); color: var(--text-secondary);
+    padding: 8px 18px; border-radius: 8px; font-size: 0.82rem; cursor: pointer;
+    font-family: 'DM Sans', sans-serif; transition: border-color 0.2s, color 0.2s;
+  }
+  .reviews-show-more button:hover { border-color: var(--text-muted); color: var(--text-primary); }
+
+  /* Customer review CTA on profile */
+  .your-review-cta {
+    background: rgba(139,158,126,0.08); border: 1px solid var(--sage-light);
+    border-radius: 12px; padding: 1rem 1.25rem; margin-bottom: 1rem;
+    display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap;
+  }
+  .your-review-cta-text { font-size: 0.88rem; color: var(--sage-dark); }
+  .your-review-cta a {
+    background: var(--sage-dark); color: white; padding: 8px 16px; border-radius: 8px;
+    font-size: 0.82rem; font-weight: 500; text-decoration: none; transition: opacity 0.2s;
+    white-space: nowrap;
+  }
+  .your-review-cta a:hover { opacity: 0.9; }
+
   /* Loading & Error */
   .loading-state { text-align: center; padding: 4rem 2rem; }
   .loading-dots { display: inline-flex; gap: 6px; }
@@ -265,7 +323,58 @@ function renderStars(rating) {
   return s;
 }
 
-function renderProfile(user, profile, services, attributes, checks) {
+function formatReviewDate(iso) {
+  if (!iso) return '';
+  const d = new Date(iso);
+  const now = new Date();
+  const days = Math.floor((now - d) / (1000 * 60 * 60 * 24));
+  if (days < 7) return days <= 0 ? 'Today' : (days === 1 ? 'Yesterday' : `${days} days ago`);
+  return d.toLocaleDateString('en-AU', { day: 'numeric', month: 'short', year: now.getFullYear() === d.getFullYear() ? undefined : 'numeric' });
+}
+
+function renderReviewItem(review, reviewerName) {
+  const initials = getInitials((reviewerName || '').split(' ')[0], (reviewerName || '').split(' ')[1] || '');
+  const displayName = reviewerName ? reviewerName.split(' ')[0] : 'Customer';
+  return `
+    <div class="review-item">
+      <div class="review-header">
+        <div class="review-author">
+          <div class="review-author-avatar">${esc(initials || 'C')}</div>
+          <div>
+            <div class="review-author-name">${esc(displayName)}</div>
+            <div class="review-date">${esc(formatReviewDate(review.created_at))}${review.updated_at && review.updated_at !== review.created_at ? ' · edited' : ''}</div>
+          </div>
+        </div>
+      </div>
+      <div class="review-rating" aria-label="${review.rating} out of 5 stars">${renderStars(review.rating)}</div>
+      ${review.comment ? `<div class="review-comment">${esc(review.comment).replace(/\n/g, '<br>')}</div>` : ''}
+    </div>
+  `;
+}
+
+function esc(s) {
+  return (s || '').toString().replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+function renderReviewsSection(reviews, reviewerNames, totalCount, avgRating) {
+  if (!reviews || reviews.length === 0) {
+    return `<div class="section fade-in"><div class="section-title">Reviews</div><div class="reviews-empty">No reviews yet — be the first to share your experience.</div></div>`;
+  }
+  const summary = `
+    <div class="reviews-summary">
+      <span class="reviews-avg">${avgRating.toFixed(1)}</span>
+      <span class="reviews-stars">${renderStars(avgRating)}</span>
+      <span class="reviews-count">${totalCount} review${totalCount !== 1 ? 's' : ''}</span>
+    </div>
+  `;
+  const items = reviews.map(r => renderReviewItem(r, reviewerNames[r.customer_id] || '')).join('');
+  const showMore = totalCount > reviews.length
+    ? `<div class="reviews-show-more"><button id="loadMoreReviewsBtn">Show all ${totalCount} reviews</button></div>`
+    : '';
+  return `<div class="section fade-in"><div class="section-title">Reviews</div>${summary}${items}${showMore}</div>`;
+}
+
+function renderProfile(user, profile, services, attributes, checks, reviewsBlock, yourReviewCtaBlock) {
   const name = `${user.first_name} ${user.last_name}`;
   const initials = getInitials(user.first_name, user.last_name);
   const hasRating = profile.avg_rating && profile.total_reviews > 0;
@@ -331,11 +440,14 @@ function renderProfile(user, profile, services, attributes, checks) {
       </div>
     </div>
 
+    ${yourReviewCtaBlock || ''}
+
     ${profile.bio ? `<div class="section fade-in"><div class="section-title">About</div><div class="bio-text">${profile.bio.replace(/\n/g, '<br>')}</div></div>` : ''}
 
     ${servicesHtml}
     ${attrsHtml}
     ${checksHtml}
+    ${reviewsBlock || ''}
 
     <div class="cta-bar fade-in" style="margin-top:1.5rem;">
       <h3>Want to book ${user.first_name}?</h3>
@@ -370,7 +482,93 @@ async function loadProfile() {
       return;
     }
 
-    area.innerHTML = renderProfile(users[0], profiles[0], services, attributes, checks);
+    const profile = profiles[0];
+
+    // ── Reviews block (TRU-28): pull recent reviews + reviewer first names + view-based aggregate ──
+    let reviewsBlock = '';
+    let allReviews = [];
+    let reviewerNames = {};
+    try {
+      // Pull up to 20 most recent reviews; show 5 by default with "show all"
+      allReviews = await sbGet('reviews', `provider_id=eq.${profile.id}&select=id,rating,comment,created_at,updated_at,customer_id&order=created_at.desc&limit=20`);
+      // Resolve reviewer names: customer_profiles.id → user_id → users.first_name/last_name
+      if (allReviews.length) {
+        const customerIds = [...new Set(allReviews.map(r => r.customer_id))];
+        const customerProfiles = await sbGet('customer_profiles', `id=in.(${customerIds.join(',')})&select=id,user_id`);
+        const userIds = customerProfiles.map(cp => cp.user_id).filter(Boolean);
+        let usersById = {};
+        if (userIds.length) {
+          const reviewerUsers = await sbGet('users', `id=in.(${userIds.join(',')})&select=id,first_name,last_name`);
+          usersById = Object.fromEntries(reviewerUsers.map(u => [u.id, `${u.first_name} ${u.last_name || ''}`.trim()]));
+        }
+        const cpById = Object.fromEntries(customerProfiles.map(cp => [cp.id, cp.user_id]));
+        reviewerNames = Object.fromEntries(allReviews.map(r => [r.customer_id, usersById[cpById[r.customer_id]] || '']));
+      }
+      // Use view-based aggregate so it stays in sync even if provider_profiles.avg_rating is stale
+      let totalCount = allReviews.length, avgRating = 0;
+      try {
+        const view = await sbGet('provider_rating_view', `provider_id=eq.${profile.id}&select=review_count,avg_rating`);
+        if (view.length && view[0].review_count != null) {
+          totalCount = Number(view[0].review_count);
+          avgRating = Number(view[0].avg_rating) || 0;
+        } else if (allReviews.length) {
+          avgRating = allReviews.reduce((s, r) => s + r.rating, 0) / allReviews.length;
+        }
+      } catch (e) {
+        if (allReviews.length) avgRating = allReviews.reduce((s, r) => s + r.rating, 0) / allReviews.length;
+      }
+      const initialReviews = allReviews.slice(0, 5);
+      reviewsBlock = renderReviewsSection(initialReviews, reviewerNames, totalCount, avgRating);
+    } catch (e) {
+      reviewsBlock = `<div class="section fade-in"><div class="section-title">Reviews</div><div class="reviews-empty">No reviews yet — be the first to share your experience.</div></div>`;
+    }
+
+    // ── Customer review CTA (signed-in user with a completed booking with this provider) ──
+    let yourReviewCtaBlock = '';
+    try {
+      const stored = localStorage.getItem('truffl_session');
+      if (stored) {
+        const s = JSON.parse(stored);
+        if (s && s.user_id && s.user_id !== userId) {
+          const myProfiles = await sbGet('customer_profiles', `user_id=eq.${s.user_id}&select=id`);
+          if (myProfiles.length) {
+            const myCustomerId = myProfiles[0].id;
+            const myBookings = await sbGet('bookings', `customer_id=eq.${myCustomerId}&provider_id=eq.${profile.id}&status=eq.completed&select=id&order=completed_at.desc.nullslast,scheduled_at.desc&limit=10`);
+            if (myBookings.length) {
+              const myReviews = await sbGet('reviews', `customer_id=eq.${myCustomerId}&provider_id=eq.${profile.id}&select=booking_id`);
+              const reviewedSet = new Set(myReviews.map(r => r.booking_id));
+              const unreviewed = myBookings.find(b => !reviewedSet.has(b.id));
+              if (unreviewed) {
+                yourReviewCtaBlock = `
+                  <div class="your-review-cta fade-in">
+                    <div class="your-review-cta-text">You've had a booking with ${esc(users[0].first_name)} — share how it went.</div>
+                    <a href="/review/?booking=${esc(unreviewed.id)}">Leave a review</a>
+                  </div>`;
+              } else if (myBookings.length) {
+                yourReviewCtaBlock = `
+                  <div class="your-review-cta fade-in">
+                    <div class="your-review-cta-text">You've reviewed ${esc(users[0].first_name)} — want to update it?</div>
+                    <a href="/review/?booking=${esc(myBookings[0].id)}">Edit your review</a>
+                  </div>`;
+              }
+            }
+          }
+        }
+      }
+    } catch (e) { /* logged-out or query failure — silently skip */ }
+
+    area.innerHTML = renderProfile(users[0], profile, services, attributes, checks, reviewsBlock, yourReviewCtaBlock);
+
+    // Wire "Show all" button if present
+    const moreBtn = document.getElementById('loadMoreReviewsBtn');
+    if (moreBtn) {
+      moreBtn.addEventListener('click', () => {
+        const section = moreBtn.closest('.section');
+        const summary = section.querySelector('.reviews-summary').outerHTML;
+        const items = allReviews.map(r => renderReviewItem(r, reviewerNames[r.customer_id] || '')).join('');
+        section.innerHTML = `<div class="section-title">Reviews</div>${summary}${items}`;
+      });
+    }
   } catch (err) {
     area.innerHTML = `<div class="error-state"><h2>Something went wrong</h2><p>${err.message}. <a href="/search/" style="color:var(--terracotta);">Back to search</a></p></div>`;
   }

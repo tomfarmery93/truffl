@@ -356,8 +356,9 @@ function renderSummary(allUpdates) {
 
       ${gpsPoints.length > 0 ? '<div class="map-container" style="margin-bottom:1rem;"><div id="summaryMap" style="height:200px;"></div></div>' : ''}
 
-      <div style="margin-top:0.5rem;">
-        <a href="/" style="display:inline-block;padding:12px 32px;background:var(--terracotta);color:white;border-radius:10px;font-weight:500;text-decoration:none;font-size:0.9rem;">Back to home</a>
+      <div style="margin-top:0.5rem;display:flex;gap:10px;justify-content:center;flex-wrap:wrap;">
+        <a href="/review/?booking=${booking.id}" id="reviewCtaBtn" style="display:inline-block;padding:12px 32px;background:var(--terracotta);color:white;border-radius:10px;font-weight:500;text-decoration:none;font-size:0.9rem;">Leave a review</a>
+        <a href="/my/" style="display:inline-block;padding:12px 28px;background:transparent;color:var(--text-secondary);border:1px solid var(--border);border-radius:10px;font-weight:500;text-decoration:none;font-size:0.9rem;">Back to dashboard</a>
       </div>
     </div>
 
@@ -368,6 +369,17 @@ function renderSummary(allUpdates) {
       </div>
     ` : ''}
   `;
+
+  // Update CTA label if review already exists for this booking
+  (async () => {
+    try {
+      const existing = await sbGet('reviews', `booking_id=eq.${booking.id}&select=id`);
+      if (existing.length) {
+        const btn = document.getElementById('reviewCtaBtn');
+        if (btn) btn.textContent = 'Edit your review';
+      }
+    } catch (e) {}
+  })();
 
   if (gpsPoints.length > 0) {
     setTimeout(() => {

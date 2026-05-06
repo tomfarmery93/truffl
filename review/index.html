@@ -1,0 +1,513 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Leave a Review — Truffl Pets</title>
+<link rel="icon" type="image/svg+xml" href="/favicon.svg">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,500;0,600;1,400;1,500&family=DM+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --cream: #FAF7F2; --warm-white: #FFFDF9; --sage: #8B9E7E; --sage-light: #C2D1B5;
+    --sage-dark: #6B7E5E; --terracotta: #C4755B; --terracotta-light: #D4917B;
+    --blush: #E8C4B8; --brown: #3D2B1F; --brown-light: #5C4033; --brown-muted: #8B7355;
+    --text-primary: #3D2B1F; --text-secondary: #6B5B4E; --text-muted: #9B8B7E;
+    --border: #E8E0D6; --border-focus: #C4755B;
+    --error: #C0392B; --error-bg: #FDF0EE; --success: #5B8C5A; --success-bg: #EDF5ED;
+    --star-gold: #D4A24C; --star-empty: #E8E0D6;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: 'DM Sans', sans-serif; background: var(--cream); color: var(--text-primary); min-height: 100vh; -webkit-font-smoothing: antialiased; }
+
+  .nav {
+    position: sticky; top: 0; z-index: 100; background: var(--warm-white);
+    border-bottom: 1px solid var(--border); padding: 0 2rem; height: 64px;
+    display: flex; align-items: center; justify-content: space-between;
+  }
+  .nav-logo { display: flex; align-items: center; text-decoration: none; }
+  .nav-back { font-size: 0.85rem; color: var(--text-secondary); text-decoration: none; display: flex; align-items: center; gap: 6px; transition: color 0.2s; }
+  .nav-back:hover { color: var(--terracotta); }
+
+  .page-wrapper { max-width: 560px; margin: 0 auto; padding: 2.5rem 1.5rem 4rem; }
+  .page-header { text-align: center; margin-bottom: 2rem; }
+  .page-header h1 { font-family: 'Cormorant Garamond', serif; font-weight: 500; font-size: 2rem; color: var(--brown); margin-bottom: 0.4rem; }
+  .page-header p { color: var(--text-secondary); font-size: 0.92rem; line-height: 1.6; }
+
+  .form-card { background: var(--warm-white); border: 1px solid var(--border); border-radius: 16px; padding: 2rem; margin-bottom: 1.5rem; }
+  .form-card h2 { font-family: 'Cormorant Garamond', serif; font-weight: 500; font-size: 1.3rem; color: var(--brown); margin-bottom: 0.4rem; }
+  .form-card > p.subtitle { color: var(--text-secondary); font-size: 0.85rem; margin-bottom: 1.5rem; line-height: 1.5; }
+
+  /* Provider summary card */
+  .provider-summary {
+    display: flex; align-items: center; gap: 14px; padding: 16px;
+    background: var(--cream); border-radius: 12px; margin-bottom: 1.5rem;
+  }
+  .ps-avatar {
+    width: 48px; height: 48px; border-radius: 50%; background: var(--blush);
+    display: flex; align-items: center; justify-content: center;
+    font-family: 'Cormorant Garamond', serif; font-size: 1.2rem; font-weight: 600; color: var(--brown); flex-shrink: 0;
+  }
+  .ps-name { font-size: 0.95rem; font-weight: 500; color: var(--text-primary); }
+  .ps-meta { font-size: 0.8rem; color: var(--text-muted); margin-top: 2px; }
+
+  /* Fields */
+  .field { margin-bottom: 1.5rem; }
+  .field label { display: block; font-size: 0.85rem; font-weight: 500; color: var(--text-primary); margin-bottom: 8px; }
+  .field label .required-mark { color: var(--terracotta); margin-left: 2px; }
+  .field textarea {
+    width: 100%; padding: 12px 14px; border: 1px solid var(--border); border-radius: 10px;
+    font-family: 'DM Sans', sans-serif; font-size: 0.92rem; color: var(--text-primary);
+    background: var(--warm-white); outline: none; transition: border-color 0.2s, box-shadow 0.2s;
+    resize: vertical; min-height: 120px; line-height: 1.5;
+  }
+  .field textarea:focus { border-color: var(--border-focus); box-shadow: 0 0 0 3px rgba(196,117,91,0.12); }
+  .field-hint { font-size: 0.78rem; color: var(--text-muted); margin-top: 6px; }
+  .char-count { font-size: 0.75rem; color: var(--text-muted); margin-top: 4px; text-align: right; }
+
+  /* Star rating */
+  .star-rating {
+    display: flex; gap: 6px; align-items: center; margin-bottom: 4px;
+  }
+  .star-btn {
+    background: none; border: none; cursor: pointer; padding: 4px;
+    color: var(--star-empty); transition: color 0.15s, transform 0.15s;
+    line-height: 0; font-family: inherit;
+  }
+  .star-btn:hover { transform: scale(1.1); }
+  .star-btn.active { color: var(--star-gold); }
+  .star-btn svg { width: 36px; height: 36px; }
+  .rating-label { font-size: 0.85rem; color: var(--text-muted); margin-top: 6px; min-height: 1.2em; }
+  .rating-label.set { color: var(--text-secondary); }
+
+  /* Buttons */
+  .btn-row { display: flex; gap: 12px; margin-top: 1.5rem; }
+  .btn { padding: 13px 28px; border-radius: 10px; font-family: 'DM Sans', sans-serif; font-size: 0.92rem; font-weight: 500; cursor: pointer; transition: all 0.2s; border: none; outline: none; text-decoration: none; display: inline-flex; align-items: center; justify-content: center; }
+  .btn-primary { background: var(--terracotta); color: white; flex: 1; }
+  .btn-primary:hover:not(:disabled) { background: var(--terracotta-light); transform: translateY(-1px); }
+  .btn-primary:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
+  .btn-secondary { background: transparent; color: var(--text-secondary); border: 1px solid var(--border); }
+  .btn-secondary:hover { border-color: var(--text-muted); }
+
+  /* Messages */
+  .msg { padding: 12px 16px; border-radius: 10px; font-size: 0.85rem; margin-bottom: 1.25rem; display: none; line-height: 1.5; }
+  .msg.error { background: var(--error-bg); color: var(--error); display: block; }
+  .msg.success { background: var(--success-bg); color: var(--success); display: block; }
+
+  /* Spinner */
+  .spinner { width: 16px; height: 16px; border: 2px solid rgba(255,255,255,0.3); border-top-color: white; border-radius: 50%; animation: spin 0.6s linear infinite; display: inline-block; vertical-align: middle; margin-right: 8px; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  /* States */
+  .loading-state { text-align: center; padding: 4rem 2rem; }
+  .loading-dots { display: inline-flex; gap: 6px; }
+  .loading-dots span { width: 8px; height: 8px; border-radius: 50%; background: var(--terracotta); animation: bounce 1.2s infinite; }
+  .loading-dots span:nth-child(2) { animation-delay: 0.15s; }
+  .loading-dots span:nth-child(3) { animation-delay: 0.3s; }
+  @keyframes bounce { 0%,80%,100% { opacity:0.3; transform:scale(0.8); } 40% { opacity:1; transform:scale(1.2); } }
+  .loading-text { margin-top: 1rem; font-size: 0.85rem; color: var(--text-muted); }
+
+  .gate { text-align: center; padding: 3rem 2rem; }
+  .gate h2 { font-family: 'Cormorant Garamond', serif; font-size: 1.6rem; font-weight: 500; color: var(--brown); margin-bottom: 0.5rem; }
+  .gate p { color: var(--text-muted); font-size: 0.9rem; margin-bottom: 1.5rem; line-height: 1.6; }
+  .gate a { color: var(--terracotta); text-decoration: none; font-weight: 500; }
+  .gate a:hover { text-decoration: underline; }
+
+  /* Success state */
+  .success-card { text-align: center; padding: 3rem 2rem; }
+  .success-icon { width: 64px; height: 64px; background: var(--success-bg); border-radius: 50%; display: flex; align-items: center; justify-content: center; margin: 0 auto 1.5rem; }
+  .success-card h2 { font-family: 'Cormorant Garamond', serif; font-size: 1.8rem; font-weight: 500; color: var(--brown); margin-bottom: 0.75rem; }
+  .success-card p { color: var(--text-secondary); font-size: 0.92rem; line-height: 1.6; max-width: 400px; margin: 0 auto 1.5rem; }
+  .success-actions { display: flex; gap: 12px; justify-content: center; flex-wrap: wrap; }
+
+  /* Edit mode badge */
+  .edit-badge {
+    display: inline-flex; align-items: center; gap: 5px;
+    font-size: 0.72rem; font-weight: 600; color: var(--sage-dark);
+    background: var(--success-bg); padding: 3px 10px; border-radius: 20px;
+    text-transform: uppercase; letter-spacing: 0.04em; margin-bottom: 1rem;
+  }
+
+  @media (max-width: 600px) {
+    .page-wrapper { padding: 1.5rem 1rem 3rem; }
+    .form-card { padding: 1.5rem; }
+    .star-btn svg { width: 32px; height: 32px; }
+    .nav { padding: 0 1rem; }
+  }
+
+  @keyframes fadeIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+  .fade-in { animation: fadeIn 0.3s ease; }
+</style>
+</head>
+<body>
+
+<nav class="nav">
+  <a href="/" class="nav-logo" aria-label="Truffl Pets home">
+    <svg width="150" height="48" viewBox="0 0 180 56" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <circle cx="20" cy="5.5" r="6" fill="none" stroke="#C4866A" stroke-width="2.5"/>
+      <circle cx="20" cy="5.5" r="2.8" fill="#FFFDF9"/>
+      <rect x="16.5" y="10.5" width="7" height="9" rx="3" fill="#C4866A"/>
+      <circle cx="20" cy="33" r="20" fill="#C4866A"/>
+      <circle cx="20" cy="33" r="15.5" fill="none" stroke="#B8795C" stroke-width="0.6" opacity="0.45"/>
+      <line x1="7" y1="33" x2="33" y2="33" stroke="#FFFDF9" stroke-width="0.5" opacity="0.3"/>
+      <text x="20" y="35.5" font-family="'Cormorant Garamond', Georgia, serif" font-size="14" font-style="italic" font-weight="400" fill="#FFFDF9" text-anchor="middle" letter-spacing="-0.3">truffl</text>
+      <text x="52" y="30" font-family="'Cormorant Garamond', Georgia, serif" font-size="32" font-style="italic" font-weight="400" fill="#3D2B1F" letter-spacing="-0.5">truffl</text>
+      <text x="52" y="50" font-family="'DM Sans', sans-serif" font-size="12" font-weight="600" fill="#B0A090" letter-spacing="4">PETS</text>
+    </svg>
+  </a>
+  <a href="/my/" class="nav-back">
+    <svg width="14" height="14" viewBox="0 0 16 16" fill="none"><path d="M10 12L6 8L10 4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+    Back to dashboard
+  </a>
+</nav>
+
+<div class="page-wrapper">
+  <div id="reviewContent">
+    <div class="loading-state">
+      <div class="loading-dots"><span></span><span></span><span></span></div>
+      <div class="loading-text">Loading booking…</div>
+    </div>
+  </div>
+</div>
+
+<script>
+const SUPABASE_URL = 'https://gadflsntbnbnnxbpiral.supabase.co';
+const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImdhZGZsc250Ym5ibm54YnBpcmFsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzUwNjcwNTcsImV4cCI6MjA5MDY0MzA1N30.g5ZrqeAX9U5l7oDZEbQFrU5j10828dUF0QuJ0ZlHXK8';
+
+const SERVICE_LABELS = {
+  dog_walking: 'Dog walking', dog_sitting: 'Dog sitting', dog_boarding: 'Dog boarding',
+  cat_sitting: 'Cat sitting', cat_boarding: 'Cat boarding', pet_sitting: 'Other pet sitting'
+};
+
+const RATING_LABELS = {
+  1: 'Poor — would not recommend',
+  2: 'Below expectations',
+  3: 'Decent',
+  4: 'Great',
+  5: 'Excellent — highly recommend'
+};
+
+let authToken = null, authUid = null;
+let bookingId = null;
+let booking = null;
+let customerProfileId = null;
+let providerLabel = '';
+let serviceLabel = '';
+let existingReview = null;
+let selectedRating = 0;
+let submitting = false;
+
+/* ── Helpers ── */
+function h() {
+  const headers = { 'Content-Type': 'application/json', 'apikey': SUPABASE_ANON_KEY };
+  headers['Authorization'] = `Bearer ${authToken || SUPABASE_ANON_KEY}`;
+  return headers;
+}
+async function sbGet(t, p) {
+  const r = await fetch(`${SUPABASE_URL}/rest/v1/${t}?${p}`, { headers: h() });
+  if (!r.ok) { const e = await r.json().catch(() => ({})); throw new Error(e.message || `Failed to load ${t}`); }
+  return r.json();
+}
+async function sbInsert(t, row) {
+  const r = await fetch(`${SUPABASE_URL}/rest/v1/${t}`, {
+    method: 'POST',
+    headers: { ...h(), 'Prefer': 'return=representation' },
+    body: JSON.stringify(row)
+  });
+  if (!r.ok) { const e = await r.json().catch(() => ({})); throw new Error(e.message || 'Failed to save'); }
+  return r.json();
+}
+async function sbPatch(t, col, val, upd) {
+  const r = await fetch(`${SUPABASE_URL}/rest/v1/${t}?${col}=eq.${val}`, {
+    method: 'PATCH',
+    headers: { ...h(), 'Prefer': 'return=representation' },
+    body: JSON.stringify(upd)
+  });
+  if (!r.ok) { const e = await r.json().catch(() => ({})); throw new Error(e.message || 'Failed to update'); }
+  return r.json();
+}
+
+function esc(s) {
+  return (s || '').toString().replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+function getInitials(first, last) {
+  return ((first || '')[0] || '').toUpperCase() + ((last || '')[0] || '').toUpperCase();
+}
+function showMsg(text, type) {
+  const el = document.getElementById('msg');
+  if (!el) return;
+  el.textContent = text;
+  el.className = `msg ${type}`;
+}
+function clearMsg() {
+  const el = document.getElementById('msg');
+  if (el) el.className = 'msg';
+}
+
+/* ── Render: gate / error ── */
+function renderGate(title, body, linkHref, linkText) {
+  document.getElementById('reviewContent').innerHTML = `
+    <div class="gate fade-in">
+      <h2>${esc(title)}</h2>
+      <p>${body}</p>
+      ${linkHref ? `<a href="${esc(linkHref)}">${esc(linkText)}</a>` : ''}
+    </div>
+  `;
+}
+
+/* ── Render: form ── */
+function renderForm() {
+  const isEdit = !!existingReview;
+  const initialComment = existingReview ? (existingReview.comment || '') : '';
+  selectedRating = existingReview ? existingReview.rating : 0;
+
+  const providerInitials = providerLabel ? providerLabel.split(' ').map(p => p[0]).filter(Boolean).slice(0, 2).join('').toUpperCase() : '?';
+  const providerFirstName = providerLabel ? providerLabel.split(' ')[0] : 'your carer';
+
+  document.getElementById('reviewContent').innerHTML = `
+    <div class="page-header fade-in">
+      <h1>${isEdit ? 'Edit your review' : `How was ${esc(providerFirstName)}?`}</h1>
+      <p>${isEdit ? 'Update your review below — changes save right away.' : 'Your review helps other pet parents find great carers.'}</p>
+    </div>
+
+    <div id="msg" class="msg"></div>
+
+    <div class="form-card fade-in">
+      ${isEdit ? '<div class="edit-badge">Editing existing review</div>' : ''}
+
+      <div class="provider-summary">
+        <div class="ps-avatar">${esc(providerInitials)}</div>
+        <div>
+          <div class="ps-name">${esc(providerLabel || 'Your carer')}</div>
+          <div class="ps-meta">${esc(serviceLabel || 'Booking')}${booking.scheduled_at ? ' · ' + formatBookingDate(booking.scheduled_at) : ''}</div>
+        </div>
+      </div>
+
+      <div class="field">
+        <label>Overall rating<span class="required-mark">*</span></label>
+        <div class="star-rating" id="starRating" role="radiogroup" aria-label="Rating">
+          ${[1,2,3,4,5].map(n => `
+            <button type="button" class="star-btn" data-value="${n}" aria-label="${n} star${n>1?'s':''}" role="radio" aria-checked="false">
+              <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2.5l2.95 6.36 6.83.62-5.17 4.69 1.55 6.83L12 17.5l-6.16 3.5 1.55-6.83-5.17-4.69 6.83-.62L12 2.5z"/></svg>
+            </button>
+          `).join('')}
+        </div>
+        <div class="rating-label" id="ratingLabel">Tap a star to rate</div>
+      </div>
+
+      <div class="field">
+        <label for="comment">Your review<span class="required-mark">*</span></label>
+        <textarea id="comment" maxlength="2000" placeholder="Tell other pet parents about your experience — how was communication, care, and timing?">${esc(initialComment)}</textarea>
+        <div class="char-count"><span id="charCount">${initialComment.length}</span> / 2000</div>
+      </div>
+
+      <div class="btn-row">
+        <button type="button" class="btn btn-secondary" onclick="window.location.href='/my/'">Cancel</button>
+        <button type="button" id="submitBtn" class="btn btn-primary">${isEdit ? 'Save changes' : 'Submit review'}</button>
+      </div>
+    </div>
+  `;
+
+  // Wire up star buttons
+  document.querySelectorAll('.star-btn').forEach(btn => {
+    btn.addEventListener('click', () => setRating(parseInt(btn.dataset.value, 10)));
+    btn.addEventListener('mouseenter', () => previewRating(parseInt(btn.dataset.value, 10)));
+  });
+  document.getElementById('starRating').addEventListener('mouseleave', () => previewRating(selectedRating));
+
+  // Char counter
+  document.getElementById('comment').addEventListener('input', e => {
+    document.getElementById('charCount').textContent = e.target.value.length;
+  });
+
+  // Submit
+  document.getElementById('submitBtn').addEventListener('click', submit);
+
+  // Set initial rating display
+  setRating(selectedRating);
+}
+
+function previewRating(value) {
+  document.querySelectorAll('.star-btn').forEach(btn => {
+    const n = parseInt(btn.dataset.value, 10);
+    btn.classList.toggle('active', n <= value);
+  });
+}
+function setRating(value) {
+  selectedRating = value;
+  previewRating(value);
+  document.querySelectorAll('.star-btn').forEach(btn => {
+    const n = parseInt(btn.dataset.value, 10);
+    btn.setAttribute('aria-checked', n === value ? 'true' : 'false');
+  });
+  const label = document.getElementById('ratingLabel');
+  if (label) {
+    if (value > 0) {
+      label.textContent = RATING_LABELS[value];
+      label.classList.add('set');
+    } else {
+      label.textContent = 'Tap a star to rate';
+      label.classList.remove('set');
+    }
+  }
+}
+
+function formatBookingDate(iso) {
+  try {
+    const d = new Date(iso);
+    return d.toLocaleDateString('en-AU', { weekday: 'short', day: 'numeric', month: 'short' });
+  } catch (e) { return ''; }
+}
+
+/* ── Submit ── */
+async function submit() {
+  if (submitting) return;
+  clearMsg();
+
+  if (!selectedRating || selectedRating < 1 || selectedRating > 5) {
+    showMsg('Please pick a star rating before submitting.', 'error');
+    return;
+  }
+  const comment = document.getElementById('comment').value.trim();
+  if (!comment) {
+    showMsg('Please add a few words about your experience.', 'error');
+    return;
+  }
+
+  const btn = document.getElementById('submitBtn');
+  submitting = true;
+  btn.disabled = true;
+  btn.innerHTML = `<span class="spinner"></span>${existingReview ? 'Saving…' : 'Submitting…'}`;
+
+  try {
+    if (existingReview) {
+      await sbPatch('reviews', 'id', existingReview.id, {
+        rating: selectedRating,
+        comment,
+        updated_at: new Date().toISOString()
+      });
+    } else {
+      await sbInsert('reviews', {
+        booking_id: bookingId,
+        customer_id: customerProfileId,
+        provider_id: booking.provider_id,
+        rating: selectedRating,
+        comment
+      });
+    }
+    renderSuccess();
+  } catch (e) {
+    submitting = false;
+    btn.disabled = false;
+    btn.innerHTML = existingReview ? 'Save changes' : 'Submit review';
+    showMsg(e.message || 'Something went wrong. Please try again.', 'error');
+  }
+}
+
+function renderSuccess() {
+  const wasEdit = !!existingReview;
+  const providerFirstName = providerLabel ? providerLabel.split(' ')[0] : 'your carer';
+  document.getElementById('reviewContent').innerHTML = `
+    <div class="form-card fade-in">
+      <div class="success-card">
+        <div class="success-icon">
+          <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#5B8C5A" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M5 13l4 4L19 7"/>
+          </svg>
+        </div>
+        <h2>${wasEdit ? 'Review updated' : 'Thank you!'}</h2>
+        <p>${wasEdit
+          ? 'Your changes are live on ' + esc(providerFirstName) + "'s profile."
+          : 'Your review helps other pet parents find great carers like ' + esc(providerFirstName) + '.'}</p>
+        <div class="success-actions">
+          <a href="/my/" class="btn btn-secondary">Back to dashboard</a>
+          <a href="/carer/?id=${esc(booking._provider_user_id || '')}" class="btn btn-primary" style="flex:0 0 auto;">View carer profile</a>
+        </div>
+      </div>
+    </div>
+  `;
+}
+
+/* ── Init ── */
+async function init() {
+  const stored = localStorage.getItem('truffl_session');
+  if (stored) { try { const s = JSON.parse(stored); authToken = s.access_token; authUid = s.user_id; } catch (e) {} }
+
+  const params = new URLSearchParams(window.location.search);
+  bookingId = params.get('booking');
+
+  if (!authToken || !authUid) {
+    const redirect = encodeURIComponent(window.location.pathname + window.location.search);
+    renderGate('Sign in required', 'You need to be signed in to leave a review.', `/login/?redirect=${redirect}`, 'Sign in');
+    return;
+  }
+
+  if (!bookingId) {
+    renderGate('No booking specified', 'We couldn\'t find a booking to review. Head back to your dashboard and pick a completed booking.', '/my/', 'Go to dashboard');
+    return;
+  }
+
+  try {
+    // Resolve customer_profiles.id from auth user_id
+    const profiles = await sbGet('customer_profiles', `user_id=eq.${authUid}&select=id`);
+    if (!profiles.length) {
+      renderGate('Profile not found', 'Your customer profile isn\'t set up. Please complete registration first.', '/login/', 'Sign in');
+      return;
+    }
+    customerProfileId = profiles[0].id;
+
+    // Fetch booking
+    const bookings = await sbGet('bookings', `id=eq.${bookingId}&select=*`);
+    if (!bookings.length) {
+      renderGate('Booking not found', 'We couldn\'t find this booking. It may have been removed.', '/my/', 'Back to dashboard');
+      return;
+    }
+    booking = bookings[0];
+
+    // Authorize: must be the booking's customer
+    if (booking.customer_id !== customerProfileId) {
+      renderGate('Access denied', 'You can only review bookings on your own account.', '/my/', 'Back to dashboard');
+      return;
+    }
+
+    // Must be completed
+    if (booking.status !== 'completed') {
+      const friendly = booking.status === 'cancelled'
+        ? 'This booking was cancelled, so there\'s nothing to review.'
+        : 'You can leave a review once this booking is completed.';
+      renderGate('Review not available yet', friendly, '/my/', 'Back to dashboard');
+      return;
+    }
+
+    // Look up provider name (via provider_profiles.user_id → users)
+    try {
+      const provProfiles = await sbGet('provider_profiles', `id=eq.${booking.provider_id}&select=user_id`);
+      if (provProfiles.length) {
+        booking._provider_user_id = provProfiles[0].user_id;
+        const pUsers = await sbGet('users', `id=eq.${provProfiles[0].user_id}&select=first_name,last_name`);
+        if (pUsers.length) providerLabel = `${pUsers[0].first_name} ${pUsers[0].last_name}`;
+      }
+    } catch (e) { /* fall through with empty provider name */ }
+
+    // Look up service label
+    try {
+      if (booking.service_id) {
+        const svcs = await sbGet('provider_services', `id=eq.${booking.service_id}&select=service_type`);
+        if (svcs.length) serviceLabel = SERVICE_LABELS[svcs[0].service_type] || svcs[0].service_type.replace(/_/g, ' ');
+      }
+    } catch (e) {}
+
+    // Check for existing review (TRU-27 detection)
+    const existing = await sbGet('reviews', `booking_id=eq.${bookingId}&select=*`);
+    existingReview = existing.length ? existing[0] : null;
+
+    renderForm();
+  } catch (e) {
+    renderGate('Something went wrong', esc(e.message || 'Unable to load this booking right now.'), '/my/', 'Back to dashboard');
+  }
+}
+
+document.addEventListener('DOMContentLoaded', init);
+</script>
+</body>
+</html>
