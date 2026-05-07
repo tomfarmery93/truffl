@@ -173,7 +173,6 @@
     .ms-chips { display: flex; gap: 6px; margin-top: 10px; flex-wrap: wrap; }
     .ms-chips .chip-active { display: inline-flex; align-items: center; gap: 5px; padding: 4px 10px; border-radius: 999px; background: var(--sage-soft); border: 1px solid var(--sage-light); color: var(--sage-dark); font-size: 0.72rem; font-weight: 500; }
 
-    /* Bottom sheet (mobile only — desktop hides via base rule above) */
     .sheet-backdrop { display: block; position: fixed; inset: 0; background: rgba(61,43,31,0.45); opacity: 0; pointer-events: none; transition: opacity 0.25s ease; z-index: 200; }
     .sheet-backdrop.open { opacity: 1; pointer-events: auto; }
     .sheet { display: block; position: fixed; left: 0; right: 0; bottom: 0; background: var(--warm-white); border-radius: 24px 24px 0 0; padding: 1.25rem; max-height: 88vh; overflow-y: auto; transform: translateY(100%); transition: transform 0.28s cubic-bezier(.2,.7,.3,1); z-index: 201; box-shadow: 0 -10px 40px rgba(61,43,31,0.18); }
@@ -183,8 +182,6 @@
 
     .results-heading { font-size: 1.6rem; }
   }
-
-  /* Hide sidebar contents during initial load on desktop too — the filter card itself stays */
 
   @keyframes fadeIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
   .fade-in { animation: fadeIn 0.3s ease; }
@@ -213,7 +210,6 @@
   </div>
 </nav>
 
-<!-- Mobile summary bar (hidden on desktop) -->
 <div class="page-shell">
   <div class="mobile-summary" id="mobileSummary">
     <div class="ms-row">
@@ -229,14 +225,10 @@
     <div class="ms-chips" id="msChips"></div>
   </div>
 
-  <!-- Desktop sidebar -->
   <aside class="sidebar" id="sidebar">
-    <div class="filter-card" id="filterCard">
-      <!-- form rendered by JS -->
-    </div>
+    <div class="filter-card" id="filterCard"></div>
   </aside>
 
-  <!-- Results column -->
   <main class="results-column">
     <div class="results-header" id="resultsHeader" style="display:none;">
       <div>
@@ -267,7 +259,6 @@
   </main>
 </div>
 
-<!-- Mobile bottom sheet -->
 <div class="sheet-backdrop" id="sheetBackdrop"></div>
 <div class="sheet" id="filterSheet" role="dialog" aria-modal="true" aria-label="Refine search">
   <div class="sheet-handle"></div>
@@ -311,8 +302,6 @@ const ATTRIBUTE_FILTERS = [
   { value: 'non_smoking', label: 'Non-smoking',       icon: '🚭' },
 ];
 
-// Maps the filter value (above) to the actual `provider_attributes.attribute` value in DB.
-// These mappings are best-effort based on the carer profile page; update once schema is locked in.
 const FILTER_TO_ATTR = {
   garden:      'outdoor_space',
   car:         'has_car',
@@ -323,7 +312,6 @@ const FILTER_TO_ATTR = {
   non_smoking: 'non_smoking',
 };
 
-// Inverse for displaying attribute icons on cards
 const ATTR_LABELS = {
   outdoor_space:    { label: 'Garden',           icon: '🌿' },
   has_car:          { label: 'Has car',          icon: '🚗' },
@@ -346,27 +334,32 @@ const DAY_LABELS = { mon:'M', tue:'T', wed:'W', thu:'T', fri:'F', sat:'S', sun:'
 const DAY_FULL =  { mon:'Mon', tue:'Tue', wed:'Wed', thu:'Thu', fri:'Fri', sat:'Sat', sun:'Sun' };
 
 let authToken = null, authUid = null;
-let providers = [];        // raw fetched
-let allAttrMap = null;     // built lazily for attribute filtering
-let renderedProviders = []; // after filter+sort
+let providers = [];
+let allAttrMap = null;
+let renderedProviders = [];
 let myPets = [];
 let isLoading = false;
 
 const state = {
-  suburb: '',
-  service: '',
-  recurring: false,
-  date: '',
-  time: '',
-  days: [],         // ['mon','wed','fri']
-  size: '',         // 'small' | 'medium' | 'large' | ''
-  puppy: false,
-  petId: '',        // selected saved pet id (logged-in)
-  attributes: [],   // ['garden','puppies']
-  sort: 'best',
+  suburb: '', service: '', recurring: false, date: '', time: '',
+  days: [], size: '', puppy: false, petId: '', attributes: [], sort: 'best',
 };
 
-/* ── REST helpers (per spec) ── */
+/* ── FIX 1: Public REST helper — always uses anon key, never authToken ── */
+/* Used for all provider search queries so unauthenticated users can browse */
+async function sbPublic(t, p) {
+  const r = await fetch(`${SUPABASE_URL}/rest/v1/${t}?${p}`, {
+    headers: {
+      'Content-Type': 'application/json',
+      'apikey': SUPABASE_ANON_KEY,
+      'Authorization': `Bearer ${SUPABASE_ANON_KEY}`
+    }
+  });
+  if (!r.ok) { const e = await r.json().catch(() => ({})); throw new Error(e.message || 'Query failed'); }
+  return r.json();
+}
+
+/* Authenticated helper — only used for logged-in user data (saved pets etc.) */
 function h(token) {
   const hd = { 'Content-Type': 'application/json', 'apikey': SUPABASE_ANON_KEY, 'Authorization': `Bearer ${SUPABASE_ANON_KEY}` };
   if (token) hd['Authorization'] = `Bearer ${token}`;
@@ -547,35 +540,28 @@ function mountFilterForm() {
 }
 
 function wireFilterForm(root) {
-  // Suburb
   const suburb = root.querySelector('#inputSuburb');
   if (suburb) suburb.addEventListener('input', e => { state.suburb = e.target.value; });
 
-  // Services (single-select; click again to clear)
   root.querySelectorAll('.service-tile').forEach(tile => {
     tile.addEventListener('click', () => {
       const v = tile.dataset.svc;
       state.service = (state.service === v) ? '' : v;
-      // Toggle visual on both forms
       document.querySelectorAll('.service-tile').forEach(t => t.classList.toggle('active', t.dataset.svc === state.service));
     });
   });
 
-  // Recurring segmented
   root.querySelectorAll('.segmented button').forEach(btn => {
     btn.addEventListener('click', () => {
       state.recurring = btn.dataset.rec === 'true';
-      // Re-render both forms' "when" fields
       document.querySelectorAll('.segmented button').forEach(b => b.classList.toggle('active', (b.dataset.rec === 'true') === state.recurring));
       document.querySelectorAll('#whenFields').forEach(el => el.innerHTML = renderWhenFields());
       wireWhenFields();
     });
   });
 
-  // When fields wiring (date/time/days)
   wireWhenFields(root);
 
-  // Size chips
   root.querySelectorAll('[data-size]').forEach(btn => {
     btn.addEventListener('click', () => {
       const v = btn.dataset.size;
@@ -583,10 +569,8 @@ function wireFilterForm(root) {
       document.querySelectorAll('[data-size]').forEach(b => b.classList.toggle('active', b.dataset.size === state.size));
     });
   });
-  // Puppy toggle
   const puppy = root.querySelector('#puppyChk');
   if (puppy) puppy.addEventListener('change', e => { state.puppy = !!e.target.checked; document.querySelectorAll('#puppyChk').forEach(c => c.checked = state.puppy); });
-  // Saved pets
   root.querySelectorAll('[data-pet]').forEach(btn => {
     btn.addEventListener('click', () => {
       const v = btn.dataset.pet;
@@ -595,7 +579,6 @@ function wireFilterForm(root) {
     });
   });
 
-  // Attribute chips
   root.querySelectorAll('[data-attr]').forEach(btn => {
     btn.addEventListener('click', () => {
       const v = btn.dataset.attr;
@@ -605,13 +588,11 @@ function wireFilterForm(root) {
       document.querySelectorAll(`[data-attr="${v}"]`).forEach(b => b.classList.toggle('active', state.attributes.includes(v)));
     });
   });
-  // Expander toggle
   const head = root.querySelector('.expander-head');
   if (head) head.addEventListener('click', () => {
     document.querySelectorAll('.expander').forEach(ex => ex.classList.toggle('open'));
   });
 
-  // Update button
   const update = root.querySelector('#btnUpdate');
   if (update) update.addEventListener('click', () => {
     closeSheet();
@@ -695,22 +676,23 @@ function sortLabel(s) {
   return ({ best: 'Best match', rating: 'Rating', price_asc: 'Price', distance: 'Distance', newest: 'Newest' })[s] || 'Best match';
 }
 
-/* ── Data fetch ── */
+/* ── FIX 2: All provider data queries use sbPublic, not sbGet ── */
+/* This ensures unauthenticated users (no token or expired token) can always load carers */
 async function fetchProviders() {
   try {
-    return await sbGet('provider_search_view', 'select=*');
+    return await sbPublic('provider_search_view', 'select=*');
   } catch (e) {
     return await fallbackSearch();
   }
 }
-// Preserved (and corrected) fallback: if the view isn't available, query tables directly.
+
 async function fallbackSearch() {
-  const profiles = await sbGet('provider_profiles', 'select=id,user_id,bio,suburb,radius_km,avg_rating,total_reviews,is_verified,is_active&is_active=eq.true');
+  const profiles = await sbPublic('provider_profiles', 'select=id,user_id,bio,suburb,radius_km,avg_rating,total_reviews,is_verified,is_active&is_active=eq.true');
   const userIds = profiles.map(p => p.user_id).filter(Boolean);
   const profileIds = profiles.map(p => p.id);
 
-  const users = userIds.length ? await sbGet('users', `id=in.(${userIds.join(',')})&select=id,first_name,last_name`) : [];
-  const services = profileIds.length ? await sbGet('provider_services', `provider_id=in.(${profileIds.join(',')})&is_available=eq.true&select=provider_id,service_type`) : [];
+  const users = userIds.length ? await sbPublic('users', `id=in.(${userIds.join(',')})&select=id,first_name,last_name`) : [];
+  const services = profileIds.length ? await sbPublic('provider_services', `provider_id=in.(${profileIds.join(',')})&is_available=eq.true&select=provider_id,service_type`) : [];
 
   const userMap = Object.fromEntries(users.map(u => [u.id, u]));
   const serviceMap = {};
@@ -737,7 +719,7 @@ async function fallbackSearch() {
 async function ensureAttributesLoaded() {
   if (allAttrMap) return allAttrMap;
   try {
-    const rows = await sbGet('provider_attributes', 'select=provider_id,attribute,value');
+    const rows = await sbPublic('provider_attributes', 'select=provider_id,attribute,value');
     const map = {};
     rows.forEach(r => {
       if (!r.value) return;
@@ -754,7 +736,7 @@ async function ensureAttributesLoaded() {
 async function fetchPricesForService(serviceType) {
   if (!serviceType) return {};
   try {
-    const rows = await sbGet('provider_services', `service_type=eq.${serviceType}&is_available=eq.true&select=provider_id,price_cents`);
+    const rows = await sbPublic('provider_services', `service_type=eq.${serviceType}&is_available=eq.true&select=provider_id,price_cents`);
     const map = {};
     rows.forEach(r => { map[r.provider_id] = r.price_cents; });
     return map;
@@ -766,14 +748,10 @@ async function fetchPricesForService(serviceType) {
 /* ── Sort + filter ── */
 function sortProviders(list, sortBy) {
   switch (sortBy) {
-    case 'rating':
-      return [...list].sort((a, b) => (b.avg_rating || 0) - (a.avg_rating || 0));
-    case 'price_asc':
-      return [...list].sort((a, b) => (a.price_cents == null ? 99999 : a.price_cents) - (b.price_cents == null ? 99999 : b.price_cents));
-    case 'distance':
-      return [...list].sort((a, b) => (a.distance_km || 999) - (b.distance_km || 999));
-    case 'newest':
-      return [...list].sort((a, b) => new Date(b.created_at || 0) - new Date(a.created_at || 0));
+    case 'rating':    return [...list].sort((a, b) => (b.avg_rating || 0) - (a.avg_rating || 0));
+    case 'price_asc': return [...list].sort((a, b) => (a.price_cents == null ? 99999 : a.price_cents) - (b.price_cents == null ? 99999 : b.price_cents));
+    case 'distance':  return [...list].sort((a, b) => (a.distance_km || 999) - (b.distance_km || 999));
+    case 'newest':    return [...list].sort((a, b) => new Date(b.created_at || 0) - new Date(a.created_at || 0));
     default:
       return [...list].sort((a, b) => {
         if (!!a.is_verified !== !!b.is_verified) return b.is_verified ? 1 : -1;
@@ -784,20 +762,16 @@ function sortProviders(list, sortBy) {
 
 async function applyFilters(rawList) {
   let list = rawList;
-
-  // Suburb (case-insensitive substring)
   if (state.suburb) {
     const q = state.suburb.toLowerCase();
     list = list.filter(p => (p.suburb || '').toLowerCase().includes(q));
   }
-  // Service: provider must offer the selected service
   if (state.service) {
     list = list.filter(p => {
       const svcs = Array.isArray(p.services) ? p.services : (typeof p.services === 'string' ? p.services.split(',').map(s => s.trim()) : []);
       return svcs.some(s => (s || '').trim() === state.service);
     });
   }
-  // Attribute filters: provider must have ALL active attributes (mapped to DB values)
   if (state.attributes.length) {
     const attrMap = await ensureAttributesLoaded();
     const required = state.attributes.map(v => FILTER_TO_ATTR[v]).filter(Boolean);
@@ -807,7 +781,6 @@ async function applyFilters(rawList) {
       return required.every(a => have.has(a));
     });
   }
-  // Attach prices for the selected service so price sort works
   if (state.service) {
     const priceMap = await fetchPricesForService(state.service);
     list = list.map(p => ({ ...p, price_cents: priceMap[p.provider_profile_id || p.id] ?? null }));
@@ -826,7 +799,6 @@ function renderCard(p) {
   const visibleSvcs = services.slice(0, 3);
   const moreSvcs = services.length - visibleSvcs.length;
 
-  // Attributes for display: pull from preloaded map when available
   let attrsForDisplay = [];
   if (allAttrMap) {
     const set = allAttrMap[p.provider_profile_id || p.id];
@@ -890,7 +862,6 @@ function renderResults(list) {
   document.getElementById('resContext').innerHTML = buildContextLine(list.length);
   header.style.display = 'flex';
 
-  // Update sort dropdown to match state
   const sortSel = document.getElementById('sortSelect');
   if (sortSel.value !== state.sort) sortSel.value = state.sort;
 
@@ -941,14 +912,12 @@ async function runSearch() {
   writeUrlParams();
   renderMobileSummary();
 
-  // Show skeletons
   document.getElementById('resultsArea').innerHTML = document.getElementById('initialSkeletons').outerHTML;
 
   try {
     if (providers.length === 0) {
       providers = await fetchProviders();
     }
-    // Pre-load attribute map (best effort) so cards can show attribute icons
     await ensureAttributesLoaded();
     renderedProviders = await applyFilters(providers);
     renderResults(renderedProviders);
@@ -960,49 +929,43 @@ async function runSearch() {
 }
 
 function clearFilters() {
-  state.suburb = '';
-  state.service = '';
-  state.recurring = false;
-  state.date = '';
-  state.time = '';
-  state.days = [];
-  state.size = '';
-  state.puppy = false;
-  state.petId = '';
-  state.attributes = [];
-  state.sort = 'best';
+  state.suburb = ''; state.service = ''; state.recurring = false; state.date = '';
+  state.time = ''; state.days = []; state.size = ''; state.puppy = false;
+  state.petId = ''; state.attributes = []; state.sort = 'best';
   mountFilterForm();
   runSearch();
 }
 
 /* ── Boot ── */
 async function init() {
-  // Auth (optional, only used to fetch saved pets)
-  const stored = localStorage.getItem('truffl_session');
-  if (stored) {
-    try {
+  /* FIX 2: Wrap session restore in try/catch — a missing or corrupt
+     session should never block the page from loading for guest users */
+  try {
+    const stored = localStorage.getItem('truffl_session');
+    if (stored) {
       const s = JSON.parse(stored);
       authToken = s.access_token;
       authUid = s.user_id;
-    } catch (e) {}
+    }
+  } catch (e) {
+    // No session or parse error — continue as guest, authToken stays null
   }
 
   readUrlParams();
 
-  // Saved pets if logged in
+  // Saved pets — only attempted when logged in, using sbGet (auth required)
   if (authUid) {
     try {
       const cp = await sbGet('customer_profiles', `user_id=eq.${authUid}&select=id`);
       if (cp.length) {
         myPets = await sbGet('pets', `customer_id=eq.${cp[0].id}&is_active=eq.true&select=id,name,breed`);
       }
-    } catch (e) { /* ignore */ }
+    } catch (e) { /* ignore — pet chips just won't show */ }
   }
 
   mountFilterForm();
   renderMobileSummary();
 
-  // Sort dropdown
   document.getElementById('sortSelect').addEventListener('change', e => {
     state.sort = e.target.value;
     if (renderedProviders.length) {
@@ -1012,12 +975,10 @@ async function init() {
     }
   });
 
-  // Mobile sheet
   document.getElementById('btnOpenSheet').addEventListener('click', openSheet);
   document.getElementById('btnCloseSheet').addEventListener('click', closeSheet);
   document.getElementById('sheetBackdrop').addEventListener('click', closeSheet);
 
-  // Run initial search
   runSearch();
 }
 
