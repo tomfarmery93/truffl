@@ -290,6 +290,39 @@ const SERVICE_LABELS = {
   cat_sitting: 'Cat sitting', cat_boarding: 'Cat boarding', pet_sitting: 'Other pet sitting'
 };
 
+// Hint shown after non-walk services so customers know what the price covers.
+const SERVICE_UNIT_HINT = {
+  dog_sitting:  'per visit',
+  dog_boarding: 'per night',
+  cat_sitting:  'per visit',
+  cat_boarding: 'per night',
+  pet_sitting:  'per visit',
+};
+
+// Format a provider_services row into a customer-facing label.
+//   { service_type:'dog_walking', duration_mins:60 } → "60 minute walk"
+//   { service_type:'dog_walking', duration_mins:120 } → "2 hour walk"
+//   { service_type:'dog_sitting' } → "Dog sitting · per visit"
+function formatServiceLabel(s) {
+  if (s.service_type === 'dog_walking' && s.duration_mins) {
+    const m = s.duration_mins;
+    if (m >= 60 && m % 60 === 0) {
+      const h = m / 60;
+      return `${h} hour walk`;
+    }
+    return `${m} minute walk`;
+  }
+  const base = SERVICE_LABELS[s.service_type] || s.service_type.replace(/_/g, ' ');
+  const unit = SERVICE_UNIT_HINT[s.service_type];
+  return unit ? `${base} · ${unit}` : base;
+}
+
+function formatPrice(cents) {
+  if (cents == null) return '';
+  const n = cents / 100;
+  return Number.isInteger(n) ? `$${n}` : `$${n.toFixed(2)}`;
+}
+
 const ATTR_LABELS = {
   has_car: 'Own vehicle', outdoor_space: 'Garden / yard', large_dogs_ok: 'Large dogs OK',
   cat_experience: 'Cat experience', puppy_experience: 'Puppy experience',
@@ -394,7 +427,13 @@ function renderProfile(user, profile, services, attributes, checks, reviewsBlock
     : '';
 
   const servicesHtml = services.length > 0
-    ? `<div class="section fade-in"><div class="section-title">Services offered</div><div class="tag-grid">${services.map(s => `<span class="tag service">${SERVICE_LABELS[s.service_type] || s.service_type.replace(/_/g, ' ')}</span>`).join('')}</div></div>`
+    ? `<div class="section fade-in"><div class="section-title">Services &amp; pricing</div><div class="tag-grid">${
+        services.map(s => {
+          const label = esc(formatServiceLabel(s));
+          const price = formatPrice(s.price_cents);
+          return `<span class="tag service">${label}${price ? ` · <strong style="font-weight:600;">${price}</strong>` : ''}</span>`;
+        }).join('')
+      }</div></div>`
     : '';
 
   const attrsHtml = attributes.length > 0
@@ -472,7 +511,7 @@ async function loadProfile() {
     const [users, profiles, services, attributes, checks] = await Promise.all([
       sbGet('users', `id=eq.${userId}&select=first_name,last_name`),
       sbGet('provider_profiles', `user_id=eq.${userId}&select=*`),
-      sbGet('provider_services', `provider_id=eq.${userId}&select=service_type,is_available&is_available=eq.true`),
+      sbGet('provider_services', `provider_id=eq.${userId}&select=service_type,is_available,duration_mins,price_cents&is_available=eq.true&order=service_type.asc,duration_mins.asc.nullsfirst`),
       sbGet('provider_attributes', `provider_id=eq.${userId}&select=attribute,value&value=eq.true`),
       sbGet('provider_checks', `provider_id=eq.${userId}&select=check_type,status`).catch(() => [])
     ]);

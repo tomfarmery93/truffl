@@ -115,14 +115,62 @@
   .empty { text-align: center; padding: 2.5rem 1rem; color: var(--text-muted); font-size: 0.9rem; }
   .empty-icon { font-size: 2rem; margin-bottom: 0.75rem; opacity: 0.4; }
 
-  /* Services management */
-  .svc-list { display: flex; flex-direction: column; gap: 8px; }
-  .svc-item {
-    display: flex; align-items: center; justify-content: space-between;
-    padding: 12px 16px; background: var(--cream); border-radius: 10px;
+  /* Services management — TRU-13 editor */
+  .svc-intro { font-size: 0.85rem; color: var(--text-muted); margin-bottom: 1rem; line-height: 1.55; }
+  .svc-card {
+    background: var(--warm-white); border: 1px solid var(--border);
+    border-radius: 14px; padding: 1.25rem; margin-bottom: 1rem;
   }
-  .svc-item-name { font-size: 0.88rem; font-weight: 500; color: var(--text-primary); }
-  .svc-item-status { font-size: 0.78rem; color: var(--success); }
+  .svc-card-title {
+    font-family: 'Cormorant Garamond', serif; font-weight: 500;
+    font-size: 1.1rem; color: var(--brown); margin-bottom: 0.25rem;
+  }
+  .svc-card-help { font-size: 0.82rem; color: var(--text-muted); margin-bottom: 1rem; line-height: 1.55; }
+  .svc-row {
+    display: flex; align-items: center; gap: 12px;
+    padding: 10px 12px; border-radius: 10px; transition: background 0.15s;
+  }
+  .svc-row + .svc-row { margin-top: 4px; }
+  .svc-row.on { background: rgba(139,158,126,0.08); }
+  .svc-row.off { background: var(--cream); }
+  .svc-toggle {
+    width: 38px; height: 22px; border-radius: 22px; background: var(--border);
+    position: relative; cursor: pointer; flex-shrink: 0; transition: background 0.2s;
+    border: none; padding: 0;
+  }
+  .svc-toggle::after {
+    content: ''; position: absolute; width: 16px; height: 16px; border-radius: 50%;
+    background: white; top: 3px; left: 3px; transition: left 0.2s;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.15);
+  }
+  .svc-toggle.on { background: var(--sage); }
+  .svc-toggle.on::after { left: 19px; }
+  .svc-toggle:focus { outline: 2px solid var(--terracotta); outline-offset: 2px; }
+  .svc-row-label { flex: 1; font-size: 0.9rem; color: var(--text-primary); }
+  .svc-row-label .svc-row-unit { font-size: 0.78rem; color: var(--text-muted); margin-left: 6px; }
+  .svc-price-wrap {
+    display: flex; align-items: center; gap: 4px;
+    font-size: 0.88rem; color: var(--text-secondary);
+  }
+  .svc-price-wrap .dollar { color: var(--text-muted); }
+  .svc-price-input {
+    width: 76px; padding: 6px 10px; border: 1px solid var(--border); border-radius: 8px;
+    font-family: 'DM Sans', sans-serif; font-size: 0.88rem; color: var(--text-primary);
+    background: var(--warm-white); outline: none; text-align: right; transition: border-color 0.15s;
+  }
+  .svc-price-input:focus { border-color: var(--border-focus); }
+  .svc-row-status {
+    font-size: 0.72rem; color: var(--text-muted); min-width: 56px; text-align: right;
+  }
+  .svc-row-status.saved { color: var(--success); }
+  .svc-row-status.error { color: var(--error); }
+  @media (max-width: 480px) {
+    .svc-row { flex-wrap: wrap; gap: 8px; }
+    .svc-row-label { flex-basis: 100%; order: 2; }
+    .svc-toggle { order: 1; }
+    .svc-price-wrap { order: 3; }
+    .svc-row-status { order: 4; }
+  }
 
   /* Profile preview */
   .profile-preview {
@@ -231,6 +279,59 @@ async function sbPatch(table, col, val, updates) {
     method: 'PATCH', headers: { ...headers(authToken), 'Prefer':'return=representation' }, body: JSON.stringify(updates)
   });
   if (!r.ok) { const e = await r.json(); throw new Error(e.message); } return await r.json();
+}
+async function sbInsert(table, row) {
+  const r = await fetch(`${SUPABASE_URL}/rest/v1/${table}`, {
+    method: 'POST', headers: { ...headers(authToken), 'Prefer':'return=representation' }, body: JSON.stringify(row)
+  });
+  if (!r.ok) { const e = await r.json(); throw new Error(e.message); } return await r.json();
+}
+
+function esc(s) {
+  return (s == null ? '' : s.toString()).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+// TRU-13: walk durations offered to providers. Stored as duration_mins on provider_services.
+const WALK_DURATIONS = [
+  { mins: 30,  label: '30 minute walk' },
+  { mins: 60,  label: '60 minute walk' },
+  { mins: 90,  label: '90 minute walk' },
+  { mins: 120, label: '2 hour walk'    },
+  { mins: 180, label: '3 hour walk'    },
+];
+
+// Service catalog: which services exist, and how each is priced.
+// Services with `durations` render one toggleable row per duration; everything
+// else is a single row with a contextual unit hint ("per visit", "per night").
+const SERVICE_CATALOG = [
+  { service_type: 'dog_walking',  label: 'Dog walks',          help: 'Choose the walk lengths you offer and set a price for each.', durations: WALK_DURATIONS },
+  { service_type: 'dog_sitting',  label: 'Dog sitting',        help: 'Visiting a dog in their home.',                              unitHint: 'per visit' },
+  { service_type: 'dog_boarding', label: 'Dog boarding',       help: 'Hosting a dog overnight at your home.',                      unitHint: 'per night' },
+  { service_type: 'cat_sitting',  label: 'Cat sitting',        help: 'Visiting a cat in their home.',                              unitHint: 'per visit' },
+  { service_type: 'cat_boarding', label: 'Cat boarding',       help: 'Hosting a cat overnight at your home.',                      unitHint: 'per night' },
+  { service_type: 'pet_sitting',  label: 'Other pet sitting',  help: 'Caring for small pets — rabbits, birds, fish.',              unitHint: 'per visit' },
+];
+
+function findService(service_type, duration_mins) {
+  return providerServices.find(s =>
+    s.service_type === service_type &&
+    ((duration_mins == null && s.duration_mins == null) || s.duration_mins === duration_mins)
+  );
+}
+
+function priceToDollars(cents) {
+  if (cents == null || cents === '') return '';
+  const n = cents / 100;
+  return Number.isInteger(n) ? n.toString() : n.toFixed(2);
+}
+
+function dollarsToCents(s) {
+  if (s == null) return null;
+  const cleaned = s.toString().trim().replace(/[^0-9.]/g, '');
+  if (cleaned === '' || cleaned === '.') return null;
+  const n = parseFloat(cleaned);
+  if (isNaN(n) || n < 0) return null;
+  return Math.round(n * 100);
 }
 
 function showMsg(t, type) { const el = document.getElementById('dashMsg'); el.textContent = t; el.className = `msg ${type}`; }
@@ -372,23 +473,8 @@ function renderDashboard() {
     <!-- Bookings tab -->
     <div class="tab-content active" id="tab-bookings"></div>
 
-    <!-- Services tab -->
-    <div class="tab-content" id="tab-services">
-      <div class="card">
-        <div class="card-title">Your services</div>
-        <div class="svc-list">
-          ${providerServices.map(s => `
-            <div class="svc-item">
-              <span class="svc-item-name">${SERVICE_LABELS[s.service_type] || s.service_type.replace(/_/g,' ')}</span>
-              <span class="svc-item-status">${s.is_available ? 'Active' : 'Inactive'}</span>
-            </div>
-          `).join('') || '<div class="empty">No services added yet.</div>'}
-        </div>
-      </div>
-      <div style="margin-top:0.5rem;">
-        <a href="/login/" style="font-size:0.85rem;color:var(--terracotta);">Edit services →</a>
-      </div>
-    </div>
+    <!-- Services tab (TRU-13: editor rendered by renderServicesTab) -->
+    <div class="tab-content" id="tab-services"></div>
 
     <!-- Profile tab -->
     <div class="tab-content" id="tab-profile">
@@ -456,6 +542,138 @@ function renderDashboard() {
   `;
 
   renderBookingsTab();
+  renderServicesTab();
+}
+
+/* ── TRU-13: services & pricing editor ── */
+function renderServicesTab() {
+  const area = document.getElementById('tab-services');
+  if (!area) return;
+  let html = `<div class="svc-intro">Choose which services you offer and set your price for each. Customers see these on your public profile.</div>`;
+  for (const cat of SERVICE_CATALOG) {
+    html += `<div class="svc-card"><div class="svc-card-title">${esc(cat.label)}</div><div class="svc-card-help">${esc(cat.help)}</div>`;
+    if (cat.durations) {
+      for (const d of cat.durations) html += serviceRowHtml(cat.service_type, d.mins, d.label, null);
+    } else {
+      html += serviceRowHtml(cat.service_type, null, cat.label, cat.unitHint);
+    }
+    html += `</div>`;
+  }
+  area.innerHTML = html;
+}
+
+function serviceRowHtml(service_type, duration_mins, label, unitHint) {
+  const existing = findService(service_type, duration_mins);
+  const on = !!(existing && existing.is_available);
+  const price = existing ? priceToDollars(existing.price_cents) : '';
+  const slotId = `${service_type}__${duration_mins == null ? 'na' : duration_mins}`;
+  const durArg = duration_mins == null ? 'null' : duration_mins;
+  const unit = unitHint ? `<span class="svc-row-unit">· ${esc(unitHint)}</span>` : '';
+  return `
+    <div class="svc-row ${on ? 'on' : 'off'}" id="row-${slotId}">
+      <button class="svc-toggle ${on ? 'on' : ''}" type="button" aria-pressed="${on}" aria-label="Toggle ${esc(label)}" onclick="toggleService('${service_type}', ${durArg})"></button>
+      <div class="svc-row-label">${esc(label)}${unit}</div>
+      <div class="svc-price-wrap">
+        <span class="dollar">$</span>
+        <input class="svc-price-input" type="text" inputmode="decimal" placeholder="0"
+               value="${esc(price)}"
+               oninput="markRowDirty('${slotId}')"
+               onblur="saveServicePrice('${service_type}', ${durArg}, this.value)">
+      </div>
+      <div class="svc-row-status" id="status-${slotId}"></div>
+    </div>
+  `;
+}
+
+function refreshRowVisuals(service_type, duration_mins) {
+  const slotId = `${service_type}__${duration_mins == null ? 'na' : duration_mins}`;
+  const existing = findService(service_type, duration_mins);
+  const on = !!(existing && existing.is_available);
+  const rowEl = document.getElementById(`row-${slotId}`);
+  if (!rowEl) return;
+  rowEl.className = `svc-row ${on ? 'on' : 'off'}`;
+  const toggle = rowEl.querySelector('.svc-toggle');
+  if (toggle) {
+    toggle.className = `svc-toggle ${on ? 'on' : ''}`;
+    toggle.setAttribute('aria-pressed', String(on));
+  }
+}
+
+function setRowStatus(slotId, text, cls) {
+  const el = document.getElementById(`status-${slotId}`);
+  if (!el) return;
+  el.textContent = text;
+  el.className = `svc-row-status ${cls || ''}`;
+  if (cls === 'saved') {
+    setTimeout(() => {
+      if (el.textContent === text) { el.textContent = ''; el.className = 'svc-row-status'; }
+    }, 1500);
+  }
+}
+
+function markRowDirty(slotId) { setRowStatus(slotId, '', ''); }
+
+async function toggleService(service_type, duration_mins) {
+  const slotId = `${service_type}__${duration_mins == null ? 'na' : duration_mins}`;
+  const existing = findService(service_type, duration_mins);
+  const nextAvailable = !(existing && existing.is_available);
+  setRowStatus(slotId, 'Saving…', '');
+  try {
+    if (existing) {
+      const res = await sbPatch('provider_services', 'id', existing.id, { is_available: nextAvailable });
+      Object.assign(existing, Array.isArray(res) ? res[0] : res);
+    } else {
+      const row = { provider_id: authUid, service_type, duration_mins, is_available: true };
+      const res = await sbInsert('provider_services', row);
+      providerServices.push(Array.isArray(res) ? res[0] : res);
+    }
+    refreshRowVisuals(service_type, duration_mins);
+    setRowStatus(slotId, 'Saved', 'saved');
+  } catch (e) {
+    setRowStatus(slotId, 'Error', 'error');
+    showMsg(e.message, 'error');
+  }
+}
+
+async function saveServicePrice(service_type, duration_mins, raw) {
+  const slotId = `${service_type}__${duration_mins == null ? 'na' : duration_mins}`;
+  const trimmed = (raw || '').toString().trim();
+  const existing = findService(service_type, duration_mins);
+
+  // Empty input clears the price; if no row exists, nothing to do.
+  if (trimmed === '') {
+    if (!existing || existing.price_cents == null) { setRowStatus(slotId, '', ''); return; }
+    setRowStatus(slotId, 'Saving…', '');
+    try {
+      const res = await sbPatch('provider_services', 'id', existing.id, { price_cents: null });
+      Object.assign(existing, Array.isArray(res) ? res[0] : res);
+      setRowStatus(slotId, 'Saved', 'saved');
+    } catch (e) { setRowStatus(slotId, 'Error', 'error'); showMsg(e.message, 'error'); }
+    return;
+  }
+
+  const cents = dollarsToCents(trimmed);
+  if (cents == null) { setRowStatus(slotId, 'Invalid', 'error'); return; }
+  if (existing && existing.price_cents === cents) { setRowStatus(slotId, '', ''); return; }
+
+  setRowStatus(slotId, 'Saving…', '');
+  try {
+    if (existing) {
+      // Setting a price on a disabled row also re-enables it.
+      const patch = existing.is_available ? { price_cents: cents } : { price_cents: cents, is_available: true };
+      const res = await sbPatch('provider_services', 'id', existing.id, patch);
+      Object.assign(existing, Array.isArray(res) ? res[0] : res);
+    } else {
+      const row = { provider_id: authUid, service_type, duration_mins, price_cents: cents, is_available: true };
+      const res = await sbInsert('provider_services', row);
+      providerServices.push(Array.isArray(res) ? res[0] : res);
+    }
+    refreshRowVisuals(service_type, duration_mins);
+    setRowStatus(slotId, 'Saved', 'saved');
+  } catch (e) {
+    setRowStatus(slotId, 'Error', 'error');
+    showMsg(e.message, 'error');
+  }
 }
 
 async function init() {
