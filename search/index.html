@@ -691,7 +691,7 @@ async function fallbackSearch() {
   const userIds = profiles.map(p => p.user_id).filter(Boolean);
   const profileIds = profiles.map(p => p.id);
 
-  const users = userIds.length ? await sbPublic('users', `id=in.(${userIds.join(',')})&select=id,first_name,last_name`) : [];
+  const users = userIds.length ? await sbPublic('users', `id=in.(${userIds.join(',')})&select=id,first_name,last_name,avatar_url`) : [];
   const services = profileIds.length ? await sbPublic('provider_services', `provider_id=in.(${profileIds.join(',')})&is_available=eq.true&select=provider_id,service_type`) : [];
 
   const userMap = Object.fromEntries(users.map(u => [u.id, u]));
@@ -711,6 +711,7 @@ async function fallbackSearch() {
     is_verified: p.is_verified,
     first_name: userMap[p.user_id]?.first_name || '',
     last_name: userMap[p.user_id]?.last_name || '',
+    avatar_url: userMap[p.user_id]?.avatar_url || null,
     services: serviceMap[p.id] || [],
     created_at: p.created_at,
   }));
