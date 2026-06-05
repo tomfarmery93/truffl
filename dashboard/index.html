@@ -278,7 +278,14 @@ async function sbPatch(table, col, val, updates) {
   const r = await fetch(`${SUPABASE_URL}/rest/v1/${table}?${col}=eq.${val}`, {
     method: 'PATCH', headers: { ...headers(authToken), 'Prefer':'return=representation' }, body: JSON.stringify(updates)
   });
-  if (!r.ok) { const e = await r.json(); throw new Error(e.message); } return await r.json();
+  if (!r.ok) { const e = await r.json(); throw new Error(e.message); }
+  const data = await r.json();
+  // A PATCH-by-id that returns no rows means RLS blocked it (or the row is gone).
+  // Surface it instead of silently reporting success.
+  if (Array.isArray(data) && data.length === 0) {
+    throw new Error("Couldn't save — you may not have permission, or the item no longer exists.");
+  }
+  return data;
 }
 async function sbInsert(table, row) {
   const r = await fetch(`${SUPABASE_URL}/rest/v1/${table}`, {
