@@ -172,6 +172,8 @@ const SERVICE_LABELS = {
   pet_sitting: 'Other pet sitting'
 };
 
+const MULTI_DAY_SERVICES = ['dog_boarding', 'dog_sitting'];
+
 const SPECIES_ICONS = { dog: '🐕', cat: '🐈', other: '🐾' };
 
 let authToken = null, authUid = null;
@@ -209,6 +211,67 @@ function setLoading(btn, on) {
 function selectService(el, serviceId) {
   document.querySelectorAll('.service-option').forEach(s => s.classList.remove('selected'));
   el.classList.add('selected'); selectedServiceId = serviceId;
+  const svcType = el.querySelector('input')?.dataset.svcType;
+  document.getElementById('dateFields').innerHTML = renderDateFields(MULTI_DAY_SERVICES.includes(svcType));
+}
+
+function renderDateFields(isMultiDay) {
+  const tomorrow = new Date();
+  tomorrow.setDate(tomorrow.getDate() + 1);
+  const defaultDate = tomorrow.toISOString().split('T')[0];
+  if (isMultiDay) {
+    const dayAfter = new Date();
+    dayAfter.setDate(dayAfter.getDate() + 2);
+    const defaultEnd = dayAfter.toISOString().split('T')[0];
+    return `
+      <div class="field-row">
+        <div class="field">
+          <label>Check-in date</label>
+          <input type="date" id="bookDate" value="${defaultDate}" min="${defaultDate}">
+        </div>
+        <div class="field">
+          <label>Check-out date</label>
+          <input type="date" id="bookDateEnd" value="${defaultEnd}" min="${defaultDate}">
+        </div>
+      </div>
+    `;
+  }
+  return `
+    <div class="field-row">
+      <div class="field">
+        <label>Date</label>
+        <input type="date" id="bookDate" value="${defaultDate}" min="${defaultDate}">
+      </div>
+      <div class="field">
+        <label>Time</label>
+        <select id="bookTime">
+          <option value="07:00">7:00 AM</option>
+          <option value="07:30">7:30 AM</option>
+          <option value="08:00" selected>8:00 AM</option>
+          <option value="08:30">8:30 AM</option>
+          <option value="09:00">9:00 AM</option>
+          <option value="09:30">9:30 AM</option>
+          <option value="10:00">10:00 AM</option>
+          <option value="10:30">10:30 AM</option>
+          <option value="11:00">11:00 AM</option>
+          <option value="11:30">11:30 AM</option>
+          <option value="12:00">12:00 PM</option>
+          <option value="12:30">12:30 PM</option>
+          <option value="13:00">1:00 PM</option>
+          <option value="13:30">1:30 PM</option>
+          <option value="14:00">2:00 PM</option>
+          <option value="14:30">2:30 PM</option>
+          <option value="15:00">3:00 PM</option>
+          <option value="15:30">3:30 PM</option>
+          <option value="16:00">4:00 PM</option>
+          <option value="16:30">4:30 PM</option>
+          <option value="17:00">5:00 PM</option>
+          <option value="17:30">5:30 PM</option>
+          <option value="18:00">6:00 PM</option>
+        </select>
+      </div>
+    </div>
+  `;
 }
 
 function selectPet(el, petId) {
@@ -225,9 +288,9 @@ function renderBookingForm() {
     (s, i, arr) => arr.findIndex(x => x.service_type === s.service_type) === i
   );
 
-  const servicesHtml = uniqueServices.map(s => `
-    <label class="service-option" onclick="selectService(this, '${s.id}')">
-      <input type="radio" name="service" value="${s.id}">
+  const servicesHtml = uniqueServices.map((s, i) => `
+    <label class="service-option${i === 0 ? ' selected' : ''}" onclick="selectService(this, '${s.id}')">
+      <input type="radio" name="service" value="${s.id}" data-svc-type="${s.service_type}" ${i === 0 ? 'checked' : ''}>
       <div class="svc-name">${SERVICE_LABELS[s.service_type] || s.service_type.replace(/_/g, ' ')}</div>
     </label>
   `).join('');
@@ -240,13 +303,12 @@ function renderBookingForm() {
     </label>
   `).join('');
 
-  // Auto-select first pet
   if (customerPets.length > 0) selectedPetId = customerPets[0].id;
 
-  // Default date to tomorrow
-  const tomorrow = new Date();
-  tomorrow.setDate(tomorrow.getDate() + 1);
-  const defaultDate = tomorrow.toISOString().split('T')[0];
+  // Determine if first service is multi-day to set initial date fields
+  const firstSvcIsMultiDay = uniqueServices.length > 0 && MULTI_DAY_SERVICES.includes(uniqueServices[0].service_type);
+  // Auto-select first service
+  if (uniqueServices.length > 0) selectedServiceId = uniqueServices[0].id;
 
   area.innerHTML = `
     <div class="page-header">
@@ -268,40 +330,7 @@ function renderBookingForm() {
         <div class="service-grid">${servicesHtml}</div>
       </div>
 
-      <div class="field-row">
-        <div class="field">
-          <label>Date</label>
-          <input type="date" id="bookDate" value="${defaultDate}" min="${defaultDate}">
-        </div>
-        <div class="field">
-          <label>Time</label>
-          <select id="bookTime">
-            <option value="07:00">7:00 AM</option>
-            <option value="07:30">7:30 AM</option>
-            <option value="08:00" selected>8:00 AM</option>
-            <option value="08:30">8:30 AM</option>
-            <option value="09:00">9:00 AM</option>
-            <option value="09:30">9:30 AM</option>
-            <option value="10:00">10:00 AM</option>
-            <option value="10:30">10:30 AM</option>
-            <option value="11:00">11:00 AM</option>
-            <option value="11:30">11:30 AM</option>
-            <option value="12:00">12:00 PM</option>
-            <option value="12:30">12:30 PM</option>
-            <option value="13:00">1:00 PM</option>
-            <option value="13:30">1:30 PM</option>
-            <option value="14:00">2:00 PM</option>
-            <option value="14:30">2:30 PM</option>
-            <option value="15:00">3:00 PM</option>
-            <option value="15:30">3:30 PM</option>
-            <option value="16:00">4:00 PM</option>
-            <option value="16:30">4:30 PM</option>
-            <option value="17:00">5:00 PM</option>
-            <option value="17:30">5:30 PM</option>
-            <option value="18:00">6:00 PM</option>
-          </select>
-        </div>
-      </div>
+      <div id="dateFields">${renderDateFields(firstSvcIsMultiDay)}</div>
 
       ${customerPets.length > 1 ? `<div class="field"><label>Which pet?</label><div class="pet-grid">${petsHtml}</div></div>` : ''}
 
@@ -333,12 +362,23 @@ async function submitBooking() {
   if (!selectedPetId) return showMsg('No pet found on your account. Please add a pet first.', 'error');
 
   const date = document.getElementById('bookDate').value;
-  const time = document.getElementById('bookTime').value;
   const notes = document.getElementById('bookNotes').value.trim();
 
-  if (!date || !time) return showMsg('Please select a date and time.', 'error');
+  const selectedSvc = providerServices.find(s => s.id === selectedServiceId);
+  const isMultiDay = MULTI_DAY_SERVICES.includes(selectedSvc?.service_type);
 
-  const scheduledAt = new Date(`${date}T${time}:00`).toISOString();
+  let scheduledAt, endsAt = null;
+  if (isMultiDay) {
+    const dateEnd = document.getElementById('bookDateEnd')?.value;
+    if (!date || !dateEnd) return showMsg('Please select both a check-in and check-out date.', 'error');
+    if (dateEnd <= date) return showMsg('Check-out date must be after check-in date.', 'error');
+    scheduledAt = new Date(`${date}T12:00:00`).toISOString();
+    endsAt = new Date(`${dateEnd}T12:00:00`).toISOString();
+  } else {
+    const time = document.getElementById('bookTime')?.value;
+    if (!date || !time) return showMsg('Please select a date and time.', 'error');
+    scheduledAt = new Date(`${date}T${time}:00`).toISOString();
+  }
 
   const btn = document.querySelector('.btn-primary');
   setLoading(btn, true);
@@ -351,6 +391,7 @@ async function submitBooking() {
       service_id: selectedServiceId,
       status: 'pending',
       scheduled_at: scheduledAt,
+      ends_at: endsAt,
       total_cents: 0,
       customer_notes: notes || null
     }, authToken);

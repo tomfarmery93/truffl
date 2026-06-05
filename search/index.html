@@ -337,9 +337,11 @@ let myPets = [];
 let isLoading = false;
 
 const state = {
-  suburb: '', service: '', recurring: false, date: '', time: '',
+  suburb: '', service: '', recurring: false, date: '', dateEnd: '', time: '',
   days: [], size: '', puppy: false, petId: '', attributes: [], sort: 'best',
 };
+
+const MULTI_DAY_SERVICES = ['dog_boarding', 'dog_sitting'];
 
 /* ── FIX 1: Public REST helper — always uses anon key, never authToken ── */
 /* Used for all provider search queries so unauthenticated users can browse */
@@ -393,6 +395,7 @@ function readUrlParams() {
   state.suburb    = p.get('suburb')  || '';
   state.recurring = p.get('recurring') === 'true';
   state.date      = p.get('date') || '';
+  state.dateEnd   = p.get('date_end') || '';
   state.time      = p.get('time') || '';
   state.size      = p.get('size') || '';
   state.puppy     = p.get('puppy') === 'true';
@@ -410,6 +413,7 @@ function writeUrlParams() {
   set('suburb',  state.suburb);
   set('recurring', state.recurring ? 'true' : '');
   set('date', state.date);
+  set('date_end', state.dateEnd);
   set('time', state.time);
   set('size', state.size);
   set('puppy', state.puppy ? 'true' : '');
@@ -504,6 +508,10 @@ function renderFilterForm() {
   return html;
 }
 
+function isMultiDayService() {
+  return MULTI_DAY_SERVICES.includes(state.service);
+}
+
 function renderWhenFields() {
   if (state.recurring) {
     return `
@@ -515,6 +523,18 @@ function renderWhenFields() {
       <div class="input-row">
         <input type="date" class="input-base" id="inputDate" value="${esc(state.date)}" aria-label="Start date">
         <select class="input-base" id="inputTime" aria-label="Time">${timeOptions()}</select>
+      </div>
+    `;
+  }
+  if (isMultiDayService()) {
+    return `
+      <div class="input-row">
+        <input type="date" class="input-base" id="inputDate" value="${esc(state.date)}" aria-label="Check-in date">
+        <input type="date" class="input-base" id="inputDateEnd" value="${esc(state.dateEnd)}" aria-label="Check-out date">
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:2px;">
+        <span style="font-size:0.68rem;letter-spacing:.1em;text-transform:uppercase;color:var(--text-muted);padding-left:2px;">Check-in</span>
+        <span style="font-size:0.68rem;letter-spacing:.1em;text-transform:uppercase;color:var(--text-muted);padding-left:2px;">Check-out</span>
       </div>
     `;
   }
@@ -544,6 +564,9 @@ function wireFilterForm(root) {
       const v = tile.dataset.svc;
       state.service = (state.service === v) ? '' : v;
       document.querySelectorAll('.service-tile').forEach(t => t.classList.toggle('active', t.dataset.svc === state.service));
+      // Re-render when fields — multi-day vs single-date depends on service
+      document.querySelectorAll('#whenFields').forEach(el => el.innerHTML = renderWhenFields());
+      wireWhenFields();
     });
   });
 
@@ -601,6 +624,9 @@ function wireWhenFields(root) {
   scope.querySelectorAll('#inputDate').forEach(input => {
     input.addEventListener('change', e => { state.date = e.target.value; });
   });
+  scope.querySelectorAll('#inputDateEnd').forEach(input => {
+    input.addEventListener('change', e => { state.dateEnd = e.target.value; });
+  });
   scope.querySelectorAll('#inputTime').forEach(input => {
     input.addEventListener('change', e => { state.time = e.target.value; });
   });
@@ -641,7 +667,8 @@ function renderMobileSummary() {
   const sec = [];
   if (state.recurring && state.days.length) sec.push(state.days.map(d => DAY_FULL[d]).join('/'));
   else if (state.recurring) sec.push('Recurring');
-  if (state.date) sec.push(state.date);
+  if (state.date && state.dateEnd) sec.push(state.date + ' → ' + state.dateEnd);
+  else if (state.date) sec.push(state.date);
   if (state.time) sec.push(state.time);
   if (state.size) sec.push(state.size + ' dog');
   document.getElementById('msSecondary').textContent = sec.join(' · ') || 'Tap to refine';
@@ -926,7 +953,7 @@ async function runSearch() {
 }
 
 function clearFilters() {
-  state.suburb = ''; state.service = ''; state.recurring = false; state.date = '';
+  state.suburb = ''; state.service = ''; state.recurring = false; state.date = ''; state.dateEnd = '';
   state.time = ''; state.days = []; state.size = ''; state.puppy = false;
   state.petId = ''; state.attributes = []; state.sort = 'best';
   mountFilterForm();
