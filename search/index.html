@@ -79,6 +79,9 @@
 
   /* Date / time inputs */
   .input-row { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+  /* Grid items default to min-width:auto; date inputs have a large intrinsic
+     min-width and would otherwise blow out of the 300px sidebar track. */
+  .input-row > * { min-width: 0; }
   .input-base { width: 100%; padding: 9px 11px; border: 1px solid var(--border); border-radius: 10px; font-family: 'DM Sans', sans-serif; font-size: 0.85rem; color: var(--text-primary); background: var(--warm-white); outline: none; transition: border-color 0.2s, box-shadow 0.2s; }
   .input-base:focus { border-color: var(--border-focus); box-shadow: 0 0 0 3px rgba(196,117,91,0.10); }
 
