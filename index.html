@@ -401,7 +401,6 @@
         <button type="button" class="svc-chip" data-svc="dog_sitting" role="radio" aria-checked="false"><span class="svc-icon-emoji">🛋️</span> Dog sitting <span class="svc-sub">· In your home</span></button>
         <button type="button" class="svc-chip" data-svc="dog_daycare" role="radio" aria-checked="false"><span class="svc-icon-emoji">☀️</span> Dog daycare <span class="svc-sub">· Work hours</span></button>
         <button type="button" class="svc-chip" data-svc="drop_in" role="radio" aria-checked="false"><span class="svc-icon-emoji">🐾</span> Drop-in visit <span class="svc-sub">· Check on your pet</span></button>
-        <button type="button" class="svc-chip" data-svc="cat_sitting" role="radio" aria-checked="false"><span class="svc-icon-emoji">🐱</span> Cat sitting <span class="svc-sub">· In your home</span></button>
       </div>
 
       <div class="when-row">
@@ -461,10 +460,6 @@
           <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
           Daycare in Inner West
         </button>
-        <button type="button" class="suggestion-chip" data-suggest="cat-weekend">
-          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
-          Cat sitting · weekend away
-        </button>
       </div>
     </div>
   </div>
@@ -487,7 +482,6 @@
       dog_sitting:  { label: 'Dog sitting',   emoji: '🛋️' },
       dog_daycare:  { label: 'Dog daycare',   emoji: '☀️' },
       drop_in:      { label: 'Drop-in visit', emoji: '🐾' },
-      cat_sitting:  { label: 'Cat sitting',   emoji: '🐱' },
     };
     const DAY_FULL = { mon:'Mon', tue:'Tue', wed:'Wed', thu:'Thu', fri:'Fri', sat:'Sat', sun:'Sun' };
 
@@ -637,8 +631,6 @@
           state.service = 'dog_boarding'; state.recurring = false;
         } else if (k === 'daycare-inner-west') {
           state.service = 'dog_daycare'; state.suburb = 'Inner West';
-        } else if (k === 'cat-weekend') {
-          state.service = 'cat_sitting'; state.recurring = false;
         }
         applyStateToFormUI();
         form.requestSubmit();
@@ -729,15 +721,6 @@
         <div class="svc-name">Dog sitting</div>
         <div class="svc-desc">In-home visits so your dog stays comfortable in their own environment while you're away.</div>
         <div class="svc-price">From $40 / visit</div>
-      </a>
-      <a href="/search/" class="svc-card">
-        <div class="svc-num">04</div>
-        <div class="svc-icon">
-          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#7A6860" stroke-width="1.5" stroke-linecap="round"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2z"/><path d="M8 14s1.5 2 4 2 4-2 4-2"/><line x1="9" y1="9" x2="9.01" y2="9"/><line x1="15" y1="9" x2="15.01" y2="9"/></svg>
-        </div>
-        <div class="svc-name">Cat sitting</div>
-        <div class="svc-desc">Regular visits, feeding, play and photo updates so you know your cat is happy and settled.</div>
-        <div class="svc-price">From $30 / visit</div>
       </a>
     </div>
   </section>

@@ -287,15 +287,13 @@ const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBh
 
 const SERVICE_LABELS = {
   dog_walking: 'Dog walking', dog_sitting: 'Dog sitting', dog_boarding: 'Dog boarding',
-  cat_sitting: 'Cat sitting', cat_boarding: 'Cat boarding', pet_sitting: 'Other pet sitting'
+  pet_sitting: 'Other pet sitting'
 };
 
 // Hint shown after non-walk services so customers know what the price covers.
 const SERVICE_UNIT_HINT = {
   dog_sitting:  'per visit',
   dog_boarding: 'per night',
-  cat_sitting:  'per visit',
-  cat_boarding: 'per night',
   pet_sitting:  'per visit',
 };
 
@@ -325,7 +323,7 @@ function formatPrice(cents) {
 
 const ATTR_LABELS = {
   has_car: 'Own vehicle', outdoor_space: 'Garden / yard', large_dogs_ok: 'Large dogs OK',
-  cat_experience: 'Cat experience', puppy_experience: 'Puppy experience',
+  puppy_experience: 'Puppy experience',
   senior_pets_ok: 'Senior / special needs', reactive_dogs_ok: 'Reactive dogs OK',
   water_confident: 'Water / swim confident'
 };
