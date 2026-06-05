@@ -512,6 +512,17 @@ function isMultiDayService() {
   return MULTI_DAY_SERVICES.includes(state.service);
 }
 
+/* Boarding/sitting are always one-off multi-day stays — hide the
+   One-off/Recurring toggle and force recurring off for those services. */
+function syncWhenSection() {
+  const multi = isMultiDayService();
+  if (multi && state.recurring) state.recurring = false;
+  document.querySelectorAll('.segmented').forEach(el => el.style.display = multi ? 'none' : 'flex');
+  document.querySelectorAll('.segmented button').forEach(b => b.classList.toggle('active', (b.dataset.rec === 'true') === state.recurring));
+  document.querySelectorAll('#whenFields').forEach(el => el.innerHTML = renderWhenFields());
+  wireWhenFields();
+}
+
 function renderWhenFields() {
   if (state.recurring) {
     return `
@@ -529,12 +540,14 @@ function renderWhenFields() {
   if (isMultiDayService()) {
     return `
       <div class="input-row">
-        <input type="date" class="input-base" id="inputDate" value="${esc(state.date)}" aria-label="Check-in date">
-        <input type="date" class="input-base" id="inputDateEnd" value="${esc(state.dateEnd)}" aria-label="Check-out date">
-      </div>
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:2px;">
-        <span style="font-size:0.68rem;letter-spacing:.1em;text-transform:uppercase;color:var(--text-muted);padding-left:2px;">Check-in</span>
-        <span style="font-size:0.68rem;letter-spacing:.1em;text-transform:uppercase;color:var(--text-muted);padding-left:2px;">Check-out</span>
+        <div>
+          <div class="field-label" style="margin-bottom:5px;">Check-in</div>
+          <input type="date" class="input-base" id="inputDate" value="${esc(state.date)}" aria-label="Check-in date">
+        </div>
+        <div>
+          <div class="field-label" style="margin-bottom:5px;">Check-out</div>
+          <input type="date" class="input-base" id="inputDateEnd" value="${esc(state.dateEnd)}" aria-label="Check-out date">
+        </div>
       </div>
     `;
   }
@@ -553,6 +566,7 @@ function mountFilterForm() {
   mobile.innerHTML = renderFilterForm();
   wireFilterForm(desktop);
   wireFilterForm(mobile);
+  syncWhenSection();
 }
 
 function wireFilterForm(root) {
@@ -565,8 +579,7 @@ function wireFilterForm(root) {
       state.service = (state.service === v) ? '' : v;
       document.querySelectorAll('.service-tile').forEach(t => t.classList.toggle('active', t.dataset.svc === state.service));
       // Re-render when fields — multi-day vs single-date depends on service
-      document.querySelectorAll('#whenFields').forEach(el => el.innerHTML = renderWhenFields());
-      wireWhenFields();
+      syncWhenSection();
     });
   });
 
