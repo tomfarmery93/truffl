@@ -259,7 +259,7 @@ const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBh
 
 const SERVICE_LABELS = {
   dog_walking:'Dog walking', dog_sitting:'Dog sitting', dog_boarding:'Dog boarding',
-  cat_sitting:'Cat sitting', cat_boarding:'Cat boarding', pet_sitting:'Other pet sitting'
+  pet_sitting:'Other pet sitting'
 };
 
 let authToken = null, authUid = null;
@@ -314,8 +314,6 @@ const SERVICE_CATALOG = [
   { service_type: 'dog_walking',  label: 'Dog walks',          help: 'Choose the walk lengths you offer and set a price for each.', durations: WALK_DURATIONS },
   { service_type: 'dog_sitting',  label: 'Dog sitting',        help: 'Visiting a dog in their home.',                              unitHint: 'per visit' },
   { service_type: 'dog_boarding', label: 'Dog boarding',       help: 'Hosting a dog overnight at your home.',                      unitHint: 'per night' },
-  { service_type: 'cat_sitting',  label: 'Cat sitting',        help: 'Visiting a cat in their home.',                              unitHint: 'per visit' },
-  { service_type: 'cat_boarding', label: 'Cat boarding',       help: 'Hosting a cat overnight at your home.',                      unitHint: 'per night' },
   { service_type: 'pet_sitting',  label: 'Other pet sitting',  help: 'Caring for small pets — rabbits, birds, fish.',              unitHint: 'per visit' },
 ];
 
