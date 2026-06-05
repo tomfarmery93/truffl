@@ -591,6 +591,9 @@ async function fallbackSearch() {
   }));
 }
 
+// Re-run search immediately when the service filter changes
+document.getElementById('filterService').addEventListener('change', () => searchProviders());
+
 // Also search when pressing Enter in the suburb field
 document.getElementById('filterSuburb').addEventListener('keydown', e => {
   if (e.key === 'Enter') searchProviders();
