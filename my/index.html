@@ -406,7 +406,7 @@ function renderAccountTab() {
 
 function renderDashboard() {
   const initials = ((userData.first_name || '')[0] || '').toUpperCase() + ((userData.last_name || '')[0] || '').toUpperCase();
-  document.getElementById('navUser').innerHTML = `<div class="nav-avatar">${esc(initials)}</div><span class="nav-name">${esc(userData.first_name)}</span>`;
+  document.getElementById('navUser').innerHTML = `<a href="/profile/" title="Your profile" style="display:flex;align-items:center;gap:8px;text-decoration:none;color:inherit;"><div class="nav-avatar">${esc(initials)}</div><span class="nav-name">${esc(userData.first_name)}</span></a>`;
 
   const inProgress = bookings.filter(b => b.status === 'in_progress');
   const welcomeSub = inProgress.length > 0
@@ -507,7 +507,7 @@ async function saveDetails() {
     editingDetails = false;
     clearMsg();
     const initials = (fn[0] || '').toUpperCase() + (ln[0] || '').toUpperCase();
-    document.getElementById('navUser').innerHTML = `<div class="nav-avatar">${esc(initials)}</div><span class="nav-name">${esc(fn)}</span>`;
+    document.getElementById('navUser').innerHTML = `<a href="/profile/" title="Your profile" style="display:flex;align-items:center;gap:8px;text-decoration:none;color:inherit;"><div class="nav-avatar">${esc(initials)}</div><span class="nav-name">${esc(fn)}</span></a>`;
     renderAccountTab();
   } catch(e) { showMsg(e.message, 'error'); }
 }

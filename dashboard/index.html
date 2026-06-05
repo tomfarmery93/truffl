@@ -455,7 +455,7 @@ function renderBookingsTab() {
 
 function renderDashboard() {
   const initials = ((userData.first_name||'')[0]||'') + ((userData.last_name||'')[0]||'');
-  document.getElementById('navUser').innerHTML = `<div class="nav-avatar">${initials}</div><span class="nav-name">${userData.first_name}</span>`;
+  document.getElementById('navUser').innerHTML = `<a href="/profile/" title="Your profile" style="display:flex;align-items:center;gap:8px;text-decoration:none;color:inherit;"><div class="nav-avatar">${initials}</div><span class="nav-name">${userData.first_name}</span></a>`;
 
   const pending = bookings.filter(b => b.status === 'pending');
   const confirmed = bookings.filter(b => b.status === 'confirmed');
