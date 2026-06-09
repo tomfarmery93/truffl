@@ -83,8 +83,22 @@
   /* Inline form elements */
   .inline-field{margin-bottom:10px;}
   .inline-field label{display:block;font-size:0.78rem;font-weight:500;color:var(--text-secondary);margin-bottom:4px;}
-  .inline-field input{width:100%;padding:8px 12px;border:1px solid var(--border);border-radius:8px;font-family:'DM Sans',sans-serif;font-size:0.88rem;color:var(--text-primary);background:var(--warm-white);outline:none;transition:border-color 0.2s;}
-  .inline-field input:focus{border-color:var(--border-focus);}
+  .inline-field input,.inline-field select,.inline-field textarea{width:100%;padding:8px 12px;border:1px solid var(--border);border-radius:8px;font-family:'DM Sans',sans-serif;font-size:0.88rem;color:var(--text-primary);background:var(--warm-white);outline:none;transition:border-color 0.2s;}
+  .inline-field input:focus,.inline-field select:focus,.inline-field textarea:focus{border-color:var(--border-focus);}
+  .inline-field textarea{resize:vertical;min-height:48px;line-height:1.4;}
+  .inline-field .opt{color:var(--text-muted);font-weight:400;}
+  .pet-form-row{display:grid;grid-template-columns:1fr 1fr;gap:10px;}
+  .pet-form-row>*{min-width:0;}
+  .pet-checkbox{display:flex;align-items:center;gap:8px;font-size:0.85rem;color:var(--text-secondary);margin-bottom:10px;cursor:pointer;user-select:none;}
+  .pet-checkbox input{width:auto;accent-color:var(--terracotta);cursor:pointer;}
+  /* Pet photo */
+  .pet-avatar{width:44px;height:44px;border-radius:50%;background:var(--blush);display:flex;align-items:center;justify-content:center;font-family:'Cormorant Garamond',serif;font-size:1.1rem;font-weight:600;color:var(--brown);flex-shrink:0;overflow:hidden;}
+  .pet-avatar img{width:100%;height:100%;object-fit:cover;}
+  .pet-card-id{display:flex;align-items:center;gap:12px;min-width:0;}
+  .pet-photo-control{display:flex;align-items:center;gap:12px;margin-bottom:12px;}
+  .pet-photo-btn{padding:7px 14px;background:transparent;border:1px solid var(--border);border-radius:8px;font-size:0.8rem;color:var(--text-secondary);cursor:pointer;font-family:'DM Sans',sans-serif;}
+  .pet-photo-btn:hover{border-color:var(--terracotta);color:var(--terracotta);}
+  .pet-upload-status{font-size:0.78rem;color:var(--text-muted);}
   .inline-form-actions{display:flex;gap:8px;margin-top:12px;}
   .btn-save{padding:8px 18px;background:var(--terracotta);color:white;border:none;border-radius:8px;font-size:0.82rem;font-weight:500;cursor:pointer;font-family:'DM Sans',sans-serif;transition:background 0.2s;}
   .btn-save:hover{background:var(--terracotta-light);}
@@ -169,6 +183,72 @@ let authToken = null, authUid = null;
 let userData = null, customerProfile = null;
 let bookings = [], pets = [];
 let pendingCancelId = null, editingPetId = null, addingPet = false, editingDetails = false;
+let addPetPhotoUrl = null;
+
+const ALLOWED_PHOTO_TYPES = ['image/png', 'image/jpeg', 'image/webp'];
+const MAX_PHOTO_BYTES = 5 * 1024 * 1024;
+const PET_SEX_LABELS = { male: 'Male', female: 'Female' };
+
+/* Shared pet form — idp is an id prefix so add/edit forms don't collide */
+function petFormFields(idp, p = {}) {
+  return `
+    <div class="inline-field"><label>Name</label><input id="${idp}name" value="${esc(p.name || '')}" placeholder="e.g. Flick"></div>
+    <div class="pet-form-row">
+      <div class="inline-field"><label>Breed <span class="opt">(optional)</span></label><input id="${idp}breed" value="${esc(p.breed || '')}" placeholder="e.g. Springer Spaniel"></div>
+      <div class="inline-field"><label>Sex <span class="opt">(optional)</span></label><select id="${idp}sex"><option value="">—</option><option value="male" ${p.sex === 'male' ? 'selected' : ''}>Male</option><option value="female" ${p.sex === 'female' ? 'selected' : ''}>Female</option></select></div>
+    </div>
+    <div class="pet-form-row">
+      <div class="inline-field"><label>Age (years) <span class="opt">(optional)</span></label><input id="${idp}age" type="number" min="0" max="40" value="${p.age_years ?? ''}"></div>
+      <div class="inline-field"><label>Weight (kg) <span class="opt">(optional)</span></label><input id="${idp}weight" type="number" min="0" max="120" step="0.1" value="${p.weight_kg ?? ''}"></div>
+    </div>
+    <label class="pet-checkbox"><input type="checkbox" id="${idp}desexed" ${p.is_desexed ? 'checked' : ''}> Desexed</label>
+    <div class="inline-field"><label>Microchip no. <span class="opt">(optional)</span></label><input id="${idp}chip" value="${esc(p.microchip_no || '')}"></div>
+    <div class="pet-form-row">
+      <div class="inline-field"><label>Vet name <span class="opt">(optional)</span></label><input id="${idp}vetname" value="${esc(p.vet_name || '')}"></div>
+      <div class="inline-field"><label>Vet phone <span class="opt">(optional)</span></label><input id="${idp}vetphone" value="${esc(p.vet_phone || '')}"></div>
+    </div>
+    <div class="inline-field"><label>Medical notes <span class="opt">(optional)</span></label><textarea id="${idp}medical" rows="2" placeholder="Allergies, medication, conditions…">${esc(p.medical_notes || '')}</textarea></div>
+    <div class="inline-field"><label>Behaviour notes <span class="opt">(optional)</span></label><textarea id="${idp}behaviour" rows="2" placeholder="Temperament, triggers, what they love…">${esc(p.behaviour_notes || '')}</textarea></div>
+  `;
+}
+
+/* Read a pet form into a column-keyed object. Empty strings become null. */
+function collectPetForm(idp) {
+  const val = id => (document.getElementById(idp + id) || {}).value;
+  const name = (val('name') || '').trim();
+  const num = id => { const v = (val(id) || '').trim(); return v === '' ? null : Number(v); };
+  const str = id => { const v = (val(id) || '').trim(); return v === '' ? null : v; };
+  return {
+    name,
+    breed: str('breed'),
+    sex: str('sex'),
+    age_years: num('age'),
+    weight_kg: num('weight'),
+    is_desexed: !!(document.getElementById(idp + 'desexed') || {}).checked,
+    microchip_no: str('chip'),
+    vet_name: str('vetname'),
+    vet_phone: str('vetphone'),
+    medical_notes: str('medical'),
+    behaviour_notes: str('behaviour'),
+  };
+}
+
+function petInitial(p) {
+  return ((p.name || '?')[0] || '?').toUpperCase();
+}
+function petAvatarHtml(p) {
+  return p.photo_url
+    ? `<div class="pet-avatar"><img src="${esc(p.photo_url)}" alt=""></div>`
+    : `<div class="pet-avatar">${esc(petInitial(p))}</div>`;
+}
+function petMetaLine(p) {
+  const parts = [];
+  if (p.breed) parts.push(esc(p.breed));
+  if (p.sex && PET_SEX_LABELS[p.sex]) parts.push(PET_SEX_LABELS[p.sex]);
+  if (p.age_years != null) parts.push(p.age_years + (p.age_years === 1 ? ' yr' : ' yrs'));
+  if (p.weight_kg != null) parts.push(p.weight_kg + 'kg');
+  return parts.join(' · ');
+}
 
 function h(token) {
   const hd = { 'Content-Type': 'application/json', 'apikey': SUPABASE_ANON_KEY, 'Authorization': `Bearer ${SUPABASE_ANON_KEY}` };
@@ -329,12 +409,16 @@ function renderAccountTab() {
       if (editingPetId === p.id) {
         return `
           <div class="pet-card">
-            <div class="pet-card-header">
-              <div><div class="pet-name">${esc(p.name)}</div></div>
+            <div class="pet-photo-control">
+              ${petAvatarHtml(p)}
+              <div>
+                <button class="pet-photo-btn" onclick="document.getElementById('pet-edit-photo-${p.id}').click()">${p.photo_url ? 'Change photo' : 'Add photo'}</button>
+                <span class="pet-upload-status" id="pet-edit-photo-status-${p.id}"></span>
+                <input type="file" id="pet-edit-photo-${p.id}" accept="image/png,image/jpeg,image/webp" style="display:none;" onchange="uploadPetPhoto(this, '${p.id}')">
+              </div>
             </div>
-            <div class="pet-edit-form">
-              <div class="inline-field"><label>Name</label><input id="pet-edit-name-${p.id}" value="${esc(p.name)}"></div>
-              <div class="inline-field"><label>Breed</label><input id="pet-edit-breed-${p.id}" value="${esc(p.breed || '')}"></div>
+            <div class="pet-edit-form" style="border-top:0;padding-top:0;margin-top:0;">
+              ${petFormFields('pet-edit-' + p.id + '-', p)}
               <div class="inline-form-actions">
                 <button class="btn-save" onclick="savePet('${p.id}')">Save</button>
                 <button class="btn-discard" onclick="cancelPetEdit()">Cancel</button>
@@ -343,13 +427,16 @@ function renderAccountTab() {
           </div>
         `;
       }
-      const meta = [p.breed, p.species].filter(Boolean).map(esc).join(' · ');
+      const meta = petMetaLine(p);
       return `
         <div class="pet-card">
           <div class="pet-card-header">
-            <div>
-              <div class="pet-name">${esc(p.name)}</div>
-              ${meta ? `<div class="pet-meta">${meta}</div>` : ''}
+            <div class="pet-card-id">
+              ${petAvatarHtml(p)}
+              <div style="min-width:0;">
+                <div class="pet-name">${esc(p.name)}</div>
+                ${meta ? `<div class="pet-meta">${meta}</div>` : ''}
+              </div>
             </div>
             <div class="pet-actions">
               <button class="btn-ghost" onclick="showPetEdit('${p.id}')">Edit</button>
@@ -361,10 +448,20 @@ function renderAccountTab() {
     }).join('');
   }
 
+  const addPhoto = addPetPhotoUrl
+    ? `<div class="pet-avatar"><img src="${esc(addPetPhotoUrl)}" alt=""></div>`
+    : `<div class="pet-avatar">?</div>`;
   const addPetHtml = addingPet ? `
     <div class="pet-card" style="margin-top:0.5rem;">
-      <div class="inline-field"><label>Name</label><input id="new-pet-name" placeholder="e.g. Flick"></div>
-      <div class="inline-field"><label>Breed <span style="color:var(--text-muted);font-weight:400;">(optional)</span></label><input id="new-pet-breed" placeholder="e.g. Springer Spaniel"></div>
+      <div class="pet-photo-control">
+        ${addPhoto}
+        <div>
+          <button class="pet-photo-btn" onclick="document.getElementById('new-pet-photo').click()">${addPetPhotoUrl ? 'Change photo' : 'Add photo'}</button>
+          <span class="pet-upload-status" id="new-pet-photo-status"></span>
+          <input type="file" id="new-pet-photo" accept="image/png,image/jpeg,image/webp" style="display:none;" onchange="uploadPetPhoto(this, null)">
+        </div>
+      </div>
+      ${petFormFields('new-pet-')}
       <div class="inline-form-actions">
         <button class="btn-save" onclick="submitAddPet()">Add pet</button>
         <button class="btn-discard" onclick="cancelAddPet()">Cancel</button>
@@ -455,13 +552,13 @@ function showPetEdit(id) { editingPetId = id; renderAccountTab(); }
 function cancelPetEdit() { editingPetId = null; renderAccountTab(); }
 
 async function savePet(id) {
-  const name = (document.getElementById(`pet-edit-name-${id}`) || {}).value?.trim();
-  const breed = (document.getElementById(`pet-edit-breed-${id}`) || {}).value?.trim();
-  if (!name) return showMsg('Pet name is required.', 'error');
+  const fields = collectPetForm('pet-edit-' + id + '-');
+  if (!fields.name) return showMsg('Pet name is required.', 'error');
   try {
-    await sbPatch('pets', 'id', id, { name, breed: breed || null });
+    const saved = await sbPatch('pets', 'id', id, fields);
+    const row = Array.isArray(saved) ? saved[0] : saved;
     const p = pets.find(x => x.id === id);
-    if (p) { p.name = name; p.breed = breed || null; }
+    if (p && row) Object.assign(p, row);
     editingPetId = null;
     clearMsg();
     renderAccountTab();
@@ -476,21 +573,75 @@ async function removePet(id) {
   } catch(e) { showMsg(e.message, 'error'); }
 }
 
-function showAddPet() { addingPet = true; renderAccountTab(); }
-function cancelAddPet() { addingPet = false; renderAccountTab(); }
+function showAddPet() { addingPet = true; addPetPhotoUrl = null; renderAccountTab(); }
+function cancelAddPet() { addingPet = false; addPetPhotoUrl = null; renderAccountTab(); }
 
 async function submitAddPet() {
-  const name = (document.getElementById('new-pet-name') || {}).value?.trim();
-  const breed = (document.getElementById('new-pet-breed') || {}).value?.trim();
-  if (!name) return showMsg('Pet name is required.', 'error');
+  const fields = collectPetForm('new-pet-');
+  if (!fields.name) return showMsg('Pet name is required.', 'error');
   try {
-    const result = await sbInsert('pets', { customer_id: customerProfile.id, name, breed: breed || null, is_active: true });
+    const result = await sbInsert('pets', {
+      customer_id: customerProfile.id,
+      species: 'dog',
+      is_active: true,
+      photo_url: addPetPhotoUrl || null,
+      ...fields,
+    });
     const newPet = Array.isArray(result) ? result[0] : result;
     if (newPet) pets.push(newPet);
     addingPet = false;
+    addPetPhotoUrl = null;
     clearMsg();
     renderAccountTab();
   } catch(e) { showMsg(e.message, 'error'); }
+}
+
+/* Upload a pet photo to the profile-photos bucket. petId = null for the add form.
+   Updates the avatar in place so unsaved text fields aren't wiped by a re-render. */
+async function uploadPetPhoto(input, petId) {
+  const file = input.files && input.files[0];
+  if (!file) return;
+  clearMsg();
+  const statusId = petId ? `pet-edit-photo-status-${petId}` : 'new-pet-photo-status';
+  const status = document.getElementById(statusId);
+  if (!ALLOWED_PHOTO_TYPES.includes(file.type)) { showMsg('Please choose a JPG, PNG or WebP image.', 'error'); input.value = ''; return; }
+  if (file.size > MAX_PHOTO_BYTES) { showMsg('That image is over 5MB — please choose a smaller file.', 'error'); input.value = ''; return; }
+
+  if (status) status.textContent = 'Uploading…';
+  try {
+    const ext = (file.name.split('.').pop() || 'jpg').toLowerCase();
+    // Storage policy requires the first path segment to be the user's id.
+    const path = `${authUid}/pet_${Date.now()}.${ext}`;
+    const up = await fetch(`${SUPABASE_URL}/storage/v1/object/profile-photos/${path}`, {
+      method: 'POST',
+      headers: { 'apikey': SUPABASE_ANON_KEY, 'Authorization': `Bearer ${authToken}`, 'Content-Type': file.type },
+      body: file
+    });
+    if (!up.ok) { const e = await up.json().catch(() => ({})); throw new Error(e.message || e.error || 'Upload failed.'); }
+    const publicUrl = `${SUPABASE_URL}/storage/v1/object/public/profile-photos/${path}`;
+
+    if (petId) {
+      await sbPatch('pets', 'id', petId, { photo_url: publicUrl });
+      const p = pets.find(x => x.id === petId);
+      if (p) p.photo_url = publicUrl;
+    } else {
+      addPetPhotoUrl = publicUrl;
+    }
+    // Update the avatar + button in place (no re-render — preserves form input)
+    const control = input.closest('.pet-photo-control');
+    if (control) {
+      const avatar = control.querySelector('.pet-avatar');
+      if (avatar) avatar.innerHTML = `<img src="${esc(publicUrl)}" alt="">`;
+      const btn = control.querySelector('.pet-photo-btn');
+      if (btn) btn.textContent = 'Change photo';
+    }
+    if (status) status.textContent = '';
+  } catch(e) {
+    if (status) status.textContent = '';
+    showMsg(e.message, 'error');
+  } finally {
+    input.value = '';
+  }
 }
 
 /* ── User details ── */
