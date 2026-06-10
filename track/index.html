@@ -444,8 +444,17 @@ async function init() {
     } catch (e) {}
 
     try {
-      const pets = await sbGet('pets', `id=eq.${booking.pet_id}&select=name,breed`);
-      if (pets.length) { petName = pets[0].name; petBreed = pets[0].breed || ''; }
+      let pets = [];
+      try {
+        const bp = await sbGet('booking_pets', `booking_id=eq.${bookingId}&select=pet_id`);
+        const ids = bp.map(r => r.pet_id).filter(Boolean);
+        if (ids.length) pets = await sbGet('pets', `id=in.(${ids.join(',')})&select=name,breed`);
+      } catch (e) {}
+      if (!pets.length && booking.pet_id) pets = await sbGet('pets', `id=eq.${booking.pet_id}&select=name,breed`);
+      if (pets.length) {
+        petName = pets.map(p => p.name).filter(Boolean).join(' + ');
+        petBreed = pets.length === 1 ? (pets[0].breed || '') : '';
+      }
     } catch (e) {}
 
     const sessions = await sbGet('walk_sessions', `booking_id=eq.${bookingId}&select=*&order=created_at.desc&limit=1`);

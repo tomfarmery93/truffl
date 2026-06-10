@@ -179,7 +179,7 @@ const SPECIES_ICONS = { dog: '🐕', cat: '🐈', other: '🐾' };
 let authToken = null, authUid = null;
 let providerData = null, providerProfile = null, providerServices = [];
 let customerProfile = null, customerPets = [];
-let selectedServiceId = null, selectedPetId = null;
+let selectedServiceId = null, selectedPetIds = [];
 
 function headers(token) {
   const h = { 'Content-Type': 'application/json', 'apikey': SUPABASE_ANON_KEY, 'Authorization': `Bearer ${SUPABASE_ANON_KEY}` };
@@ -274,9 +274,13 @@ function renderDateFields(isMultiDay) {
   `;
 }
 
-function selectPet(el, petId) {
-  document.querySelectorAll('.pet-option').forEach(p => p.classList.remove('selected'));
-  el.classList.add('selected'); selectedPetId = petId;
+function onPetToggle(input) {
+  const petId = input.value;
+  const i = selectedPetIds.indexOf(petId);
+  if (input.checked && i < 0) selectedPetIds.push(petId);
+  else if (!input.checked && i >= 0) selectedPetIds.splice(i, 1);
+  const opt = input.closest('.pet-option');
+  if (opt) opt.classList.toggle('selected', input.checked);
 }
 
 function renderBookingForm() {
@@ -296,14 +300,14 @@ function renderBookingForm() {
   `).join('');
 
   const petsHtml = customerPets.map((p, i) => `
-    <label class="pet-option ${i === 0 ? 'selected' : ''}" onclick="selectPet(this, '${p.id}')">
-      <input type="radio" name="pet" value="${p.id}" ${i === 0 ? 'checked' : ''}>
+    <label class="pet-option ${i === 0 ? 'selected' : ''}">
+      <input type="checkbox" name="pet" value="${p.id}" ${i === 0 ? 'checked' : ''} onchange="onPetToggle(this)">
       <span class="pet-icon">${SPECIES_ICONS[p.species] || '🐾'}</span>
       <div><div class="pet-name">${p.name}</div>${p.breed ? `<div class="pet-breed">${p.breed}</div>` : ''}</div>
     </label>
   `).join('');
 
-  if (customerPets.length > 0) selectedPetId = customerPets[0].id;
+  if (customerPets.length > 0) selectedPetIds = [customerPets[0].id];
 
   // Determine if first service is multi-day to set initial date fields
   const firstSvcIsMultiDay = uniqueServices.length > 0 && MULTI_DAY_SERVICES.includes(uniqueServices[0].service_type);
@@ -332,7 +336,7 @@ function renderBookingForm() {
 
       <div id="dateFields">${renderDateFields(firstSvcIsMultiDay)}</div>
 
-      ${customerPets.length > 1 ? `<div class="field"><label>Which pet?</label><div class="pet-grid">${petsHtml}</div></div>` : ''}
+      ${customerPets.length > 1 ? `<div class="field"><label>Which pets? <span class="optional">(select one or more)</span></label><div class="pet-grid">${petsHtml}</div></div>` : ''}
 
       <div class="field">
         <label>Notes for the carer <span class="optional">(optional)</span></label>
@@ -358,8 +362,8 @@ function renderBookingForm() {
 async function submitBooking() {
   clearMsg();
   if (!selectedServiceId) return showMsg('Please select a service.', 'error');
-  if (!selectedPetId && customerPets.length > 0) selectedPetId = customerPets[0].id;
-  if (!selectedPetId) return showMsg('No pet found on your account. Please add a pet first.', 'error');
+  if (!selectedPetIds.length && customerPets.length > 0) selectedPetIds = [customerPets[0].id];
+  if (!selectedPetIds.length) return showMsg('Please select at least one pet.', 'error');
 
   const date = document.getElementById('bookDate').value;
   const notes = document.getElementById('bookNotes').value.trim();
@@ -384,10 +388,12 @@ async function submitBooking() {
   setLoading(btn, true);
 
   try {
-    await sbInsert('bookings', {
+    // pet_id keeps the first selected pet as the "primary" for backward compat;
+    // every selected pet (including the primary) is recorded in booking_pets.
+    const inserted = await sbInsert('bookings', {
       customer_id: customerProfile.id,
       provider_id: providerProfile.id,
-      pet_id: selectedPetId,
+      pet_id: selectedPetIds[0],
       service_id: selectedServiceId,
       status: 'pending',
       scheduled_at: scheduledAt,
@@ -395,6 +401,11 @@ async function submitBooking() {
       total_cents: 0,
       customer_notes: notes || null
     }, authToken);
+
+    const booking = Array.isArray(inserted) ? inserted[0] : inserted;
+    if (booking && booking.id) {
+      await sbInsert('booking_pets', selectedPetIds.map(pid => ({ booking_id: booking.id, pet_id: pid })), authToken);
+    }
 
     document.getElementById('bookingContent').innerHTML = `
       <div class="form-card success-card fade-in">
