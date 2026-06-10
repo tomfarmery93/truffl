@@ -61,7 +61,9 @@
   .service-tile { display: flex; flex-direction: column; align-items: flex-start; gap: 4px; padding: 10px 12px; border-radius: 12px; border: 1px solid var(--border); background: var(--warm-white); cursor: pointer; transition: all 0.18s; user-select: none; font-family: 'DM Sans', sans-serif; text-align: left; color: var(--text-primary); }
   .service-tile:hover { border-color: var(--sage-light); }
   .service-tile.active { background: var(--blush); border-color: var(--terracotta); color: var(--brown); }
-  .service-tile .stile-icon { font-size: 1.1rem; line-height: 1; }
+  .service-tile .stile-icon { display: flex; line-height: 1; margin-bottom: 2px; }
+  .service-tile .stile-icon svg { width: 30px; height: 30px; display: block; }
+  .service-tile.featured { grid-column: 1 / -1; }
   .service-tile .stile-label { font-size: 0.82rem; font-weight: 500; }
   .service-tile .stile-sub { font-size: 0.7rem; color: var(--text-muted); line-height: 1.3; }
   .service-tile.active .stile-sub { color: var(--text-secondary); }
@@ -88,6 +90,8 @@
   /* Pet size chips */
   .chip-row { display: flex; flex-wrap: wrap; gap: 6px; }
   .chip { display: inline-flex; align-items: center; gap: 5px; padding: 6px 12px; border-radius: 999px; border: 1px solid var(--border); background: var(--warm-white); font-size: 0.78rem; font-weight: 500; color: var(--text-secondary); cursor: pointer; transition: all 0.18s; font-family: 'DM Sans', sans-serif; }
+  .chip-ic { display: inline-flex; align-items: center; }
+  .chip-ic svg { width: 15px; height: 15px; display: block; }
   .chip:hover { border-color: var(--sage-light); }
   .chip.active.size { background: var(--blush); border-color: var(--terracotta); color: var(--brown); }
   .chip.active.attr { background: var(--sage-soft); border-color: var(--sage); color: var(--sage-dark); }
@@ -138,6 +142,7 @@
   .svc-pill.more { background: var(--cream); border-color: var(--border); color: var(--text-muted); }
   .pc-attrs { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 8px; font-size: 0.72rem; color: var(--text-muted); }
   .pc-attr { display: inline-flex; align-items: center; gap: 4px; }
+  .pc-attr svg { width: 13px; height: 13px; display: block; }
   .pc-bio { font-size: 0.85rem; color: var(--text-secondary); line-height: 1.5; margin-top: 10px; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
 
   .pc-right { display: flex; flex-direction: column; align-items: flex-end; gap: 4px; min-width: 80px; }
@@ -175,6 +180,7 @@
     .ms-refine { background: var(--terracotta); color: white; border: 0; padding: 8px 14px; border-radius: 999px; font-size: 0.78rem; font-weight: 500; cursor: pointer; font-family: 'DM Sans', sans-serif; flex-shrink: 0; }
     .ms-chips { display: flex; gap: 6px; margin-top: 10px; flex-wrap: wrap; }
     .ms-chips .chip-active { display: inline-flex; align-items: center; gap: 5px; padding: 4px 10px; border-radius: 999px; background: var(--sage-soft); border: 1px solid var(--sage-light); color: var(--sage-dark); font-size: 0.72rem; font-weight: 500; }
+    .ms-chips .chip-active svg { width: 13px; height: 13px; display: block; }
 
     .sheet-backdrop { display: block; position: fixed; inset: 0; background: rgba(61,43,31,0.45); opacity: 0; pointer-events: none; transition: opacity 0.25s ease; z-index: 200; }
     .sheet-backdrop.open { opacity: 1; pointer-events: auto; }
@@ -285,21 +291,21 @@ const SERVICE_LABELS = {
 };
 
 const SERVICES = [
-  { value: 'dog_walking',   label: 'Dog walking',    icon: '🦮', sub: '30 or 60 mins' },
-  { value: 'dog_boarding',  label: 'Dog boarding',   icon: '🏠', sub: "At carer's home" },
-  { value: 'dog_sitting',   label: 'Dog sitting',    icon: '🛋️', sub: 'In your home' },
-  { value: 'dog_daycare',   label: 'Dog daycare',    icon: '☀️', sub: 'During work hours' },
-  { value: 'drop_in',       label: 'Drop-in visit',  icon: '🐾', sub: 'Check on your pet' },
+  { value: 'dog_walking',   label: 'Dog walking',    icon: 'dog-walking',   sub: '30 or 60 mins', featured: true },
+  { value: 'dog_boarding',  label: 'Dog boarding',   icon: 'dog-boarding',  sub: "At carer's home" },
+  { value: 'dog_sitting',   label: 'Dog sitting',    icon: 'dog-sitting',   sub: 'In your home' },
+  { value: 'dog_daycare',   label: 'Dog daycare',    icon: 'dog-daycare',   sub: 'During work hours' },
+  { value: 'drop_in',       label: 'Drop-in visit',  icon: 'drop-in-visit', sub: 'Check on your pet' },
 ];
 
 const ATTRIBUTE_FILTERS = [
-  { value: 'garden',      label: 'Garden',            icon: '🌿' },
-  { value: 'car',         label: 'Has car',           icon: '🚗' },
-  { value: 'large_dogs',  label: 'Large dogs OK',     icon: '🐕' },
-  { value: 'no_pets',     label: 'No other pets',     icon: '🚫' },
-  { value: 'puppies',     label: 'Puppies OK',        icon: '🐶' },
-  { value: 'anxiety',     label: 'Anxiety experience',icon: '💙' },
-  { value: 'non_smoking', label: 'Non-smoking',       icon: '🚭' },
+  { value: 'garden',      label: 'Garden',            icon: 'garden' },
+  { value: 'car',         label: 'Has car',           icon: 'has-car' },
+  { value: 'large_dogs',  label: 'Large dogs OK',     icon: 'large-dogs' },
+  { value: 'no_pets',     label: 'No other pets',     icon: 'no-other-pets' },
+  { value: 'puppies',     label: 'Puppies OK',        icon: 'puppies' },
+  { value: 'anxiety',     label: 'Anxiety experience',icon: 'anxiety-care' },
+  { value: 'non_smoking', label: 'Non-smoking',       icon: 'non-smoker' },
 ];
 
 const FILTER_TO_ATTR = {
@@ -313,13 +319,13 @@ const FILTER_TO_ATTR = {
 };
 
 const ATTR_LABELS = {
-  outdoor_space:    { label: 'Garden',           icon: '🌿' },
-  has_car:          { label: 'Has car',          icon: '🚗' },
-  large_dogs_ok:    { label: 'Large dogs OK',    icon: '🐕' },
-  puppy_experience: { label: 'Puppies OK',       icon: '🐶' },
-  reactive_dogs_ok: { label: 'Anxiety',          icon: '💙' },
-  senior_pets_ok:   { label: 'Seniors',          icon: '🐾' },
-  water_confident:  { label: 'Water confident',  icon: '💧' },
+  outdoor_space:    { label: 'Garden',           icon: 'garden' },
+  has_car:          { label: 'Has car',          icon: 'has-car' },
+  large_dogs_ok:    { label: 'Large dogs OK',    icon: 'large-dogs' },
+  puppy_experience: { label: 'Puppies OK',       icon: 'puppies' },
+  reactive_dogs_ok: { label: 'Anxiety',          icon: 'anxiety-care' },
+  senior_pets_ok:   { label: 'Seniors',          icon: 'other-pets' },
+  water_confident:  { label: 'Water confident',  icon: null },
 };
 
 const SIZE_OPTIONS = [
@@ -345,6 +351,24 @@ const state = {
 };
 
 const MULTI_DAY_SERVICES = ['dog_boarding', 'dog_sitting'];
+
+/* ── Inline line-icon set (stroke=currentColor so they recolour with the tile) ── */
+const ICONS = {
+  'dog-walking': '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round"><ellipse cx="31" cy="13" rx="11.5" ry="5"></ellipse><path d="M19.5 13c0 2.8 5.1 5 11.5 5s11.5-2.2 11.5-5"></path><path d="M19.5 13v5.5M42.5 13v5.5"></path><path d="M19.5 18.5c0 2.8 5.1 5 11.5 5s11.5-2.2 11.5-5"></path><path d="M31 23.5C31 30 32 36 27 37C22 38 18.5 34 18.5 29C18.5 24.5 15.5 23.5 13 26C11.8 27.3 12.2 29 12.2 30.5"></path><path d="M12.2 30.5C7 33.5 5 38.5 8.5 41.5C12.5 44.5 16 40 14.2 36C13.2 33.5 12.6 32 12.2 30.5Z"></path></svg>',
+  'dog-boarding': '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"><path d="M4 11l8-6.5 8 6.5v8.5a1 1 0 0 1-1 1h-4v-5h-6v5H5a1 1 0 0 1-1-1z"></path></svg>',
+  'dog-sitting': '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"><path d="M3 16h18M5 16v-3a3 3 0 0 1 3-3h8a3 3 0 0 1 3 3v3M3 16v3M21 16v3"></path><path d="M7 13c0-1.5 1-2 2-2h6c1 0 2 .5 2 2"></path></svg>',
+  'dog-daycare': '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3.5"></circle><path d="M12 4v1.5M12 18.5V20M4 12h1.5M18.5 12H20M6.3 6.3l1 1M16.7 16.7l1 1M6.3 17.7l1-1M16.7 7.3l1-1"></path></svg>',
+  'drop-in-visit': '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"><ellipse cx="9.4" cy="8.6" rx="1.6" ry="2"></ellipse><ellipse cx="14.6" cy="8.6" rx="1.6" ry="2"></ellipse><ellipse cx="5" cy="12.5" rx="1.4" ry="1.7"></ellipse><ellipse cx="19" cy="12.5" rx="1.4" ry="1.7"></ellipse><path d="M8 17c0-2.5 1.8-4 4-4s4 1.5 4 4-1.8 3.5-4 3.5-4-1-4-3.5z"></path></svg>',
+  'garden': '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20V10M12 10c0-3 2-5 4-5-.5 3-2 5-4 5zM12 13c0-2-1.5-4-4-4 .5 3 2 4 4 4z"></path><path d="M5 20h14"></path></svg>',
+  'has-car': '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"><path d="M4 16v-3l2-5h12l2 5v3M4 16h16M4 16v2h2v-2M18 16v2h2v-2"></path><circle cx="8" cy="16" r="1.2"></circle><circle cx="16" cy="16" r="1.2"></circle></svg>',
+  'large-dogs': '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"><path d="M4 14c0-1.5 1-3 3-3l2-2 4 1 3-1 2 1c1.5 0 3 1 3 3v3h-3l-1 2h-2l-1-2H10l-1 2H7l-1-2H4z"></path><circle cx="9" cy="13" r="0.5" fill="currentColor" stroke="none"></circle></svg>',
+  'no-other-pets': '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"><ellipse cx="9" cy="9" rx="1.4" ry="1.7"></ellipse><ellipse cx="15" cy="9" rx="1.4" ry="1.7"></ellipse><path d="M9 16c0-1.8 1.3-3 3-3s3 1.2 3 3-1.3 2.5-3 2.5-3-.7-3-2.5z"></path><path d="M3 3l18 18"></path></svg>',
+  'puppies': '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"><path d="M7 8L5 5v5M17 8l2-3v5"></path><path d="M5 10c0 4 3 7 7 7s7-3 7-7"></path><circle cx="10" cy="11" r="0.6" fill="currentColor" stroke="none"></circle><circle cx="14" cy="11" r="0.6" fill="currentColor" stroke="none"></circle><path d="M11 14c.5.5 1.5.5 2 0"></path></svg>',
+  'anxiety-care': '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"><path d="M12 21s-7-5-7-11a5 5 0 0 1 7-4.5A5 5 0 0 1 19 10c0 6-7 11-7 11z"></path></svg>',
+  'non-smoker': '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"><path d="M3 14h14v3H3zM17 14v-2a2 2 0 0 1 2-2M3 3l18 18"></path></svg>',
+  'other-pets': '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"><ellipse cx="8" cy="8" rx="1.5" ry="2"></ellipse><ellipse cx="16" cy="8" rx="1.5" ry="2"></ellipse><ellipse cx="5" cy="13" rx="1.3" ry="1.6"></ellipse><ellipse cx="19" cy="13" rx="1.3" ry="1.6"></ellipse><path d="M8.5 17.5c0-2.2 1.6-3.5 3.5-3.5s3.5 1.3 3.5 3.5-1.6 3-3.5 3-3.5-.8-3.5-3z"></path></svg>',
+};
+function icon(name) { return name && ICONS[name] ? ICONS[name] : ''; }
 
 /* ── FIX 1: Public REST helper — always uses anon key, never authToken ── */
 /* Used for all provider search queries so unauthenticated users can browse */
@@ -458,8 +482,8 @@ function renderFilterForm() {
       <div class="field-label">Service</div>
       <div class="service-grid" id="serviceGrid">
         ${SERVICES.map(s => `
-          <button type="button" class="service-tile ${state.service === s.value ? 'active' : ''}" data-svc="${s.value}">
-            <span class="stile-icon">${s.icon}</span>
+          <button type="button" class="service-tile ${s.featured ? 'featured' : ''} ${state.service === s.value ? 'active' : ''}" data-svc="${s.value}">
+            <span class="stile-icon">${icon(s.icon)}</span>
             <span class="stile-label">${s.label}</span>
             <span class="stile-sub">${s.sub}</span>
           </button>`).join('')}
@@ -500,7 +524,7 @@ function renderFilterForm() {
         </div>
         <div class="expander-body">
           <div class="chip-row" id="attrRow">
-            ${ATTRIBUTE_FILTERS.map(a => `<button type="button" class="chip attr ${state.attributes.includes(a.value) ? 'active' : ''}" data-attr="${a.value}"><span>${a.icon}</span> ${a.label}</button>`).join('')}
+            ${ATTRIBUTE_FILTERS.map(a => `<button type="button" class="chip attr ${state.attributes.includes(a.value) ? 'active' : ''}" data-attr="${a.value}"><span class="chip-ic">${icon(a.icon)}</span> ${a.label}</button>`).join('')}
           </div>
         </div>
       </div>
@@ -691,7 +715,7 @@ function renderMobileSummary() {
 
   const chips = state.attributes.slice(0, 4).map(a => {
     const def = ATTRIBUTE_FILTERS.find(f => f.value === a);
-    return def ? `<span class="chip-active">${def.icon} ${def.label}</span>` : '';
+    return def ? `<span class="chip-active"><span class="chip-ic">${icon(def.icon)}</span> ${def.label}</span>` : '';
   }).join('');
   document.getElementById('msChips').innerHTML = chips + (state.attributes.length > 4 ? `<span class="chip-active">+${state.attributes.length - 4} more</span>` : '');
 }
@@ -860,7 +884,7 @@ function renderCard(p) {
   const attrsHtml = attrsForDisplay.length
     ? `<div class="pc-attrs">${attrsForDisplay.map(a => {
         const def = ATTR_LABELS[a];
-        return def ? `<span class="pc-attr">${def.icon} ${esc(def.label)}</span>` : `<span class="pc-attr">${esc(a.replace(/_/g, ' '))}</span>`;
+        return def ? `<span class="pc-attr">${icon(def.icon)} ${esc(def.label)}</span>` : `<span class="pc-attr">${esc(a.replace(/_/g, ' '))}</span>`;
       }).join('')}</div>`
     : '';
 
