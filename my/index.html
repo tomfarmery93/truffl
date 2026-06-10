@@ -713,8 +713,17 @@ async function init() {
           const pUsers = await sbGet('users', `id=eq.${provProfiles[0].user_id}&select=first_name,last_name`);
           if (pUsers.length) b._provider_name = `${pUsers[0].first_name} ${pUsers[0].last_name}`;
         }
-        const petRows = await sbGet('pets', `id=eq.${b.pet_id}&select=name,breed`);
-        if (petRows.length) { b._pet_name = petRows[0].name; b._pet_breed = petRows[0].breed; }
+        let petRows = [];
+        try {
+          const bp = await sbGet('booking_pets', `booking_id=eq.${b.id}&select=pet_id`);
+          const ids = bp.map(r => r.pet_id).filter(Boolean);
+          if (ids.length) petRows = await sbGet('pets', `id=in.(${ids.join(',')})&select=name,breed`);
+        } catch(e) {}
+        if (!petRows.length && b.pet_id) petRows = await sbGet('pets', `id=eq.${b.pet_id}&select=name,breed`);
+        if (petRows.length) {
+          b._pet_name = petRows.map(p => p.name).filter(Boolean).join(' + ');
+          b._pet_breed = petRows.length === 1 ? petRows[0].breed : null;
+        }
         const svcs = await sbGet('provider_services', `id=eq.${b.service_id}&select=service_type`);
         if (svcs.length) b._service_type = svcs[0].service_type;
         if (b.status === 'in_progress') {

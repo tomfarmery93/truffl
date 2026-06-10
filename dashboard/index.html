@@ -391,8 +391,17 @@ async function loadBookings() {
         const users = await sbGet('users', `id=eq.${custs[0].user_id}&select=first_name,last_name`);
         if (users.length) b._customer_name = `${users[0].first_name} ${users[0].last_name}`;
       }
-      const pets = await sbGet('pets', `id=eq.${b.pet_id}&select=name,breed,species`);
-      if (pets.length) b._pet = pets[0];
+      let pets = [];
+      try {
+        const bp = await sbGet('booking_pets', `booking_id=eq.${b.id}&select=pet_id`);
+        const ids = bp.map(r => r.pet_id).filter(Boolean);
+        if (ids.length) pets = await sbGet('pets', `id=in.(${ids.join(',')})&select=name,breed,species`);
+      } catch(e) {}
+      if (!pets.length && b.pet_id) pets = await sbGet('pets', `id=eq.${b.pet_id}&select=name,breed,species`);
+      b._pet = pets[0] || null;
+      b._pet_label = pets.length
+        ? (pets.length === 1 ? pets[0].name + (pets[0].breed ? ' · ' + pets[0].breed : '') : pets.map(p => p.name).filter(Boolean).join(' + '))
+        : 'Pet';
 
       const svcs = await sbGet('provider_services', `id=eq.${b.service_id}&select=service_type`);
       if (svcs.length) b._service_type = svcs[0].service_type;
@@ -413,7 +422,7 @@ function renderBookingsTab() {
       <div class="booking-card">
         <div class="bc-info">
           <div class="bc-customer">${b._customer_name || 'Customer'}</div>
-          <div class="bc-pet">${b._pet ? `${b._pet.name}${b._pet.breed ? ' · ' + b._pet.breed : ''}` : 'Pet'}</div>
+          <div class="bc-pet">${b._pet_label || 'Pet'}</div>
           <span class="bc-service">${SERVICE_LABELS[b._service_type] || b._service_type || 'Service'}</span>
           <div class="bc-time">${formatDate(b.scheduled_at)}</div>
           ${b.customer_notes ? `<div class="bc-notes">"${b.customer_notes}"</div>` : ''}
@@ -432,7 +441,7 @@ function renderBookingsTab() {
       <div class="booking-card">
         <div class="bc-info">
           <div class="bc-customer">${b._customer_name || 'Customer'}</div>
-          <div class="bc-pet">${b._pet ? `${b._pet.name}${b._pet.breed ? ' · ' + b._pet.breed : ''}` : 'Pet'}</div>
+          <div class="bc-pet">${b._pet_label || 'Pet'}</div>
           <span class="bc-service">${SERVICE_LABELS[b._service_type] || b._service_type || 'Service'}</span>
           <div class="bc-time">${formatDate(b.scheduled_at)}</div>
           ${b.customer_notes ? `<div class="bc-notes">"${b.customer_notes}"</div>` : ''}
