@@ -159,6 +159,9 @@
     background: var(--warm-white); outline: none; text-align: right; transition: border-color 0.15s;
   }
   .svc-price-input:focus { border-color: var(--border-focus); }
+  .svc-extra-wrap { display: flex; align-items: center; gap: 4px; font-size: 0.82rem; color: var(--text-muted); }
+  .svc-extra-wrap .svc-extra-label { white-space: nowrap; font-size: 0.76rem; }
+  .svc-extra-input { width: 60px; }
   .svc-row-status {
     font-size: 0.72rem; color: var(--text-muted); min-width: 56px; text-align: right;
   }
@@ -169,7 +172,8 @@
     .svc-row-label { flex-basis: 100%; order: 2; }
     .svc-toggle { order: 1; }
     .svc-price-wrap { order: 3; }
-    .svc-row-status { order: 4; }
+    .svc-extra-wrap { order: 4; flex-basis: 100%; }
+    .svc-row-status { order: 5; }
   }
 
   /* Profile preview */
@@ -580,6 +584,7 @@ function serviceRowHtml(service_type, duration_mins, label, unitHint) {
   const existing = findService(service_type, duration_mins);
   const on = !!(existing && existing.is_available);
   const price = existing ? priceToDollars(existing.price_cents) : '';
+  const extra = existing ? priceToDollars(existing.additional_pet_price_cents) : '';
   const slotId = `${service_type}__${duration_mins == null ? 'na' : duration_mins}`;
   const durArg = duration_mins == null ? 'null' : duration_mins;
   const unit = unitHint ? `<span class="svc-row-unit">· ${esc(unitHint)}</span>` : '';
@@ -589,10 +594,18 @@ function serviceRowHtml(service_type, duration_mins, label, unitHint) {
       <div class="svc-row-label">${esc(label)}${unit}</div>
       <div class="svc-price-wrap">
         <span class="dollar">$</span>
-        <input class="svc-price-input" type="text" inputmode="decimal" placeholder="0"
+        <input class="svc-price-input" type="text" inputmode="decimal" placeholder="0" aria-label="Base price for ${esc(label)}"
                value="${esc(price)}"
                oninput="markRowDirty('${slotId}')"
                onblur="saveServicePrice('${service_type}', ${durArg}, this.value)">
+      </div>
+      <div class="svc-extra-wrap" title="Optional extra charge per additional pet on the same booking">
+        <span class="svc-extra-label">+ per extra pet</span>
+        <span class="dollar">$</span>
+        <input class="svc-price-input svc-extra-input" type="text" inputmode="decimal" placeholder="0" aria-label="Extra fee per additional pet for ${esc(label)}"
+               value="${esc(extra)}"
+               oninput="markRowDirty('${slotId}')"
+               onblur="saveExtraPetPrice('${service_type}', ${durArg}, this.value)">
       </div>
       <div class="svc-row-status" id="status-${slotId}"></div>
     </div>
@@ -683,6 +696,46 @@ async function saveServicePrice(service_type, duration_mins, raw) {
       providerServices.push(Array.isArray(res) ? res[0] : res);
     }
     refreshRowVisuals(service_type, duration_mins);
+    setRowStatus(slotId, 'Saved', 'saved');
+  } catch (e) {
+    setRowStatus(slotId, 'Error', 'error');
+    showMsg(e.message, 'error');
+  }
+}
+
+async function saveExtraPetPrice(service_type, duration_mins, raw) {
+  const slotId = `${service_type}__${duration_mins == null ? 'na' : duration_mins}`;
+  const trimmed = (raw || '').toString().trim();
+  const existing = findService(service_type, duration_mins);
+
+  // Empty input clears the extra-pet fee.
+  if (trimmed === '') {
+    if (!existing || existing.additional_pet_price_cents == null) { setRowStatus(slotId, '', ''); return; }
+    setRowStatus(slotId, 'Saving…', '');
+    try {
+      const res = await sbPatch('provider_services', 'id', existing.id, { additional_pet_price_cents: null });
+      Object.assign(existing, Array.isArray(res) ? res[0] : res);
+      setRowStatus(slotId, 'Saved', 'saved');
+    } catch (e) { setRowStatus(slotId, 'Error', 'error'); showMsg(e.message, 'error'); }
+    return;
+  }
+
+  const cents = dollarsToCents(trimmed);
+  if (cents == null) { setRowStatus(slotId, 'Invalid', 'error'); return; }
+  if (existing && existing.additional_pet_price_cents === cents) { setRowStatus(slotId, '', ''); return; }
+
+  setRowStatus(slotId, 'Saving…', '');
+  try {
+    if (existing) {
+      const res = await sbPatch('provider_services', 'id', existing.id, { additional_pet_price_cents: cents });
+      Object.assign(existing, Array.isArray(res) ? res[0] : res);
+    } else {
+      // No base row yet — create one carrying the extra-pet fee so it isn't lost.
+      const row = { provider_id: authUid, service_type, duration_mins, additional_pet_price_cents: cents, is_available: true };
+      const res = await sbInsert('provider_services', row);
+      providerServices.push(Array.isArray(res) ? res[0] : res);
+      refreshRowVisuals(service_type, duration_mins);
+    }
     setRowStatus(slotId, 'Saved', 'saved');
   } catch (e) {
     setRowStatus(slotId, 'Error', 'error');

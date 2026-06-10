@@ -213,6 +213,45 @@ function selectService(el, serviceId) {
   el.classList.add('selected'); selectedServiceId = serviceId;
   const svcType = el.querySelector('input')?.dataset.svcType;
   document.getElementById('dateFields').innerHTML = renderDateFields(MULTI_DAY_SERVICES.includes(svcType));
+  renderPriceEstimate();
+}
+
+function fmtPrice(cents) {
+  const n = cents / 100;
+  return '$' + (Number.isInteger(n) ? n : n.toFixed(2));
+}
+
+/* Informational price estimate (paid directly to the carer). Includes the
+   per-extra-pet fee. Platform charging stays $0 during launch. */
+function renderPriceEstimate() {
+  const el = document.getElementById('priceEstimate');
+  if (!el) return;
+  const svc = providerServices.find(s => s.id === selectedServiceId);
+  const n = selectedPetIds.length || 1;
+  if (!svc || svc.price_cents == null) { el.innerHTML = ''; return; }
+
+  const base = svc.price_cents;
+  const extraFee = svc.additional_pet_price_cents || 0;
+  const extraPets = Math.max(0, n - 1);
+  const total = base + extraPets * extraFee;
+  const unit = svc.service_type === 'dog_walking' ? ' / walk'
+    : (MULTI_DAY_SERVICES.includes(svc.service_type) ? ' / night' : '');
+
+  let breakdown = '';
+  if (extraPets > 0 && extraFee > 0) {
+    breakdown = `<div style="font-size:0.75rem;color:var(--text-muted);margin-top:2px;">${fmtPrice(base)} base + ${fmtPrice(extraFee)} × ${extraPets} extra pet${extraPets > 1 ? 's' : ''}</div>`;
+  } else if (extraPets > 0) {
+    breakdown = `<div style="font-size:0.75rem;color:var(--text-muted);margin-top:2px;">${n} pets · no extra-pet fee</div>`;
+  }
+
+  el.innerHTML = `
+    <div style="display:flex;justify-content:space-between;align-items:center;">
+      <span style="font-size:0.85rem;color:var(--text-secondary);">Estimated price${unit}</span>
+      <span style="font-size:0.95rem;font-weight:600;color:var(--text-primary);">${fmtPrice(total)}</span>
+    </div>
+    ${breakdown}
+    <div style="border-top:1px solid var(--border);margin:10px 0;"></div>
+  `;
 }
 
 function renderDateFields(isMultiDay) {
@@ -281,6 +320,7 @@ function onPetToggle(input) {
   else if (!input.checked && i >= 0) selectedPetIds.splice(i, 1);
   const opt = input.closest('.pet-option');
   if (opt) opt.classList.toggle('selected', input.checked);
+  renderPriceEstimate();
 }
 
 function renderBookingForm() {
@@ -344,6 +384,7 @@ function renderBookingForm() {
       </div>
 
       <div style="background:var(--cream);border-radius:10px;padding:12px 16px;margin-top:0.5rem;">
+        <div id="priceEstimate"></div>
         <div style="display:flex;justify-content:space-between;align-items:center;">
           <span style="font-size:0.85rem;color:var(--text-secondary);">Platform fee</span>
           <span style="font-size:0.85rem;font-weight:500;color:var(--success);">$0 — free during launch</span>
@@ -357,6 +398,8 @@ function renderBookingForm() {
       </div>
     </div>
   `;
+
+  renderPriceEstimate();
 }
 
 async function submitBooking() {
@@ -459,7 +502,7 @@ async function init() {
     const [users, profiles, services] = await Promise.all([
       sbGet('users', `id=eq.${providerId}&select=first_name,last_name`, authToken),
       sbGet('provider_profiles', `user_id=eq.${providerId}&select=*`, authToken),
-      sbGet('provider_services', `provider_id=eq.${providerId}&select=id,service_type,is_available&is_available=eq.true`, authToken)
+      sbGet('provider_services', `provider_id=eq.${providerId}&select=id,service_type,is_available,price_cents,additional_pet_price_cents&is_available=eq.true`, authToken)
     ]);
 
     if (!users.length || !profiles.length) {
