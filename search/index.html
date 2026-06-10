@@ -159,7 +159,8 @@
 
   /* ── Empty / Error ── */
   .empty-state, .error-state { text-align: center; padding: 3rem 2rem; background: var(--warm-white); border: 1px solid var(--border); border-radius: 14px; }
-  .empty-state .empty-icon { font-size: 2.5rem; margin-bottom: 1rem; opacity: 0.6; }
+  .empty-state .empty-icon { margin-bottom: 1rem; opacity: 0.45; color: var(--text-muted); display: flex; justify-content: center; }
+  .empty-state .empty-icon svg { width: 40px; height: 40px; }
   .empty-state h3, .error-state h3 { font-family: 'Cormorant Garamond', serif; font-size: 1.4rem; font-weight: 500; color: var(--brown); margin-bottom: 0.5rem; }
   .empty-state p, .error-state p { color: var(--text-muted); font-size: 0.9rem; max-width: 420px; margin: 0 auto 1.25rem; line-height: 1.55; }
   .btn-secondary { padding: 10px 20px; background: transparent; border: 1px solid var(--border); border-radius: 999px; color: var(--text-secondary); font-family: 'DM Sans', sans-serif; font-size: 0.85rem; cursor: pointer; transition: border-color 0.2s, color 0.2s; }
@@ -932,7 +933,7 @@ function renderResults(list) {
   if (list.length === 0) {
     area.innerHTML = `
       <div class="empty-state fade-in">
-        <div class="empty-icon">🔍</div>
+        <div class="empty-icon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="6.5"></circle><path d="M16 16l4 4"></path></svg></div>
         <h3>No carers found${state.suburb ? ' near ' + esc(state.suburb) : ''}</h3>
         <p>Try expanding your search area, choosing a different service, or removing some filters.</p>
         <button class="btn-secondary" id="btnEmptyClear">Clear filters</button>
