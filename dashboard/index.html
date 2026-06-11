@@ -396,15 +396,21 @@ async function declineBooking(bookingId) {
 
 async function loadBookings() {
   bookings = await sbGet('bookings', `provider_id=eq.${providerProfile.id}&select=*&order=scheduled_at.asc`);
+  if (!bookings.length) return;
 
-  // Load customer and pet names for each booking
+  // Customer names via the booking_party_names view — providers can't read a
+  // customer's users/customer_profiles row directly under per-table RLS.
+  const nameByBooking = {};
+  try {
+    const ids = bookings.map(b => b.id);
+    const parties = await sbGet('booking_party_names', `booking_id=in.(${ids.join(',')})&select=booking_id,customer_first_name,customer_last_name`);
+    parties.forEach(p => { nameByBooking[p.booking_id] = `${p.customer_first_name || ''} ${p.customer_last_name || ''}`.trim(); });
+  } catch(e) { /* names fall back to 'Customer' */ }
+
+  // Load pet + service info for each booking
   for (const b of bookings) {
     try {
-      const custs = await sbGet('customer_profiles', `id=eq.${b.customer_id}&select=user_id`);
-      if (custs.length) {
-        const users = await sbGet('users', `id=eq.${custs[0].user_id}&select=first_name,last_name`);
-        if (users.length) b._customer_name = `${users[0].first_name} ${users[0].last_name}`;
-      }
+      b._customer_name = nameByBooking[b.id] || null;
       let pets = [];
       try {
         const bp = await sbGet('booking_pets', `booking_id=eq.${b.id}&select=pet_id`);
