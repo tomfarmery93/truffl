@@ -1,0 +1,461 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Messages — Truffl Pets</title>
+<link rel="icon" type="image/svg+xml" href="/favicon.svg">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,500;1,400;1,500&family=DM+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --cream:#FAF7F2; --warm-white:#FFFDF9; --sage:#8B9E7E; --sage-light:#C2D1B5;
+    --sage-dark:#6B7E5E; --terracotta:#C4755B; --terracotta-light:#D4917B;
+    --blush:#E8C4B8; --brown:#3D2B1F; --brown-muted:#8B7355;
+    --text-primary:#3D2B1F; --text-secondary:#6B5B4E; --text-muted:#9B8B7E;
+    --border:#E8E0D6; --border-focus:#C4755B;
+    --error:#C0392B; --error-bg:#FDF0EE; --success:#5B8C5A; --success-bg:#EDF5ED;
+  }
+  *{margin:0;padding:0;box-sizing:border-box;}
+  body{font-family:'DM Sans',sans-serif;background:var(--cream);color:var(--text-primary);min-height:100vh;-webkit-font-smoothing:antialiased;}
+
+  .nav{position:sticky;top:0;z-index:100;background:var(--warm-white);border-bottom:1px solid var(--border);padding:0 1.5rem;height:64px;display:flex;align-items:center;justify-content:space-between;}
+  .nav-logo{display:flex;align-items:center;text-decoration:none;}
+  .nav-right{display:flex;align-items:center;gap:14px;}
+  .nav-link{font-size:0.85rem;color:var(--text-secondary);text-decoration:none;}
+  .nav-link:hover{color:var(--terracotta);}
+  .nav-avatar{width:32px;height:32px;border-radius:50%;background:var(--blush);display:flex;align-items:center;justify-content:center;font-size:0.75rem;font-weight:600;color:var(--brown);}
+
+  .msg-shell{max-width:1080px;margin:0 auto;padding:1.25rem 1rem 1.5rem;}
+  .msg-head{font-family:'Cormorant Garamond',serif;font-weight:500;font-style:italic;font-size:1.7rem;color:var(--brown);margin-bottom:0.9rem;}
+
+  .msg-layout{display:grid;grid-template-columns:320px 1fr;gap:16px;height:calc(100vh - 64px - 6.2rem);min-height:420px;}
+
+  /* Conversation list */
+  .conv-list{background:var(--warm-white);border:1px solid var(--border);border-radius:14px;overflow-y:auto;}
+  .conv{display:flex;gap:10px;width:100%;text-align:left;padding:12px 14px;background:transparent;border:0;border-bottom:1px solid var(--border);cursor:pointer;font-family:'DM Sans',sans-serif;transition:background 0.15s;}
+  .conv:hover{background:var(--cream);}
+  .conv.active{background:var(--cream);}
+  .conv-avatar{width:38px;height:38px;border-radius:50%;background:var(--blush);display:flex;align-items:center;justify-content:center;font-family:'Cormorant Garamond',serif;font-weight:600;font-size:0.95rem;color:var(--brown);flex-shrink:0;}
+  .conv-main{min-width:0;flex:1;}
+  .conv-top{display:flex;justify-content:space-between;gap:6px;align-items:baseline;}
+  .conv-name{font-size:0.9rem;font-weight:500;color:var(--text-primary);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  .conv-time{font-size:0.7rem;color:var(--text-muted);flex-shrink:0;}
+  .conv-sub{font-size:0.72rem;color:var(--text-muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-top:1px;}
+  .conv-snippet{font-size:0.8rem;color:var(--text-secondary);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-top:2px;}
+  .conv.unread .conv-snippet{color:var(--text-primary);font-weight:500;}
+  .conv-dot{align-self:center;flex-shrink:0;min-width:18px;height:18px;padding:0 5px;border-radius:999px;background:var(--terracotta);color:#fff;font-size:0.68rem;font-weight:600;display:flex;align-items:center;justify-content:center;}
+
+  /* Thread */
+  .thread{display:flex;flex-direction:column;background:var(--warm-white);border:1px solid var(--border);border-radius:14px;overflow:hidden;}
+  .thread-head{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:12px 16px;border-bottom:1px solid var(--border);flex-shrink:0;}
+  .thread-back{display:none;background:transparent;border:0;color:var(--text-muted);cursor:pointer;padding:4px;margin-right:2px;}
+  .thread-title{font-size:0.95rem;font-weight:500;color:var(--text-primary);}
+  .thread-ctx{font-size:0.72rem;color:var(--text-muted);margin-top:1px;}
+  .thread-link{font-size:0.78rem;color:var(--terracotta);text-decoration:none;white-space:nowrap;flex-shrink:0;}
+  .thread-link:hover{text-decoration:underline;}
+
+  .thread-body{flex:1;overflow-y:auto;padding:16px;background:var(--cream);display:flex;flex-direction:column;gap:8px;}
+  .day-sep{align-self:center;font-size:0.7rem;color:var(--text-muted);background:var(--warm-white);border:1px solid var(--border);padding:2px 10px;border-radius:999px;margin:4px 0;}
+  .bubble{max-width:74%;border-radius:14px;padding:8px 12px;}
+  .bubble.theirs{align-self:flex-start;background:var(--warm-white);border:1px solid var(--border);border-bottom-left-radius:4px;}
+  .bubble.mine{align-self:flex-end;background:var(--blush);border-bottom-right-radius:4px;}
+  .bubble-body{font-size:0.88rem;color:var(--text-primary);line-height:1.4;white-space:pre-wrap;word-wrap:break-word;}
+  .bubble-meta{font-size:0.66rem;color:var(--text-muted);margin-top:3px;}
+  .bubble.mine .bubble-meta{text-align:right;color:var(--brown-muted);}
+
+  .composer{display:flex;gap:8px;padding:12px 14px;border-top:1px solid var(--border);flex-shrink:0;align-items:flex-end;}
+  .composer textarea{flex:1;resize:none;max-height:120px;padding:9px 12px;border:1px solid var(--border);border-radius:12px;font-family:'DM Sans',sans-serif;font-size:0.88rem;color:var(--text-primary);background:var(--warm-white);outline:none;line-height:1.4;transition:border-color 0.15s;}
+  .composer textarea:focus{border-color:var(--border-focus);}
+  .composer button{flex-shrink:0;width:40px;height:40px;border-radius:50%;background:var(--terracotta);border:0;color:#fff;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:background 0.15s;}
+  .composer button:hover{background:var(--terracotta-light);}
+  .composer button:disabled{opacity:0.5;cursor:default;}
+
+  .thread-empty,.list-empty{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:2rem;color:var(--text-muted);}
+  .thread-empty .te-title{font-family:'Cormorant Garamond',serif;font-size:1.3rem;color:var(--brown);margin-bottom:0.4rem;}
+  .thread-empty p,.list-empty p{font-size:0.88rem;max-width:280px;line-height:1.5;}
+  .te-icon{color:var(--sage);margin-bottom:0.8rem;opacity:0.7;}
+
+  .login-prompt{text-align:center;padding:4rem 2rem;}
+  .login-prompt h2{font-family:'Cormorant Garamond',serif;font-size:1.5rem;color:var(--brown);margin-bottom:0.5rem;}
+  .login-prompt p{color:var(--text-muted);margin-bottom:1.25rem;}
+  .login-prompt a{display:inline-block;padding:12px 28px;background:var(--terracotta);color:#fff;border-radius:10px;font-weight:500;text-decoration:none;font-size:0.9rem;}
+
+  @media (max-width:768px){
+    .msg-shell{padding:1rem 0.75rem 1.25rem;}
+    .msg-layout{grid-template-columns:1fr;height:calc(100vh - 64px - 5rem);}
+    .thread{display:none;}
+    body.thread-open .conv-list{display:none;}
+    body.thread-open .thread{display:flex;}
+    .thread-back{display:inline-flex;}
+  }
+</style>
+</head>
+<body>
+
+<nav class="nav">
+  <a href="/" class="nav-logo" aria-label="Truffl Pets home">
+    <svg width="150" height="48" viewBox="0 0 180 56" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <circle cx="20" cy="5.5" r="6" fill="none" stroke="#C4866A" stroke-width="2.5"/>
+      <circle cx="20" cy="5.5" r="2.8" fill="#FFFDF9"/>
+      <rect x="16.5" y="10.5" width="7" height="9" rx="3" fill="#C4866A"/>
+      <circle cx="20" cy="33" r="20" fill="#C4866A"/>
+      <circle cx="20" cy="33" r="15.5" fill="none" stroke="#B8795C" stroke-width="0.6" opacity="0.45"/>
+      <line x1="7" y1="33" x2="33" y2="33" stroke="#FFFDF9" stroke-width="0.5" opacity="0.3"/>
+      <text x="20" y="35.5" font-family="'Cormorant Garamond', Georgia, serif" font-size="14" font-style="italic" font-weight="400" fill="#FFFDF9" text-anchor="middle" letter-spacing="-0.3">truffl</text>
+      <text x="52" y="30" font-family="'Cormorant Garamond', Georgia, serif" font-size="32" font-style="italic" font-weight="400" fill="#3D2B1F" letter-spacing="-0.5">truffl</text>
+      <text x="52" y="50" font-family="'DM Sans', sans-serif" font-size="12" font-weight="600" fill="#B0A090" letter-spacing="4">PETS</text>
+    </svg>
+  </a>
+  <div class="nav-right" id="navRight"></div>
+</nav>
+
+<div class="msg-shell" id="shell">
+  <div class="msg-head">Messages</div>
+  <div class="msg-layout">
+    <div class="conv-list" id="convList"></div>
+    <div class="thread" id="thread"></div>
+  </div>
+</div>
+
+<script>
+const SUPABASE_URL = 'https://gadflsntbnbnnxbpiral.supabase.co';
+const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImdhZGZsc250Ym5ibm54YnBpcmFsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzUwNjcwNTcsImV4cCI6MjA5MDY0MzA1N30.g5ZrqeAX9U5l7oDZEbQFrU5j10828dUF0QuJ0ZlHXK8';
+
+const SERVICE_LABELS = {
+  dog_walking:'Dog walk', dog_sitting:'Dog sitting', dog_boarding:'Dog boarding',
+  dog_daycare:'Dog daycare', drop_in:'Drop-in visit', pet_sitting:'Pet sitting'
+};
+
+let authToken = null, authUid = null, role = null;
+let myProfileId = null;            // customer_profiles.id or provider_profiles.id
+let conversations = [];            // [{bookingId, name, initials, serviceType, scheduledAt, viewHref}]
+let msgsByBooking = {};            // bookingId -> [messages]
+let activeBookingId = null;
+let pollTimer = null;
+
+function h(token) {
+  const hd = { 'Content-Type':'application/json', 'apikey':SUPABASE_ANON_KEY, 'Authorization':`Bearer ${SUPABASE_ANON_KEY}` };
+  if (token) hd['Authorization'] = `Bearer ${token}`;
+  return hd;
+}
+async function sbGet(t, p) {
+  const r = await fetch(`${SUPABASE_URL}/rest/v1/${t}?${p}`, { headers: h(authToken) });
+  if (!r.ok) { const e = await r.json().catch(()=>({})); throw new Error(e.message || 'Query failed'); }
+  return r.json();
+}
+async function sbInsert(t, row) {
+  const r = await fetch(`${SUPABASE_URL}/rest/v1/${t}`, { method:'POST', headers:{ ...h(authToken), 'Prefer':'return=representation' }, body: JSON.stringify(row) });
+  if (!r.ok) { const e = await r.json().catch(()=>({})); throw new Error(e.message || 'Insert failed'); }
+  return r.json();
+}
+async function sbPatchWhere(t, filter, upd) {
+  const r = await fetch(`${SUPABASE_URL}/rest/v1/${t}?${filter}`, { method:'PATCH', headers:{ ...h(authToken), 'Prefer':'return=minimal' }, body: JSON.stringify(upd) });
+  if (!r.ok) { const e = await r.json().catch(()=>({})); throw new Error(e.message || 'Update failed'); }
+}
+
+function esc(s){ return (s||'').toString().replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+function initialsOf(name){ const p=(name||'').trim().split(/\s+/); return ((p[0]||'')[0]||'').toUpperCase() + ((p[1]||'')[0]||'').toUpperCase(); }
+
+function fmtMsgTime(iso){
+  const d = new Date(iso), now = new Date();
+  const sameDay = d.toDateString() === now.toDateString();
+  if (sameDay) return d.toLocaleTimeString('en-AU',{hour:'numeric',minute:'2-digit',hour12:true});
+  return d.toLocaleDateString('en-AU',{day:'numeric',month:'short'}) + ' ' + d.toLocaleTimeString('en-AU',{hour:'numeric',minute:'2-digit',hour12:true});
+}
+function fmtListTime(iso){
+  if(!iso) return '';
+  const d=new Date(iso), now=new Date();
+  if(d.toDateString()===now.toDateString()) return d.toLocaleTimeString('en-AU',{hour:'numeric',minute:'2-digit',hour12:true});
+  const diff=(now-d)/86400000;
+  if(diff<7) return d.toLocaleDateString('en-AU',{weekday:'short'});
+  return d.toLocaleDateString('en-AU',{day:'numeric',month:'short'});
+}
+function fmtBookingCtx(c){
+  const svc = SERVICE_LABELS[c.serviceType] || 'Booking';
+  if(!c.scheduledAt) return svc;
+  const d = new Date(c.scheduledAt);
+  return svc + ' · ' + d.toLocaleDateString('en-AU',{weekday:'short',day:'numeric',month:'short'});
+}
+function dayKey(iso){ return new Date(iso).toDateString(); }
+function dayLabel(iso){
+  const d=new Date(iso), now=new Date();
+  if(d.toDateString()===now.toDateString()) return 'Today';
+  const y=new Date(now); y.setDate(y.getDate()-1);
+  if(d.toDateString()===y.toDateString()) return 'Yesterday';
+  return d.toLocaleDateString('en-AU',{weekday:'long',day:'numeric',month:'long'});
+}
+
+function unreadFor(bookingId){
+  return (msgsByBooking[bookingId]||[]).filter(m => m.sender_id !== authUid && !m.read_at).length;
+}
+function lastMsgFor(bookingId){
+  const arr = msgsByBooking[bookingId]||[];
+  return arr.length ? arr[arr.length-1] : null;
+}
+
+/* ── Data loading ── */
+async function loadConversations(){
+  let bookings = [];
+  if (role === 'provider') {
+    const pp = await sbGet('provider_profiles', `user_id=eq.${authUid}&select=id`);
+    if (!pp.length) return [];
+    myProfileId = pp[0].id;
+    bookings = await sbGet('bookings', `provider_id=eq.${myProfileId}&select=id,customer_id,service_id,scheduled_at,created_at&order=created_at.desc`);
+  } else {
+    const cp = await sbGet('customer_profiles', `user_id=eq.${authUid}&select=id`);
+    if (!cp.length) return [];
+    myProfileId = cp[0].id;
+    bookings = await sbGet('bookings', `customer_id=eq.${myProfileId}&select=id,provider_id,service_id,scheduled_at,created_at&order=created_at.desc`);
+  }
+  if (!bookings.length) return [];
+
+  const bookingIds = bookings.map(b => b.id);
+  const serviceIds = [...new Set(bookings.map(b => b.service_id).filter(Boolean))];
+
+  // Service types
+  const svcMap = {};
+  if (serviceIds.length) {
+    const svcs = await sbGet('provider_services', `id=in.(${serviceIds.join(',')})&select=id,service_type`);
+    svcs.forEach(s => svcMap[s.id] = s.service_type);
+  }
+
+  // Other-party names — via booking_party_names view (scoped to my bookings,
+  // resolves the counterparty's name despite per-table RLS).
+  const nameMap = {}; // bookingId -> name
+  const fallback = role === 'provider' ? 'Customer' : 'Carer';
+  try {
+    const parties = await sbGet('booking_party_names', `booking_id=in.(${bookingIds.join(',')})&select=*`);
+    parties.forEach(p => {
+      const name = role === 'provider'
+        ? `${p.customer_first_name||''} ${p.customer_last_name||''}`.trim()
+        : `${p.provider_first_name||''} ${p.provider_last_name||''}`.trim();
+      nameMap[p.booking_id] = name || fallback;
+    });
+  } catch(e) { /* names fall back below */ }
+  bookings.forEach(b => { if (!nameMap[b.id]) nameMap[b.id] = fallback; });
+
+  await loadMessages(bookingIds);
+
+  return bookings.map(b => {
+    const name = nameMap[b.id] || 'Conversation';
+    return {
+      bookingId: b.id,
+      name,
+      initials: initialsOf(name) || '?',
+      serviceType: svcMap[b.service_id] || null,
+      scheduledAt: b.scheduled_at,
+      viewHref: role === 'provider' ? '/dashboard/' : `/track/?booking=${b.id}`,
+    };
+  });
+}
+
+async function loadMessages(bookingIds){
+  if (!bookingIds.length) { msgsByBooking = {}; return; }
+  const rows = await sbGet('messages', `booking_id=in.(${bookingIds.join(',')})&select=id,booking_id,sender_id,body,read_at,created_at&order=created_at.asc`);
+  const map = {};
+  rows.forEach(m => { (map[m.booking_id] = map[m.booking_id] || []).push(m); });
+  msgsByBooking = map;
+}
+
+/* ── Rendering ── */
+function sortedConversations(){
+  return [...conversations].sort((a,b) => {
+    const la = lastMsgFor(a.bookingId), lb = lastMsgFor(b.bookingId);
+    const ta = la ? new Date(la.created_at) : new Date(a.scheduledAt||a.bookingId);
+    const tb = lb ? new Date(lb.created_at) : new Date(b.scheduledAt||b.bookingId);
+    return tb - ta;
+  });
+}
+
+function renderList(){
+  const el = document.getElementById('convList');
+  const list = sortedConversations();
+  if (!list.length){
+    el.innerHTML = `<div class="list-empty"><p>No bookings yet. Once you have a booking you can message about it here.</p></div>`;
+    return;
+  }
+  el.innerHTML = list.map(c => {
+    const last = lastMsgFor(c.bookingId);
+    const unread = unreadFor(c.bookingId);
+    const snippet = last ? (last.sender_id === authUid ? 'You: ' : '') + last.body : 'No messages yet';
+    return `
+      <button class="conv ${c.bookingId===activeBookingId?'active':''} ${unread>0?'unread':''}" data-booking="${c.bookingId}">
+        <div class="conv-avatar">${esc(c.initials)}</div>
+        <div class="conv-main">
+          <div class="conv-top"><span class="conv-name">${esc(c.name)}</span><span class="conv-time">${last?fmtListTime(last.created_at):''}</span></div>
+          <div class="conv-sub">${esc(fmtBookingCtx(c))}</div>
+          <div class="conv-snippet">${esc(snippet)}</div>
+        </div>
+        ${unread>0?`<span class="conv-dot">${unread}</span>`:''}
+      </button>`;
+  }).join('');
+  el.querySelectorAll('.conv').forEach(btn => btn.addEventListener('click', () => openThread(btn.dataset.booking)));
+}
+
+function renderThread(preserveInput){
+  const el = document.getElementById('thread');
+  const c = conversations.find(x => x.bookingId === activeBookingId);
+  if (!c){
+    el.innerHTML = `<div class="thread-empty">
+      <svg class="te-icon" width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/></svg>
+      <div class="te-title">Select a conversation</div>
+      <p>Choose a booking on the left to view and send messages.</p>
+    </div>`;
+    return;
+  }
+  const prevInput = preserveInput ? (document.getElementById('composerInput')||{}).value : '';
+  const msgs = msgsByBooking[activeBookingId] || [];
+  let body = '';
+  let lastDay = null;
+  if (!msgs.length){
+    body = `<div class="thread-empty"><p>No messages yet. Say hello and share any details for this booking — gate codes, your dog's quirks, timings.</p></div>`;
+  } else {
+    body = msgs.map(m => {
+      let sep = '';
+      const dk = dayKey(m.created_at);
+      if (dk !== lastDay){ sep = `<div class="day-sep">${dayLabel(m.created_at)}</div>`; lastDay = dk; }
+      const mine = m.sender_id === authUid;
+      const read = mine && m.read_at ? ' · Read' : '';
+      return `${sep}<div class="bubble ${mine?'mine':'theirs'}"><div class="bubble-body">${esc(m.body)}</div><div class="bubble-meta">${fmtMsgTime(m.created_at)}${read}</div></div>`;
+    }).join('');
+  }
+
+  el.innerHTML = `
+    <div class="thread-head">
+      <div style="display:flex;align-items:center;min-width:0;">
+        <button class="thread-back" id="threadBack" aria-label="Back to conversations"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg></button>
+        <div style="min-width:0;">
+          <div class="thread-title">${esc(c.name)}</div>
+          <div class="thread-ctx">${esc(fmtBookingCtx(c))}</div>
+        </div>
+      </div>
+      <a class="thread-link" href="${c.viewHref}">View booking →</a>
+    </div>
+    <div class="thread-body" id="threadBody">${body}</div>
+    <form class="composer" id="composer">
+      <textarea id="composerInput" rows="1" placeholder="Write a message…" aria-label="Write a message"></textarea>
+      <button type="submit" aria-label="Send message"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg></button>
+    </form>`;
+
+  const input = document.getElementById('composerInput');
+  input.value = prevInput || '';
+  autosize(input);
+  input.addEventListener('input', () => autosize(input));
+  input.addEventListener('keydown', e => { if (e.key === 'Enter' && !e.shiftKey){ e.preventDefault(); document.getElementById('composer').requestSubmit(); } });
+  document.getElementById('composer').addEventListener('submit', onSend);
+  const back = document.getElementById('threadBack');
+  if (back) back.addEventListener('click', closeThread);
+
+  const tb = document.getElementById('threadBody');
+  tb.scrollTop = tb.scrollHeight;
+}
+
+function autosize(t){ t.style.height='auto'; t.style.height=Math.min(t.scrollHeight,120)+'px'; }
+
+async function openThread(bookingId){
+  activeBookingId = bookingId;
+  document.body.classList.add('thread-open');
+  renderList();
+  renderThread(false);
+  // Update URL without reload
+  const url = new URL(window.location); url.searchParams.set('booking', bookingId); history.replaceState({}, '', url);
+  await markRead(bookingId);
+}
+
+function closeThread(){
+  activeBookingId = null;
+  document.body.classList.remove('thread-open');
+  const url = new URL(window.location); url.searchParams.delete('booking'); history.replaceState({}, '', url);
+  renderList();
+  renderThread(false);
+}
+
+async function markRead(bookingId){
+  const unreadIds = (msgsByBooking[bookingId]||[]).filter(m => m.sender_id !== authUid && !m.read_at);
+  if (!unreadIds.length) return;
+  try {
+    await sbPatchWhere('messages', `booking_id=eq.${bookingId}&sender_id=neq.${authUid}&read_at=is.null`, { read_at: new Date().toISOString() });
+    unreadIds.forEach(m => m.read_at = new Date().toISOString());
+    renderList();
+  } catch(e){ /* non-fatal */ }
+}
+
+async function onSend(e){
+  e.preventDefault();
+  const input = document.getElementById('composerInput');
+  const text = (input.value||'').trim();
+  if (!text || !activeBookingId) return;
+  input.value=''; autosize(input);
+  try {
+    const res = await sbInsert('messages', { booking_id: activeBookingId, sender_id: authUid, body: text });
+    const row = Array.isArray(res) ? res[0] : res;
+    if (row){ (msgsByBooking[activeBookingId] = msgsByBooking[activeBookingId] || []).push(row); }
+    renderThread(true);
+    renderList();
+  } catch(err){
+    input.value = text; autosize(input);
+    alert('Could not send: ' + err.message);
+  }
+}
+
+/* ── Polling ── */
+async function poll(){
+  if (!conversations.length) return;
+  try {
+    const before = activeBookingId ? (msgsByBooking[activeBookingId]||[]).length : 0;
+    await loadMessages(conversations.map(c => c.bookingId));
+    renderList();
+    if (activeBookingId){
+      const after = (msgsByBooking[activeBookingId]||[]).length;
+      // Only re-render the thread if something changed (avoids disrupting typing)
+      if (after !== before) { renderThread(true); }
+      markRead(activeBookingId);
+    }
+  } catch(e){ /* transient; try again next tick */ }
+}
+
+/* ── Boot ── */
+async function init(){
+  const shell = document.getElementById('shell');
+  try {
+    const stored = localStorage.getItem('truffl_session');
+    if (stored){ const s = JSON.parse(stored); authToken = s.access_token; authUid = s.user_id; role = s.role; }
+  } catch(e){}
+
+  if (!authToken){
+    shell.innerHTML = `<div class="login-prompt"><h2>Sign in to view messages</h2><p>You need to be logged in to message your ${role==='provider'?'customers':'carers'}.</p><a href="/login/?redirect=/messages/">Sign in</a></div>`;
+    return;
+  }
+
+  // Nav: role-aware home link + avatar
+  try {
+    const users = await sbGet('users', `id=eq.${authUid}&select=first_name,last_name,role`);
+    if (users.length){
+      if (!role) role = users[0].role;
+      const ini = ((users[0].first_name||'')[0]||'').toUpperCase() + ((users[0].last_name||'')[0]||'').toUpperCase();
+      const home = role === 'provider' ? '/dashboard/' : '/my/';
+      document.getElementById('navRight').innerHTML = `<a class="nav-link" href="${home}">${role==='provider'?'Dashboard':'My account'}</a><div class="nav-avatar">${esc(ini)}</div>`;
+    }
+  } catch(e){}
+
+  try {
+    conversations = await loadConversations();
+    renderList();
+    const wanted = new URLSearchParams(window.location.search).get('booking');
+    if (wanted && conversations.some(c => c.bookingId === wanted)) {
+      await openThread(wanted);
+    } else {
+      renderThread(false);
+    }
+    pollTimer = setInterval(poll, 10000);
+  } catch(e){
+    shell.innerHTML = `<div class="login-prompt"><h2>Couldn't load messages</h2><p>${esc(e.message)}</p><a href="/messages/">Try again</a></div>`;
+  }
+}
+
+document.addEventListener('DOMContentLoaded', init);
+window.addEventListener('beforeunload', () => { if (pollTimer) clearInterval(pollTimer); });
+</script>
+</body>
+</html>
