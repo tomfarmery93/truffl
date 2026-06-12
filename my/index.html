@@ -73,6 +73,9 @@
 
   .cancel-confirm{display:flex;align-items:center;gap:8px;flex-wrap:wrap;}
   .cancel-confirm span{font-size:0.82rem;color:var(--text-secondary);}
+  .cancel-confirm.series{flex-direction:column;align-items:flex-start;}
+  .cancel-confirm-btns{display:flex;gap:8px;flex-wrap:wrap;}
+  .recurring-tag{display:inline-block;font-size:0.6rem;font-weight:600;letter-spacing:0.04em;text-transform:uppercase;color:var(--sage-dark);background:var(--success-bg);padding:2px 8px;border-radius:20px;vertical-align:middle;}
   .btn-cancel-yes{padding:8px 14px;background:var(--error);color:white;border:none;border-radius:8px;font-size:0.82rem;font-weight:500;cursor:pointer;font-family:'DM Sans',sans-serif;}
   .btn-cancel-yes:hover{opacity:0.9;}
   .btn-cancel-keep{padding:8px 14px;background:transparent;border:1px solid var(--border);color:var(--text-muted);border-radius:8px;font-size:0.82rem;cursor:pointer;font-family:'DM Sans',sans-serif;}
@@ -327,11 +330,11 @@ function actionButtons(b) {
       : `<a href="/track/?booking=${b.id}" class="btn-ghost">View walk</a>`;
   }
   if (b.status === 'confirmed') {
-    if (pendingCancelId === b.id) return cancelConfirmHtml(b.id);
+    if (pendingCancelId === b.id) return cancelConfirmHtml(b);
     return `<a href="/track/?booking=${b.id}" class="btn-ghost">View booking</a><button class="btn-ghost danger" onclick="showCancelConfirm('${b.id}')">Cancel</button>`;
   }
   if (b.status === 'pending') {
-    if (pendingCancelId === b.id) return cancelConfirmHtml(b.id);
+    if (pendingCancelId === b.id) return cancelConfirmHtml(b);
     return `<button class="btn-ghost danger" onclick="showCancelConfirm('${b.id}')">Cancel</button>`;
   }
   if (b.status === 'completed') {
@@ -345,8 +348,18 @@ function actionButtons(b) {
   return '';
 }
 
-function cancelConfirmHtml(id) {
-  return `<div class="cancel-confirm"><span>Are you sure?</span><button class="btn-cancel-yes" onclick="doCancelBooking('${id}')">Yes, cancel</button><button class="btn-cancel-keep" onclick="dismissCancel()">Keep booking</button></div>`;
+function cancelConfirmHtml(b) {
+  if (b.series_id) {
+    return `<div class="cancel-confirm series">
+      <span>This is a recurring walk — what would you like to cancel?</span>
+      <div class="cancel-confirm-btns">
+        <button class="btn-cancel-yes" onclick="doCancelBooking('${b.id}')">Just this walk</button>
+        <button class="btn-cancel-yes" onclick="doCancelSeries('${b.series_id}')">All future walks</button>
+        <button class="btn-cancel-keep" onclick="dismissCancel()">Keep</button>
+      </div>
+    </div>`;
+  }
+  return `<div class="cancel-confirm"><span>Are you sure?</span><button class="btn-cancel-yes" onclick="doCancelBooking('${b.id}')">Yes, cancel</button><button class="btn-cancel-keep" onclick="dismissCancel()">Keep booking</button></div>`;
 }
 
 function bookingCardHtml(b) {
@@ -356,9 +369,10 @@ function bookingCardHtml(b) {
   const dateStr = b.scheduled_at ? formatScheduledAt(b.scheduled_at) : '';
   const actions = actionButtons(b);
   const msgLink = `<a href="/messages/?booking=${b.id}" class="btn-ghost bc-msg-link">Message <span class="bc-msg-badge" id="cardbadge-${b.id}" style="display:none;">0</span></a>`;
+  const recurringTag = b.series_id ? ' <span class="recurring-tag">Recurring</span>' : '';
   return `
     <div class="booking-card">
-      <div class="bc-pet-name">${petLabel}</div>
+      <div class="bc-pet-name">${petLabel}${recurringTag}</div>
       <div class="bc-meta">${serviceLabel} · ${provLabel}</div>
       <div class="bc-time">${esc(dateStr)}</div>
       ${statusBadge(b.status)}
@@ -556,6 +570,21 @@ async function doCancelBooking(id) {
     if (b) b.status = 'cancelled';
     pendingCancelId = null;
     renderBookingsTab();
+  } catch(e) { showMsg(e.message, 'error'); }
+}
+async function doCancelSeries(seriesId) {
+  try {
+    await sbPatch('booking_series', 'id', seriesId, { status: 'cancelled' });
+    // Mirror the DB trigger locally: cancel future pending/confirmed walks.
+    const now = Date.now();
+    bookings.forEach(b => {
+      if (b.series_id === seriesId && (b.status === 'pending' || b.status === 'confirmed') && new Date(b.scheduled_at).getTime() > now) {
+        b.status = 'cancelled';
+      }
+    });
+    pendingCancelId = null;
+    renderBookingsTab();
+    showMsg('Recurring schedule cancelled — upcoming walks were cancelled. Past walks are unchanged.', 'success');
   } catch(e) { showMsg(e.message, 'error'); }
 }
 
