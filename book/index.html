@@ -52,6 +52,23 @@
   .field input:focus, .field select:focus, .field textarea:focus { border-color: var(--border-focus); box-shadow: 0 0 0 3px rgba(196,117,91,0.12); }
   .field textarea { resize: vertical; min-height: 80px; }
   .field-row { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; }
+  /* Recurring controls */
+  .seg { display: flex; padding: 3px; background: var(--cream); border: 1px solid var(--border); border-radius: 999px; margin-bottom: 14px; }
+  .seg button { flex: 1; border: 0; background: transparent; padding: 8px 10px; font-size: 0.82rem; font-family: 'DM Sans', sans-serif; color: var(--text-muted); border-radius: 999px; cursor: pointer; font-weight: 500; transition: all .18s; }
+  .seg button.active { background: var(--warm-white); color: var(--brown); box-shadow: 0 1px 3px rgba(61,43,31,0.08); }
+  .freq-row { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 14px; }
+  .freq-chip { padding: 8px 14px; border-radius: 10px; border: 1px solid var(--border); background: var(--warm-white); font-size: 0.84rem; color: var(--text-secondary); cursor: pointer; font-family: 'DM Sans', sans-serif; transition: all .18s; }
+  .freq-chip.active { background: var(--blush); border-color: var(--terracotta); color: var(--brown); font-weight: 500; }
+  .days-row { display: flex; gap: 6px; margin-bottom: 14px; }
+  .day-btn { flex: 1; height: 38px; display: flex; align-items: center; justify-content: center; border-radius: 8px; border: 1px solid var(--border); background: var(--warm-white); color: var(--text-secondary); font-size: 0.78rem; font-weight: 500; cursor: pointer; font-family: 'DM Sans', sans-serif; transition: all .18s; }
+  .day-btn.active { background: var(--terracotta); border-color: var(--terracotta); color: #fff; }
+  .end-row { display: flex; gap: 16px; align-items: center; margin-bottom: 6px; flex-wrap: wrap; }
+  .end-opt { display: flex; align-items: center; gap: 6px; font-size: 0.85rem; color: var(--text-secondary); cursor: pointer; }
+  .end-opt input { accent-color: var(--terracotta); }
+  .preview-box { background: var(--cream); border-radius: 10px; padding: 12px 14px; margin-top: 8px; }
+  .preview-title { font-size: 0.72rem; letter-spacing: .1em; text-transform: uppercase; color: var(--text-muted); margin-bottom: 8px; }
+  .preview-item { font-size: 0.84rem; color: var(--text-secondary); padding: 3px 0; display: flex; align-items: center; gap: 8px; }
+  .preview-item svg { color: var(--sage-dark); flex-shrink: 0; }
   .field-hint { font-size: 0.78rem; color: var(--text-muted); margin-top: 4px; }
 
   .btn-row { display: flex; gap: 12px; margin-top: 1.5rem; }
@@ -191,6 +208,12 @@ let providerData = null, providerProfile = null, providerServices = [];
 let customerProfile = null, customerPets = [];
 let selectedServiceId = null, selectedPetIds = [];
 
+let bookingMode = 'oneoff'; // 'oneoff' | 'recurring'
+const DAY_DEFS = [{ n: 1, l: 'M' }, { n: 2, l: 'T' }, { n: 3, l: 'W' }, { n: 4, l: 'T' }, { n: 5, l: 'F' }, { n: 6, l: 'S' }, { n: 7, l: 'S' }];
+const DAY_FULL = { 1: 'Mon', 2: 'Tue', 3: 'Wed', 4: 'Thu', 5: 'Fri', 6: 'Sat', 7: 'Sun' };
+const recurring = { frequency: 'weekdays', days: [], time: '08:00', startDate: '', endMode: 'ongoing', endDate: '' };
+function recurringAllowed(svcType) { return !MULTI_DAY_SERVICES.includes(svcType); }
+
 function headers(token) {
   const h = { 'Content-Type': 'application/json', 'apikey': SUPABASE_ANON_KEY, 'Authorization': `Bearer ${SUPABASE_ANON_KEY}` };
   if (token) h['Authorization'] = `Bearer ${token}`;
@@ -222,7 +245,11 @@ function selectService(el, serviceId) {
   document.querySelectorAll('.service-option').forEach(s => s.classList.remove('selected'));
   el.classList.add('selected'); selectedServiceId = serviceId;
   const svcType = el.querySelector('input')?.dataset.svcType;
-  document.getElementById('dateFields').innerHTML = renderDateFields(MULTI_DAY_SERVICES.includes(svcType));
+  if (!recurringAllowed(svcType)) bookingMode = 'oneoff'; // boarding/sitting are one-off multi-day
+  document.getElementById('whenSection').innerHTML = renderWhenSection(svcType);
+  const sb = document.getElementById('submitBtn');
+  if (sb) sb.textContent = (bookingMode === 'recurring') ? 'Request recurring schedule' : 'Send booking request';
+  if (bookingMode === 'recurring') renderPreview();
   renderPriceEstimate();
 }
 
@@ -333,6 +360,108 @@ function onPetToggle(input) {
   renderPriceEstimate();
 }
 
+function timeOptionsHtml(selected) {
+  let out = '';
+  for (let h = 6; h <= 20; h++) {
+    for (const m of [0, 30]) {
+      const v = String(h).padStart(2,'0') + ':' + String(m).padStart(2,'0');
+      const disp = ((h % 12) || 12) + ':' + String(m).padStart(2,'0') + ' ' + (h < 12 ? 'AM' : 'PM');
+      out += `<option value="${v}" ${selected === v ? 'selected' : ''}>${disp}</option>`;
+    }
+  }
+  return out;
+}
+
+/* ── When section: one-off vs recurring (recurring hidden for multi-day services) ── */
+function renderWhenSection(svcType) {
+  if (MULTI_DAY_SERVICES.includes(svcType)) return `<div id="whenBody">${renderDateFields(true)}</div>`;
+  return `
+    <div class="field">
+      <label>When do you need this?</label>
+      <div class="seg" id="modeSeg">
+        <button type="button" class="${bookingMode === 'oneoff' ? 'active' : ''}" onclick="setMode('oneoff')">One-off</button>
+        <button type="button" class="${bookingMode === 'recurring' ? 'active' : ''}" onclick="setMode('recurring')">Recurring</button>
+      </div>
+      <div id="whenBody">${bookingMode === 'recurring' ? renderRecurringFields() : renderDateFields(false)}</div>
+    </div>`;
+}
+
+function setMode(m) {
+  bookingMode = m;
+  document.querySelectorAll('#modeSeg button').forEach((b, i) => b.classList.toggle('active', (i === 0) === (m === 'oneoff')));
+  document.getElementById('whenBody').innerHTML = (m === 'recurring') ? renderRecurringFields() : renderDateFields(false);
+  const sb = document.getElementById('submitBtn');
+  if (sb) sb.textContent = (m === 'recurring') ? 'Request recurring schedule' : 'Send booking request';
+  if (m === 'recurring') renderPreview();
+  renderPriceEstimate();
+}
+
+function renderRecurringFields() {
+  if (!recurring.startDate) { const t = new Date(); t.setDate(t.getDate() + 1); recurring.startDate = t.toISOString().split('T')[0]; }
+  const today = new Date().toISOString().split('T')[0];
+  const freqs = [['weekdays', 'Weekdays'], ['daily', 'Every day'], ['specific_days', 'Specific days']];
+  return `
+    <div class="freq-row">
+      ${freqs.map(([v, l]) => `<button type="button" class="freq-chip ${recurring.frequency === v ? 'active' : ''}" onclick="setFrequency('${v}')">${l}</button>`).join('')}
+    </div>
+    ${recurring.frequency === 'specific_days' ? `<div class="days-row">${DAY_DEFS.map(d => `<button type="button" class="day-btn ${recurring.days.includes(d.n) ? 'active' : ''}" onclick="toggleDay(${d.n})">${d.l}</button>`).join('')}</div>` : ''}
+    <div class="field-row">
+      <div class="field" style="margin-bottom:14px;"><label>Time</label><select id="recTime" onchange="recurring.time=this.value;renderPreview()">${timeOptionsHtml(recurring.time)}</select></div>
+      <div class="field" style="margin-bottom:14px;"><label>Start date</label><input type="date" id="recStart" value="${recurring.startDate}" min="${today}" onchange="recurring.startDate=this.value;renderPreview()"></div>
+    </div>
+    <div class="field" style="margin-bottom:10px;">
+      <label>Ends</label>
+      <div class="end-row">
+        <label class="end-opt"><input type="radio" name="endMode" ${recurring.endMode === 'ongoing' ? 'checked' : ''} onchange="setEndMode('ongoing')"> Ongoing</label>
+        <label class="end-opt"><input type="radio" name="endMode" ${recurring.endMode === 'until' ? 'checked' : ''} onchange="setEndMode('until')"> Until a date</label>
+        ${recurring.endMode === 'until' ? `<input type="date" id="recEnd" value="${recurring.endDate}" min="${recurring.startDate}" onchange="recurring.endDate=this.value;renderPreview()" style="max-width:170px;">` : ''}
+      </div>
+    </div>
+    <div class="preview-box"><div class="preview-title">Upcoming walks</div><div id="recPreview"></div></div>`;
+}
+
+function setFrequency(f) { recurring.frequency = f; document.getElementById('whenBody').innerHTML = renderRecurringFields(); renderPreview(); }
+function toggleDay(n) {
+  const i = recurring.days.indexOf(n);
+  if (i >= 0) recurring.days.splice(i, 1); else recurring.days.push(n);
+  document.querySelectorAll('.day-btn').forEach((b, idx) => b.classList.toggle('active', recurring.days.includes(DAY_DEFS[idx].n)));
+  renderPreview();
+}
+function setEndMode(m) { recurring.endMode = m; document.getElementById('whenBody').innerHTML = renderRecurringFields(); renderPreview(); }
+
+function computeUpcomingDates(limit) {
+  const out = [];
+  if (!recurring.startDate) return out;
+  let d = new Date(recurring.startDate + 'T00:00:00');
+  const today = new Date(); today.setHours(0, 0, 0, 0);
+  if (d < today) d = today;
+  const end = (recurring.endMode === 'until' && recurring.endDate) ? new Date(recurring.endDate + 'T00:00:00') : null;
+  let guard = 0;
+  while (out.length < limit && guard < 500) {
+    guard++;
+    if (end && d > end) break;
+    const dow = ((d.getDay() + 6) % 7) + 1; // JS 0=Sun..6=Sat → isodow 1=Mon..7=Sun
+    const want = recurring.frequency === 'daily' ? true
+      : recurring.frequency === 'weekdays' ? (dow >= 1 && dow <= 5)
+      : recurring.days.includes(dow);
+    if (want) out.push(new Date(d));
+    d.setDate(d.getDate() + 1);
+  }
+  return out;
+}
+
+function renderPreview() {
+  const el = document.getElementById('recPreview');
+  if (!el) return;
+  const dates = computeUpcomingDates(6);
+  if (!dates.length) { el.innerHTML = `<div class="preview-item" style="color:var(--text-muted);">Pick a frequency and start date to preview walks.</div>`; return; }
+  const check = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>';
+  const [h, m] = recurring.time.split(':').map(Number);
+  const time12 = ((h % 12) || 12) + ':' + String(m).padStart(2, '0') + ' ' + (h < 12 ? 'AM' : 'PM');
+  el.innerHTML = dates.map(d => `<div class="preview-item">${check} ${d.toLocaleDateString('en-AU', { weekday: 'short', day: 'numeric', month: 'short' })} · ${time12}</div>`).join('')
+    + (dates.length === 6 ? `<div class="preview-item" style="color:var(--text-muted);padding-left:22px;">…and so on</div>` : '');
+}
+
 function renderBookingForm() {
   const area = document.getElementById('bookingContent');
   const initials = ((providerData.first_name||'')[0]||'') + ((providerData.last_name||'')[0]||'');
@@ -384,7 +513,7 @@ function renderBookingForm() {
         <div class="service-grid">${servicesHtml}</div>
       </div>
 
-      <div id="dateFields">${renderDateFields(firstSvcIsMultiDay)}</div>
+      <div id="whenSection">${renderWhenSection(uniqueServices.length ? uniqueServices[0].service_type : null)}</div>
 
       ${customerPets.length > 1 ? `<div class="field"><label>Which pets? <span class="optional">(select one or more)</span></label><div class="pet-grid">${petsHtml}</div></div>` : ''}
 
@@ -404,7 +533,7 @@ function renderBookingForm() {
 
       <div class="btn-row">
         <a href="/carer/?id=${new URLSearchParams(window.location.search).get('provider')}" class="btn btn-secondary" style="text-decoration:none;text-align:center;">Back to profile</a>
-        <button class="btn btn-primary" onclick="submitBooking()">Send booking request</button>
+        <button class="btn btn-primary" id="submitBtn" onclick="submitBooking()">${bookingMode === 'recurring' ? 'Request recurring schedule' : 'Send booking request'}</button>
       </div>
     </div>
   `;
@@ -413,6 +542,7 @@ function renderBookingForm() {
 }
 
 async function submitBooking() {
+  if (bookingMode === 'recurring') return submitSeries();
   clearMsg();
   if (!selectedServiceId) return showMsg('Please select a service.', 'error');
   if (!selectedPetIds.length && customerPets.length > 0) selectedPetIds = [customerPets[0].id];
@@ -466,6 +596,69 @@ async function submitBooking() {
         <h2>Booking request sent!</h2>
         <p>${providerData.first_name} will review your request and confirm. We'll let you know once they respond.</p>
         <p style="margin-top:0.75rem;font-size:0.82rem;color:var(--text-muted);">You can track the booking status and live walk from your dashboard.</p>
+        <div style="margin-top:2rem;display:flex;gap:12px;justify-content:center;flex-wrap:wrap;">
+          <a href="/my/" style="display:inline-block;padding:12px 28px;background:var(--terracotta);color:white;border-radius:10px;font-weight:500;text-decoration:none;font-size:0.9rem;">View my bookings</a>
+          <a href="/search/" style="display:inline-block;padding:12px 28px;border:1px solid var(--border);color:var(--text-secondary);border-radius:10px;font-weight:500;text-decoration:none;font-size:0.9rem;">Browse more carers</a>
+        </div>
+      </div>
+    `;
+    clearMsg();
+  } catch(e) { showMsg(e.message, 'error'); } finally { setLoading(btn, false); }
+}
+
+function frequencyLabel() {
+  if (recurring.frequency === 'daily') return 'every day';
+  if (recurring.frequency === 'weekdays') return 'every weekday';
+  return 'every ' + recurring.days.slice().sort((a, b) => a - b).map(n => DAY_FULL[n]).join(', ');
+}
+
+async function submitSeries() {
+  clearMsg();
+  const selectedSvc = providerServices.find(s => s.id === selectedServiceId);
+  if (!selectedServiceId) return showMsg('Please select a service.', 'error');
+  if (!recurringAllowed(selectedSvc && selectedSvc.service_type)) return showMsg('Recurring isn\'t available for this service.', 'error');
+  if (!selectedPetIds.length && customerPets.length > 0) selectedPetIds = [customerPets[0].id];
+  if (!selectedPetIds.length) return showMsg('Please select at least one pet.', 'error');
+  if (recurring.frequency === 'specific_days' && !recurring.days.length) return showMsg('Pick at least one day of the week.', 'error');
+  if (!recurring.startDate) return showMsg('Pick a start date.', 'error');
+  if (recurring.endMode === 'until') {
+    if (!recurring.endDate) return showMsg('Pick an end date, or choose Ongoing.', 'error');
+    if (recurring.endDate < recurring.startDate) return showMsg('The end date must be after the start date.', 'error');
+  }
+  if (!computeUpcomingDates(1).length) return showMsg('That schedule has no upcoming walks — check the dates.', 'error');
+
+  // Lock the per-walk price (base + extra-pet fees) at series creation.
+  const base = selectedSvc.price_cents;
+  const extraFee = selectedSvc.additional_pet_price_cents || 0;
+  const lockedPrice = base != null ? base + Math.max(0, selectedPetIds.length - 1) * extraFee : null;
+
+  const btn = document.querySelector('.btn-primary');
+  setLoading(btn, true);
+  try {
+    const inserted = await sbInsert('booking_series', {
+      customer_id: customerProfile.id,
+      provider_id: providerProfile.id,
+      service_id: selectedServiceId,
+      frequency_type: recurring.frequency,
+      days_of_week: recurring.frequency === 'specific_days' ? recurring.days.slice().sort((a, b) => a - b) : [],
+      time_of_day: recurring.time,
+      start_date: recurring.startDate,
+      end_date: recurring.endMode === 'until' ? recurring.endDate : null,
+      status: 'pending',
+      locked_price_cents: lockedPrice
+    }, authToken);
+    const series = Array.isArray(inserted) ? inserted[0] : inserted;
+    if (series && series.id) {
+      await sbInsert('series_pets', selectedPetIds.map(pid => ({ series_id: series.id, pet_id: pid })), authToken);
+    }
+
+    const endText = recurring.endMode === 'until' ? ` until ${new Date(recurring.endDate + 'T00:00:00').toLocaleDateString('en-AU', { day: 'numeric', month: 'short', year: 'numeric' })}` : ', ongoing';
+    document.getElementById('bookingContent').innerHTML = `
+      <div class="form-card success-card fade-in">
+        <div class="success-icon"><svg width="28" height="28" viewBox="0 0 24 24" fill="none"><path d="M5 13l4 4L19 7" stroke="#5B8C5A" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
+        <h2>Recurring schedule requested!</h2>
+        <p>${providerData.first_name} will review your recurring ${SERVICE_LABELS[selectedSvc.service_type] || 'booking'} schedule — <strong>${frequencyLabel()}</strong> from ${new Date(recurring.startDate + 'T00:00:00').toLocaleDateString('en-AU', { day: 'numeric', month: 'short' })}${endText}.</p>
+        <p style="margin-top:0.75rem;font-size:0.82rem;color:var(--text-muted);">Once they accept, your walks will appear in your bookings. The price per walk is locked in now and won't change.</p>
         <div style="margin-top:2rem;display:flex;gap:12px;justify-content:center;flex-wrap:wrap;">
           <a href="/my/" style="display:inline-block;padding:12px 28px;background:var(--terracotta);color:white;border-radius:10px;font-weight:500;text-decoration:none;font-size:0.9rem;">View my bookings</a>
           <a href="/search/" style="display:inline-block;padding:12px 28px;border:1px solid var(--border);color:var(--text-secondary);border-radius:10px;font-weight:500;text-decoration:none;font-size:0.9rem;">Browse more carers</a>

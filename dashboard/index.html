@@ -34,6 +34,7 @@
   .nav-msg:hover { color: var(--terracotta); }
   .nav-msg-badge { position: absolute; top: -7px; right: -8px; min-width: 16px; height: 16px; padding: 0 4px; border-radius: 999px; background: var(--terracotta); color: #fff; font-size: 10px; line-height: 16px; text-align: center; font-weight: 600; }
   .bc-msg-badge { min-width: 16px; height: 16px; padding: 0 5px; border-radius: 999px; background: var(--terracotta); color: #fff; font-size: 10px; line-height: 16px; text-align: center; font-weight: 600; }
+  .recurring-tag { display: inline-block; margin-left: 6px; font-size: 0.62rem; font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase; color: var(--sage-dark); background: var(--success-bg); padding: 2px 8px; border-radius: 20px; vertical-align: middle; }
   .nav-avatar {
     width: 32px; height: 32px; border-radius: 50%; background: var(--blush);
     display: flex; align-items: center; justify-content: center;
@@ -277,7 +278,26 @@ const SERVICE_LABELS = {
 };
 
 let authToken = null, authUid = null;
-let userData = null, providerProfile = null, providerServices = [], bookings = [];
+let userData = null, providerProfile = null, providerServices = [], bookings = [], series = [];
+
+const DAY_SHORT = { 1: 'Mon', 2: 'Tue', 3: 'Wed', 4: 'Thu', 5: 'Fri', 6: 'Sat', 7: 'Sun' };
+function formatTimeOfDay(t) {
+  if (!t) return '';
+  const [h, m] = t.split(':').map(Number);
+  return ((h % 12) || 12) + ':' + String(m).padStart(2, '0') + ' ' + (h < 12 ? 'AM' : 'PM');
+}
+function seriesPatternText(s) {
+  const freq = s.frequency_type === 'daily' ? 'Every day'
+    : s.frequency_type === 'weekdays' ? 'Every weekday'
+    : 'Every ' + (s.days_of_week || []).slice().sort((a, b) => a - b).map(n => DAY_SHORT[n]).join(', ');
+  return `${freq} at ${formatTimeOfDay(s.time_of_day)}`;
+}
+function seriesDateText(s) {
+  const start = new Date(s.start_date + 'T00:00:00').toLocaleDateString('en-AU', { day: 'numeric', month: 'short' });
+  return s.end_date
+    ? `${start} – ${new Date(s.end_date + 'T00:00:00').toLocaleDateString('en-AU', { day: 'numeric', month: 'short', year: 'numeric' })}`
+    : `From ${start} · ongoing`;
+}
 
 function headers(token) {
   const h = { 'Content-Type':'application/json', 'apikey':SUPABASE_ANON_KEY, 'Authorization':`Bearer ${SUPABASE_ANON_KEY}` };
@@ -429,6 +449,44 @@ async function loadBookings() {
   }
 }
 
+async function loadSeries() {
+  series = await sbGet('booking_series', `provider_id=eq.${providerProfile.id}&status=eq.pending&select=*&order=created_at.desc`);
+  if (!series.length) return;
+  const ids = series.map(s => s.id);
+  let nameMap = {};
+  try {
+    const names = await sbGet('series_party_names', `series_id=in.(${ids.join(',')})&select=*`);
+    nameMap = Object.fromEntries(names.map(n => [n.series_id, n]));
+  } catch(e) {}
+  const svcIds = [...new Set(series.map(s => s.service_id).filter(Boolean))];
+  const svcs = svcIds.length ? await sbGet('provider_services', `id=in.(${svcIds.join(',')})&select=id,service_type`) : [];
+  const svcMap = Object.fromEntries(svcs.map(s => [s.id, s.service_type]));
+  series.forEach(s => {
+    const n = nameMap[s.id] || {};
+    s._customer_name = `${n.customer_first_name || ''} ${n.customer_last_name || ''}`.trim() || 'Customer';
+    s._pet_names = n.pet_names || (n.pet_count ? `${n.pet_count} pet${n.pet_count > 1 ? 's' : ''}` : 'Pet');
+    s._service_type = svcMap[s.service_id];
+  });
+}
+
+async function acceptSeries(id) {
+  try {
+    await sbPatch('booking_series', 'id', id, { status: 'active' });
+    await loadSeries();
+    await loadBookings();
+    renderBookingsTab();
+    showMsg('Recurring schedule accepted — the walks are now in your bookings.', 'success');
+  } catch(e) { showMsg(e.message, 'error'); }
+}
+
+async function declineSeries(id) {
+  try {
+    await sbPatch('booking_series', 'id', id, { status: 'cancelled' });
+    await loadSeries();
+    renderBookingsTab();
+  } catch(e) { showMsg(e.message, 'error'); }
+}
+
 function renderBookingsTab() {
   const pending = bookings.filter(b => b.status === 'pending');
   const confirmed = bookings.filter(b => b.status === 'confirmed');
@@ -436,8 +494,28 @@ function renderBookingsTab() {
 
   let html = '';
 
+  if (series.length > 0) {
+    html += `<div class="card-title" style="margin-bottom:0.75rem;">Recurring requests (${series.length})</div>`;
+    html += series.map(s => `
+      <div class="booking-card">
+        <div class="bc-info">
+          <div class="bc-customer">${s._customer_name} <span class="recurring-tag">Recurring</span></div>
+          <div class="bc-pet">${s._pet_names}</div>
+          <span class="bc-service">${SERVICE_LABELS[s._service_type] || s._service_type || 'Service'}</span>
+          <div class="bc-time">${seriesPatternText(s)}</div>
+          <div class="bc-time">${seriesDateText(s)}</div>
+          ${s.locked_price_cents != null ? `<div class="bc-time">$${priceToDollars(s.locked_price_cents)} per walk · locked</div>` : ''}
+        </div>
+        <div class="bc-actions">
+          <button class="bc-btn accept" onclick="acceptSeries('${s.id}')">Accept series</button>
+          <button class="bc-btn decline" onclick="declineSeries('${s.id}')">Decline</button>
+        </div>
+      </div>
+    `).join('');
+  }
+
   if (pending.length > 0) {
-    html += `<div class="card-title" style="margin-bottom:0.75rem;">New requests (${pending.length})</div>`;
+    html += `<div class="card-title" style="margin-top:${series.length ? '1.5rem' : '0'};margin-bottom:0.75rem;">New requests (${pending.length})</div>`;
     html += pending.map(b => `
       <div class="booking-card">
         <div class="bc-info">
@@ -475,7 +553,7 @@ function renderBookingsTab() {
     `).join('');
   }
 
-  if (pending.length === 0 && confirmed.length === 0) {
+  if (pending.length === 0 && confirmed.length === 0 && series.length === 0) {
     html = `<div class="empty"><div class="empty-icon">📋</div>No bookings yet. Once customers book you, their requests will appear here.</div>`;
   }
 
@@ -799,6 +877,7 @@ async function init() {
 
     // Load bookings
     await loadBookings();
+    await loadSeries();
 
     renderDashboard();
     refreshMsgBadge();
