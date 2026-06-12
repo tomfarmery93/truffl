@@ -215,8 +215,8 @@
     </a>
   <div class="nav-links">
     <a href="/about-us/">About</a>
-    <a href="/my/">My account</a>
-    <a href="/login/" class="btn-nav">Sign up</a>
+    <a href="/login/" id="navAccount">Sign in</a>
+    <a href="/login/" class="btn-nav" id="navSignup">Sign up</a>
   </div>
 </nav>
 
@@ -1048,6 +1048,19 @@ async function init() {
 }
 
 document.addEventListener('DOMContentLoaded', init);
+
+/* When signed in: swap "Sign in" → "My account" (role-aware) and hide "Sign up". */
+(function () {
+  try {
+    const s = JSON.parse(localStorage.getItem('truffl_session') || 'null');
+    if (s && s.access_token) {
+      const acc = document.getElementById('navAccount');
+      if (acc) { acc.textContent = 'My account'; acc.href = s.role === 'provider' ? '/dashboard/' : '/my/'; }
+      const su = document.getElementById('navSignup');
+      if (su) su.style.display = 'none';
+    }
+  } catch (e) {}
+})();
 </script>
 </body>
 </html>

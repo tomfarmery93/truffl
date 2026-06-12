@@ -451,7 +451,7 @@
     </button>
 
     <div class="nav-actions">
-      <a href="/login/">Sign in</a>
+      <a href="/login/" id="navAuthLink">Sign in</a>
       <a href="/search/" class="btn-primary">Book a carer</a>
     </div>
   </nav>
@@ -912,6 +912,17 @@
     });
 
     updatePillSummary();
+  })();
+
+  /* When signed in, swap the "Sign in" nav link for "My account". */
+  (function () {
+    try {
+      var s = JSON.parse(localStorage.getItem('truffl_session') || 'null');
+      if (s && s.access_token) {
+        var el = document.getElementById('navAuthLink');
+        if (el) { el.textContent = 'My account'; el.href = s.role === 'provider' ? '/dashboard/' : '/my/'; }
+      }
+    } catch (e) {}
   })();
   </script>
 
