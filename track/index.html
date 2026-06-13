@@ -286,7 +286,18 @@ async function pollForWalkStart() {
 
 function renderWaitingState() {
   const area = document.getElementById('trackContent');
-  const scheduledStr = booking.scheduled_at ? formatScheduledAt(booking.scheduled_at) : 'Time TBC';
+  let scheduledStr = 'Time TBC';
+  if (booking.scheduled_at) {
+    if (booking.window_end_at) {
+      const d = new Date(booking.scheduled_at);
+      const day = d.toLocaleDateString('en-AU', { weekday: 'short', day: 'numeric', month: 'short' });
+      const t1 = d.toLocaleTimeString('en-AU', { hour: 'numeric', minute: '2-digit', hour12: true });
+      const t2 = new Date(booking.window_end_at).toLocaleTimeString('en-AU', { hour: 'numeric', minute: '2-digit', hour12: true });
+      scheduledStr = `${day} · ${booking.duration_mins ? booking.duration_mins + '-min · ' : ''}between ${t1}–${t2}`;
+    } else {
+      scheduledStr = formatScheduledAt(booking.scheduled_at);
+    }
+  }
   area.innerHTML = `
     <div class="status-bar waiting">
       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>

@@ -366,7 +366,18 @@ function bookingCardHtml(b) {
   const petLabel = esc(b._pet_name || 'Your pet') + (b._pet_breed ? ' · ' + esc(b._pet_breed) : '');
   const serviceLabel = SERVICE_LABELS[b._service_type] || esc(b._service_type) || 'Service';
   const provLabel = esc(b._provider_name || 'Your carer');
-  const dateStr = b.scheduled_at ? formatScheduledAt(b.scheduled_at) : '';
+  let dateStr = '';
+  if (b.scheduled_at) {
+    if (b.window_end_at) {
+      const d = new Date(b.scheduled_at);
+      const day = d.toLocaleDateString('en-AU', { weekday: 'long', day: 'numeric', month: 'long' });
+      const t1 = d.toLocaleTimeString('en-AU', { hour: 'numeric', minute: '2-digit', hour12: true });
+      const t2 = new Date(b.window_end_at).toLocaleTimeString('en-AU', { hour: 'numeric', minute: '2-digit', hour12: true });
+      dateStr = `${day} · ${b.duration_mins ? b.duration_mins + '-min · ' : ''}between ${t1}–${t2}`;
+    } else {
+      dateStr = formatScheduledAt(b.scheduled_at);
+    }
+  }
   const actions = actionButtons(b);
   const msgLink = `<a href="/messages/?booking=${b.id}" class="btn-ghost bc-msg-link">Message <span class="bc-msg-badge" id="cardbadge-${b.id}" style="display:none;">0</span></a>`;
   const recurringTag = b.series_id ? ' <span class="recurring-tag">Recurring</span>' : '';
