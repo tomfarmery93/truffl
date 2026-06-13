@@ -59,6 +59,21 @@
   .freq-row { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 14px; }
   .freq-chip { padding: 8px 14px; border-radius: 10px; border: 1px solid var(--border); background: var(--warm-white); font-size: 0.84rem; color: var(--text-secondary); cursor: pointer; font-family: 'DM Sans', sans-serif; transition: all .18s; }
   .freq-chip.active { background: var(--blush); border-color: var(--terracotta); color: var(--brown); font-weight: 500; }
+  .len-row { display: flex; gap: 8px; flex-wrap: wrap; }
+  .len-chip { padding: 8px 14px; border-radius: 10px; border: 1px solid var(--border); background: var(--warm-white); font-size: 0.84rem; color: var(--text-secondary); cursor: pointer; font-family: 'DM Sans', sans-serif; transition: all .18s; }
+  .len-chip:hover { border-color: var(--sage-light); }
+  .len-chip.active { background: var(--blush); border-color: var(--terracotta); color: var(--brown); font-weight: 500; }
+  /* Dual-handle time-window slider */
+  .win-wrap { position: relative; height: 34px; margin: 8px 2px 2px; }
+  .win-track { position: absolute; top: 15px; left: 0; right: 0; height: 4px; background: var(--border); border-radius: 2px; }
+  .win-fill { position: absolute; top: 15px; height: 4px; background: var(--terracotta); border-radius: 2px; }
+  .win-wrap input[type=range] { position: absolute; top: 0; left: 0; width: 100%; height: 34px; margin: 0; background: none; pointer-events: none; -webkit-appearance: none; appearance: none; }
+  .win-wrap input[type=range]:focus { outline: none; }
+  .win-wrap input[type=range]::-webkit-slider-thumb { pointer-events: auto; -webkit-appearance: none; width: 20px; height: 20px; border-radius: 50%; background: #fff; border: 2px solid var(--terracotta); cursor: pointer; margin-top: 7px; box-shadow: 0 1px 3px rgba(61,43,31,0.2); }
+  .win-wrap input[type=range]::-moz-range-thumb { pointer-events: auto; width: 20px; height: 20px; border-radius: 50%; background: #fff; border: 2px solid var(--terracotta); cursor: pointer; }
+  .win-wrap input[type=range]::-webkit-slider-runnable-track { background: none; }
+  .win-label { font-size: 0.85rem; color: var(--text-secondary); }
+  .win-label b { color: var(--text-primary); font-weight: 600; }
   .days-row { display: flex; gap: 6px; margin-bottom: 14px; }
   .day-btn { flex: 1; height: 38px; display: flex; align-items: center; justify-content: center; border-radius: 8px; border: 1px solid var(--border); background: var(--warm-white); color: var(--text-secondary); font-size: 0.78rem; font-weight: 500; cursor: pointer; font-family: 'DM Sans', sans-serif; transition: all .18s; }
   .day-btn.active { background: var(--terracotta); border-color: var(--terracotta); color: #fff; }
@@ -212,10 +227,27 @@ let customerProfile = null, customerPets = [];
 let selectedServiceId = null, selectedPetIds = [];
 
 let bookingMode = 'oneoff'; // 'oneoff' | 'recurring'
+let selectedSvcType = null;
 const DAY_DEFS = [{ n: 1, l: 'M' }, { n: 2, l: 'T' }, { n: 3, l: 'W' }, { n: 4, l: 'T' }, { n: 5, l: 'F' }, { n: 6, l: 'S' }, { n: 7, l: 'S' }];
 const DAY_FULL = { 1: 'Mon', 2: 'Tue', 3: 'Wed', 4: 'Thu', 5: 'Fri', 6: 'Sat', 7: 'Sun' };
-const recurring = { frequency: 'weekdays', days: [], time: '08:00', startDate: '', endMode: 'ongoing', endDate: '' };
+const recurring = { frequency: 'weekdays', days: [], startDate: '', endMode: 'ongoing', endDate: '' };
 function recurringAllowed(svcType) { return !MULTI_DAY_SERVICES.includes(svcType); }
+
+/* Time window — a "between X and Y" range the carer fits the walk into.
+   Slider works in 30-min indices over 6:00am–9:00pm. */
+const WIN_MIN = 12, WIN_MAX = 42; // 6:00 .. 21:00 in half-hours
+const win = { start: 18, end: 24 }; // default 9:00am–12:00pm
+function idxToHHMM(i) { return String(Math.floor(i / 2)).padStart(2, '0') + ':' + ((i % 2) ? '30' : '00'); }
+function idxToLabel(i) { const h = Math.floor(i / 2), m = (i % 2) ? 30 : 0; return ((h % 12) || 12) + ':' + String(m).padStart(2, '0') + ' ' + (h < 12 ? 'AM' : 'PM'); }
+function durationsForType(svcType) {
+  return providerServices.filter(s => s.service_type === svcType && s.is_available !== false)
+    .sort((a, b) => (a.duration_mins || 0) - (b.duration_mins || 0));
+}
+function selectedDurationMins() {
+  const svc = providerServices.find(s => s.id === selectedServiceId);
+  return svc ? svc.duration_mins : null;
+}
+function minWindowIdx() { const d = selectedDurationMins(); return d ? Math.ceil(d / 30) : 1; } // window must fit the walk
 
 function headers(token) {
   const h = { 'Content-Type': 'application/json', 'apikey': SUPABASE_ANON_KEY, 'Authorization': `Bearer ${SUPABASE_ANON_KEY}` };
@@ -246,14 +278,80 @@ function setLoading(btn, on) {
 
 function selectService(el, serviceId) {
   document.querySelectorAll('.service-option').forEach(s => s.classList.remove('selected'));
-  el.classList.add('selected'); selectedServiceId = serviceId;
-  const svcType = el.querySelector('input')?.dataset.svcType;
-  if (!recurringAllowed(svcType)) bookingMode = 'oneoff'; // boarding/sitting are one-off multi-day
-  document.getElementById('whenSection').innerHTML = renderWhenSection(svcType);
+  el.classList.add('selected');
+  selectedSvcType = el.querySelector('input')?.dataset.svcType;
+  // Default to the first (shortest) duration the carer offers for this type.
+  const durs = durationsForType(selectedSvcType);
+  selectedServiceId = durs.length ? durs[0].id : serviceId;
+  if (!recurringAllowed(selectedSvcType)) bookingMode = 'oneoff'; // boarding/sitting are one-off multi-day
+  document.getElementById('whenSection').innerHTML = renderWhenSection(selectedSvcType);
+  updateWindowUI();
   const sb = document.getElementById('submitBtn');
   if (sb) sb.textContent = (bookingMode === 'recurring') ? 'Request recurring schedule' : 'Send booking request';
   if (bookingMode === 'recurring') renderPreview();
   renderPriceEstimate();
+}
+
+/* Walk-length picker (provider's offered durations, each priced). Only shown
+   when a service type has more than one duration. */
+function renderLengthPicker(svcType) {
+  const durs = durationsForType(svcType);
+  if (durs.length <= 1) return '';
+  return `
+    <div class="field" style="margin-bottom:14px;">
+      <label>Walk length</label>
+      <div class="len-row">
+        ${durs.map(d => `<button type="button" class="len-chip ${d.id === selectedServiceId ? 'active' : ''}" onclick="selectLength('${d.id}')">${d.duration_mins} min${d.price_cents != null ? ` · ${fmtPrice(d.price_cents)}` : ''}</button>`).join('')}
+      </div>
+    </div>`;
+}
+function selectLength(id) {
+  selectedServiceId = id;
+  document.querySelectorAll('.len-chip').forEach(c => c.classList.toggle('active', c.getAttribute('onclick').includes(id)));
+  // ensure the window still fits the (possibly longer) walk
+  if (win.end - win.start < minWindowIdx()) win.end = Math.min(WIN_MAX, win.start + minWindowIdx());
+  updateWindowUI();
+  renderPriceEstimate();
+  if (bookingMode === 'recurring') renderPreview();
+}
+
+/* Dual-handle window slider. */
+function renderWindowSlider() {
+  return `
+    <div class="field" style="margin-bottom:6px;">
+      <label>Preferred time window</label>
+      <div class="win-wrap" id="winWrap">
+        <div class="win-track"></div>
+        <div class="win-fill" id="winFill"></div>
+        <input type="range" id="winStart" min="${WIN_MIN}" max="${WIN_MAX}" step="1" value="${win.start}" oninput="onWinInput('start')">
+        <input type="range" id="winEnd" min="${WIN_MIN}" max="${WIN_MAX}" step="1" value="${win.end}" oninput="onWinInput('end')">
+      </div>
+      <div class="win-label">Between <b id="winStartLbl">${idxToLabel(win.start)}</b> and <b id="winEndLbl">${idxToLabel(win.end)}</b></div>
+    </div>`;
+}
+function onWinInput(which) {
+  const sEl = document.getElementById('winStart'), eEl = document.getElementById('winEnd');
+  let s = parseInt(sEl.value, 10), e = parseInt(eEl.value, 10);
+  const gap = minWindowIdx();
+  if (which === 'start') { if (s > e - gap) { s = Math.max(WIN_MIN, e - gap); sEl.value = s; } }
+  else { if (e < s + gap) { e = Math.min(WIN_MAX, s + gap); eEl.value = e; } }
+  win.start = s; win.end = e;
+  updateWindowUI();
+  if (bookingMode === 'recurring') renderPreview();
+}
+function updateWindowUI() {
+  const sEl = document.getElementById('winStart'), eEl = document.getElementById('winEnd');
+  if (sEl) sEl.value = win.start;
+  if (eEl) eEl.value = win.end;
+  const sl = document.getElementById('winStartLbl'), el = document.getElementById('winEndLbl');
+  if (sl) sl.textContent = idxToLabel(win.start);
+  if (el) el.textContent = idxToLabel(win.end);
+  const fill = document.getElementById('winFill');
+  if (fill) {
+    const range = WIN_MAX - WIN_MIN;
+    fill.style.left = ((win.start - WIN_MIN) / range * 100) + '%';
+    fill.style.width = ((win.end - win.start) / range * 100) + '%';
+  }
 }
 
 function fmtPrice(cents) {
@@ -274,8 +372,8 @@ function renderPriceEstimate() {
   const extraFee = svc.additional_pet_price_cents || 0;
   const extraPets = Math.max(0, n - 1);
   const total = base + extraPets * extraFee;
-  const unit = svc.service_type === 'dog_walking' ? ' / walk'
-    : (MULTI_DAY_SERVICES.includes(svc.service_type) ? ' / night' : '');
+  const unit = MULTI_DAY_SERVICES.includes(svc.service_type) ? ' / night'
+    : (svc.duration_mins ? ` / ${svc.duration_mins}-min visit` : ' / visit');
 
   let breakdown = '';
   if (extraPets > 0 && extraFee > 0) {
@@ -316,40 +414,12 @@ function renderDateFields(isMultiDay) {
     `;
   }
   return `
-    <div class="field-row">
-      <div class="field">
-        <label>Date</label>
-        <input type="date" id="bookDate" value="${defaultDate}" min="${defaultDate}">
-      </div>
-      <div class="field">
-        <label>Time</label>
-        <select id="bookTime">
-          <option value="07:00">7:00 AM</option>
-          <option value="07:30">7:30 AM</option>
-          <option value="08:00" selected>8:00 AM</option>
-          <option value="08:30">8:30 AM</option>
-          <option value="09:00">9:00 AM</option>
-          <option value="09:30">9:30 AM</option>
-          <option value="10:00">10:00 AM</option>
-          <option value="10:30">10:30 AM</option>
-          <option value="11:00">11:00 AM</option>
-          <option value="11:30">11:30 AM</option>
-          <option value="12:00">12:00 PM</option>
-          <option value="12:30">12:30 PM</option>
-          <option value="13:00">1:00 PM</option>
-          <option value="13:30">1:30 PM</option>
-          <option value="14:00">2:00 PM</option>
-          <option value="14:30">2:30 PM</option>
-          <option value="15:00">3:00 PM</option>
-          <option value="15:30">3:30 PM</option>
-          <option value="16:00">4:00 PM</option>
-          <option value="16:30">4:30 PM</option>
-          <option value="17:00">5:00 PM</option>
-          <option value="17:30">5:30 PM</option>
-          <option value="18:00">6:00 PM</option>
-        </select>
-      </div>
+    <div class="field" style="margin-bottom:14px;">
+      <label>Date</label>
+      <input type="date" id="bookDate" value="${defaultDate}" min="${defaultDate}">
     </div>
+    ${renderLengthPicker(selectedSvcType)}
+    ${renderWindowSlider()}
   `;
 }
 
@@ -393,6 +463,7 @@ function setMode(m) {
   bookingMode = m;
   document.querySelectorAll('#modeSeg button').forEach((b, i) => b.classList.toggle('active', (i === 0) === (m === 'oneoff')));
   document.getElementById('whenBody').innerHTML = (m === 'recurring') ? renderRecurringFields() : renderDateFields(false);
+  updateWindowUI();
   const sb = document.getElementById('submitBtn');
   if (sb) sb.textContent = (m === 'recurring') ? 'Request recurring schedule' : 'Send booking request';
   if (m === 'recurring') renderPreview();
@@ -408,10 +479,9 @@ function renderRecurringFields() {
       ${freqs.map(([v, l]) => `<button type="button" class="freq-chip ${recurring.frequency === v ? 'active' : ''}" onclick="setFrequency('${v}')">${l}</button>`).join('')}
     </div>
     ${recurring.frequency === 'specific_days' ? `<div class="days-row">${DAY_DEFS.map(d => `<button type="button" class="day-btn ${recurring.days.includes(d.n) ? 'active' : ''}" onclick="toggleDay(${d.n})">${d.l}</button>`).join('')}</div>` : ''}
-    <div class="field-row">
-      <div class="field" style="margin-bottom:14px;"><label>Time</label><select id="recTime" onchange="recurring.time=this.value;renderPreview()">${timeOptionsHtml(recurring.time)}</select></div>
-      <div class="field" style="margin-bottom:14px;"><label>Start date</label><input type="date" id="recStart" value="${recurring.startDate}" min="${today}" onchange="recurring.startDate=this.value;renderPreview()"></div>
-    </div>
+    <div class="field" style="margin-bottom:14px;"><label>Start date</label><input type="date" id="recStart" value="${recurring.startDate}" min="${today}" onchange="recurring.startDate=this.value;renderPreview()"></div>
+    ${renderLengthPicker(selectedSvcType)}
+    ${renderWindowSlider()}
     <div class="field" style="margin-bottom:10px;">
       <label>Ends</label>
       <div class="end-row">
@@ -423,14 +493,14 @@ function renderRecurringFields() {
     <div class="preview-box"><div class="preview-title">Upcoming walks</div><div id="recPreview"></div></div>`;
 }
 
-function setFrequency(f) { recurring.frequency = f; document.getElementById('whenBody').innerHTML = renderRecurringFields(); renderPreview(); }
+function setFrequency(f) { recurring.frequency = f; document.getElementById('whenBody').innerHTML = renderRecurringFields(); updateWindowUI(); renderPreview(); }
 function toggleDay(n) {
   const i = recurring.days.indexOf(n);
   if (i >= 0) recurring.days.splice(i, 1); else recurring.days.push(n);
   document.querySelectorAll('.day-btn').forEach((b, idx) => b.classList.toggle('active', recurring.days.includes(DAY_DEFS[idx].n)));
   renderPreview();
 }
-function setEndMode(m) { recurring.endMode = m; document.getElementById('whenBody').innerHTML = renderRecurringFields(); renderPreview(); }
+function setEndMode(m) { recurring.endMode = m; document.getElementById('whenBody').innerHTML = renderRecurringFields(); updateWindowUI(); renderPreview(); }
 
 function computeUpcomingDates(limit) {
   const out = [];
@@ -459,9 +529,8 @@ function renderPreview() {
   const dates = computeUpcomingDates(6);
   if (!dates.length) { el.innerHTML = `<div class="preview-item" style="color:var(--text-muted);">Pick a frequency and start date to preview walks.</div>`; return; }
   const check = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>';
-  const [h, m] = recurring.time.split(':').map(Number);
-  const time12 = ((h % 12) || 12) + ':' + String(m).padStart(2, '0') + ' ' + (h < 12 ? 'AM' : 'PM');
-  el.innerHTML = dates.map(d => `<div class="preview-item">${check} ${d.toLocaleDateString('en-AU', { weekday: 'short', day: 'numeric', month: 'short' })} · ${time12}</div>`).join('')
+  const winTxt = `${idxToLabel(win.start)}–${idxToLabel(win.end)}`;
+  el.innerHTML = dates.map(d => `<div class="preview-item">${check} ${d.toLocaleDateString('en-AU', { weekday: 'short', day: 'numeric', month: 'short' })} · ${winTxt}</div>`).join('')
     + (dates.length === 6 ? `<div class="preview-item" style="color:var(--text-muted);padding-left:22px;">…and so on</div>` : '');
 }
 
@@ -493,8 +562,13 @@ function renderBookingForm() {
 
   // Determine if first service is multi-day to set initial date fields
   const firstSvcIsMultiDay = uniqueServices.length > 0 && MULTI_DAY_SERVICES.includes(uniqueServices[0].service_type);
-  // Auto-select first service
-  if (uniqueServices.length > 0) selectedServiceId = uniqueServices[0].id;
+  // Auto-select first service type and its shortest (default) duration
+  if (uniqueServices.length > 0) {
+    selectedSvcType = uniqueServices[0].service_type;
+    const durs = durationsForType(selectedSvcType);
+    selectedServiceId = durs.length ? durs[0].id : uniqueServices[0].id;
+    if (win.end - win.start < minWindowIdx()) win.end = Math.min(WIN_MAX, win.start + minWindowIdx());
+  }
 
   area.innerHTML = `
     <div class="page-header">
@@ -541,6 +615,7 @@ function renderBookingForm() {
     </div>
   `;
 
+  updateWindowUI();
   renderPriceEstimate();
 }
 
@@ -557,7 +632,7 @@ async function submitBooking() {
   const selectedSvc = providerServices.find(s => s.id === selectedServiceId);
   const isMultiDay = MULTI_DAY_SERVICES.includes(selectedSvc?.service_type);
 
-  let scheduledAt, endsAt = null;
+  let scheduledAt, endsAt = null, windowEndAt = null, durationMins = null;
   if (isMultiDay) {
     const dateEnd = document.getElementById('bookDateEnd')?.value;
     if (!date || !dateEnd) return showMsg('Please select both a check-in and check-out date.', 'error');
@@ -565,9 +640,11 @@ async function submitBooking() {
     scheduledAt = new Date(`${date}T12:00:00`).toISOString();
     endsAt = new Date(`${dateEnd}T12:00:00`).toISOString();
   } else {
-    const time = document.getElementById('bookTime')?.value;
-    if (!date || !time) return showMsg('Please select a date and time.', 'error');
-    scheduledAt = new Date(`${date}T${time}:00`).toISOString();
+    if (!date) return showMsg('Please pick a date.', 'error');
+    if (win.end <= win.start) return showMsg('The time window looks wrong — set an end after the start.', 'error');
+    scheduledAt = new Date(`${date}T${idxToHHMM(win.start)}:00`).toISOString();
+    windowEndAt = new Date(`${date}T${idxToHHMM(win.end)}:00`).toISOString();
+    durationMins = selectedSvc?.duration_mins ?? null;
   }
 
   const btn = document.querySelector('.btn-primary');
@@ -584,6 +661,8 @@ async function submitBooking() {
       status: 'pending',
       scheduled_at: scheduledAt,
       ends_at: endsAt,
+      window_end_at: windowEndAt,
+      duration_mins: durationMins,
       total_cents: 0,
       customer_notes: notes || null
     }, authToken);
@@ -644,7 +723,8 @@ async function submitSeries() {
       service_id: selectedServiceId,
       frequency_type: recurring.frequency,
       days_of_week: recurring.frequency === 'specific_days' ? recurring.days.slice().sort((a, b) => a - b) : [],
-      time_of_day: recurring.time,
+      time_of_day: idxToHHMM(win.start),
+      window_end_time: idxToHHMM(win.end),
       start_date: recurring.startDate,
       end_date: recurring.endMode === 'until' ? recurring.endDate : null,
       status: 'pending',
@@ -724,7 +804,7 @@ async function init() {
     const [users, profiles, services] = await Promise.all([
       sbGet('users', `id=eq.${providerId}&select=first_name,last_name`, authToken),
       sbGet('provider_profiles', `user_id=eq.${providerId}&select=*`, authToken),
-      sbGet('provider_services', `provider_id=eq.${providerId}&select=id,service_type,is_available,price_cents,additional_pet_price_cents&is_available=eq.true`, authToken)
+      sbGet('provider_services', `provider_id=eq.${providerId}&select=id,service_type,is_available,price_cents,additional_pet_price_cents,duration_mins&is_available=eq.true`, authToken)
     ]);
 
     if (!users.length || !profiles.length) {
