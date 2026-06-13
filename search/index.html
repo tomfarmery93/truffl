@@ -348,10 +348,14 @@ let isLoading = false;
 
 const state = {
   suburb: '', service: '', recurring: false, date: '', dateEnd: '', time: '',
+  windowStart: '', windowEnd: '', length: '',
   days: [], size: '', puppy: false, petId: '', attributes: [], sort: 'best',
 };
 
 const MULTI_DAY_SERVICES = ['dog_boarding', 'dog_sitting'];
+const WINDOW_SERVICES = ['dog_walking', 'drop_in']; // get time-window + walk-length
+const LENGTHS = [['', 'Any'], ['30', '30 min'], ['60', '60 min'], ['90', '90 min'], ['120', '120 min']];
+function isWindowService() { return WINDOW_SERVICES.includes(state.service); }
 
 /* ── Inline line-icon set (stroke=currentColor so they recolour with the tile) ── */
 const ICONS = {
@@ -425,6 +429,9 @@ function readUrlParams() {
   state.date      = p.get('date') || '';
   state.dateEnd   = p.get('date_end') || '';
   state.time      = p.get('time') || '';
+  state.windowStart = p.get('window_start') || '';
+  state.windowEnd   = p.get('window_end') || '';
+  state.length    = p.get('length') || '';
   state.size      = p.get('size') || '';
   state.puppy     = p.get('puppy') === 'true';
   state.petId     = p.get('pet') || '';
@@ -443,6 +450,9 @@ function writeUrlParams() {
   set('date', state.date);
   set('date_end', state.dateEnd);
   set('time', state.time);
+  set('window_start', state.windowStart);
+  set('window_end', state.windowEnd);
+  set('length', state.length);
   set('size', state.size);
   set('puppy', state.puppy ? 'true' : '');
   set('pet', state.petId);
@@ -551,7 +561,41 @@ function syncWhenSection() {
   wireWhenFields();
 }
 
+function windowTimeOpts(selected) {
+  let opts = '<option value="">Any</option>';
+  for (let h = 6; h <= 20; h++) {
+    for (const m of [0, 30]) {
+      const v = String(h).padStart(2, '0') + ':' + (m ? '30' : '00');
+      const disp = ((h % 12) || 12) + ':' + (m ? '30' : '00') + ' ' + (h < 12 ? 'AM' : 'PM');
+      opts += `<option value="${v}" ${selected === v ? 'selected' : ''}>${disp}</option>`;
+    }
+  }
+  return opts;
+}
+/* Walk length + time window (walking / drop-in). */
+function lengthAndWindowHtml() {
+  return `
+    <div style="margin-bottom:10px;">
+      <div class="field-label" style="margin-bottom:6px;">Walk length</div>
+      <div class="chip-row" id="lenRow">
+        ${LENGTHS.map(([v, l]) => `<button type="button" class="chip size ${state.length === v ? 'active' : ''}" data-len="${v}">${l}</button>`).join('')}
+      </div>
+    </div>
+    <div class="input-row">
+      <div>
+        <div class="field-label" style="margin-bottom:5px;">From</div>
+        <select class="input-base" id="inputWinStart" aria-label="Window start">${windowTimeOpts(state.windowStart)}</select>
+      </div>
+      <div>
+        <div class="field-label" style="margin-bottom:5px;">To</div>
+        <select class="input-base" id="inputWinEnd" aria-label="Window end">${windowTimeOpts(state.windowEnd)}</select>
+      </div>
+    </div>
+  `;
+}
+
 function renderWhenFields() {
+  const useWindow = isWindowService();
   if (state.recurring) {
     return `
       <div style="margin-bottom:10px;">
@@ -559,10 +603,11 @@ function renderWhenFields() {
           ${DAYS.map(d => `<button type="button" class="day-btn ${state.days.includes(d) ? 'active' : ''}" data-day="${d}" aria-pressed="${state.days.includes(d) ? 'true' : 'false'}">${DAY_LABELS[d]}</button>`).join('')}
         </div>
       </div>
-      <div class="input-row">
+      <div class="input-row" style="margin-bottom:${useWindow ? '10px' : '0'};">
         <input type="date" class="input-base" id="inputDate" value="${esc(state.date)}" aria-label="Start date">
-        <select class="input-base" id="inputTime" aria-label="Time">${timeOptions()}</select>
+        ${useWindow ? '' : `<select class="input-base" id="inputTime" aria-label="Time">${timeOptions()}</select>`}
       </div>
+      ${useWindow ? lengthAndWindowHtml() : ''}
     `;
   }
   if (isMultiDayService()) {
@@ -577,6 +622,14 @@ function renderWhenFields() {
           <input type="date" class="input-base" id="inputDateEnd" value="${esc(state.dateEnd)}" aria-label="Check-out date">
         </div>
       </div>
+    `;
+  }
+  if (useWindow) {
+    return `
+      <div class="input-row" style="margin-bottom:10px;grid-template-columns:1fr;">
+        <input type="date" class="input-base" id="inputDate" value="${esc(state.date)}" aria-label="Date">
+      </div>
+      ${lengthAndWindowHtml()}
     `;
   }
   return `
@@ -671,6 +724,14 @@ function wireWhenFields(root) {
   scope.querySelectorAll('#inputTime').forEach(input => {
     input.addEventListener('change', e => { state.time = e.target.value; });
   });
+  scope.querySelectorAll('#inputWinStart').forEach(s => s.addEventListener('change', e => { state.windowStart = e.target.value; }));
+  scope.querySelectorAll('#inputWinEnd').forEach(s => s.addEventListener('change', e => { state.windowEnd = e.target.value; }));
+  scope.querySelectorAll('[data-len]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      state.length = (state.length === btn.dataset.len) ? '' : btn.dataset.len;
+      document.querySelectorAll('[data-len]').forEach(b => b.classList.toggle('active', b.dataset.len === state.length));
+    });
+  });
   scope.querySelectorAll('[data-day]').forEach(btn => {
     btn.addEventListener('click', () => {
       const d = btn.dataset.day;
@@ -711,6 +772,8 @@ function renderMobileSummary() {
   if (state.date && state.dateEnd) sec.push(state.date + ' → ' + state.dateEnd);
   else if (state.date) sec.push(state.date);
   if (state.time) sec.push(state.time);
+  if (state.length) sec.push(state.length + ' min');
+  if (state.windowStart || state.windowEnd) sec.push((state.windowStart || 'any') + '–' + (state.windowEnd || 'any'));
   if (state.size) sec.push(state.size + ' dog');
   document.getElementById('msSecondary').textContent = sec.join(' · ') || 'Tap to refine';
 
@@ -726,6 +789,8 @@ function buildContextLine(count) {
   const parts = [];
   if (state.recurring && state.days.length) parts.push('Recurring · ' + state.days.map(d => DAY_FULL[d]).join(', '));
   else if (state.recurring) parts.push('Recurring');
+  if (state.length) parts.push(state.length + '-min walk');
+  if (state.windowStart || state.windowEnd) parts.push('Between ' + (state.windowStart || 'any') + ' and ' + (state.windowEnd || 'any'));
   if (state.size) parts.push((state.size === 'small' ? 'Small' : state.size === 'medium' ? 'Medium' : 'Large') + ' dog');
   if (state.puppy) parts.push('Puppy');
   if (state.attributes.length) parts.push(state.attributes.length + ' filter' + (state.attributes.length !== 1 ? 's' : ''));
@@ -995,7 +1060,8 @@ async function runSearch() {
 
 function clearFilters() {
   state.suburb = ''; state.service = ''; state.recurring = false; state.date = ''; state.dateEnd = '';
-  state.time = ''; state.days = []; state.size = ''; state.puppy = false;
+  state.time = ''; state.windowStart = ''; state.windowEnd = ''; state.length = '';
+  state.days = []; state.size = ''; state.puppy = false;
   state.petId = ''; state.attributes = []; state.sort = 'best';
   mountFilterForm();
   runSearch();
