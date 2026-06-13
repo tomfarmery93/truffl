@@ -123,7 +123,8 @@
   }
   .pet-option:hover { border-color: var(--sage-light); }
   .pet-option.selected { border-color: var(--terracotta); background: rgba(196,117,91,0.05); }
-  .pet-option .pet-icon { font-size: 1.4rem; }
+  .pet-option .pet-icon { display: inline-flex; color: var(--terracotta); }
+  .pet-option .pet-icon svg { width: 22px; height: 22px; display: block; }
   .pet-option .pet-name { font-size: 0.88rem; font-weight: 500; color: var(--text-primary); }
   .pet-option .pet-breed { font-size: 0.75rem; color: var(--text-muted); }
   .pet-option input { display: none; }
@@ -201,7 +202,9 @@ const SERVICE_LABELS = {
 
 const MULTI_DAY_SERVICES = ['dog_boarding', 'dog_sitting'];
 
-const SPECIES_ICONS = { dog: '🐕', cat: '🐈', other: '🐾' };
+const PAW_SVG = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><ellipse cx="8" cy="8" rx="1.5" ry="2"/><ellipse cx="16" cy="8" rx="1.5" ry="2"/><ellipse cx="5" cy="13" rx="1.3" ry="1.6"/><ellipse cx="19" cy="13" rx="1.3" ry="1.6"/><path d="M8.5 17.5c0-2.2 1.6-3.5 3.5-3.5s3.5 1.3 3.5 3.5-1.6 3-3.5 3-3.5-.8-3.5-3z"/></svg>';
+const CAT_SVG = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"><path d="M5 8l1-3 3 2.5M19 8l-1-3-3 2.5"/><path d="M5 8c-.5 2-.5 4 0 6 1 3 4 5 7 5s6-2 7-5c.5-2 .5-4 0-6"/><path d="M10 13h.01M14 13h.01M11 16c.5.4 1.5.4 2 0"/></svg>';
+const SPECIES_ICONS = { dog: PAW_SVG, cat: CAT_SVG, other: PAW_SVG };
 
 let authToken = null, authUid = null;
 let providerData = null, providerProfile = null, providerServices = [];
@@ -481,7 +484,7 @@ function renderBookingForm() {
   const petsHtml = customerPets.map((p, i) => `
     <label class="pet-option ${i === 0 ? 'selected' : ''}">
       <input type="checkbox" name="pet" value="${p.id}" ${i === 0 ? 'checked' : ''} onchange="onPetToggle(this)">
-      <span class="pet-icon">${SPECIES_ICONS[p.species] || '🐾'}</span>
+      <span class="pet-icon">${SPECIES_ICONS[p.species] || PAW_SVG}</span>
       <div><div class="pet-name">${p.name}</div>${p.breed ? `<div class="pet-breed">${p.breed}</div>` : ''}</div>
     </label>
   `).join('');

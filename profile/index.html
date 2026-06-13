@@ -191,7 +191,9 @@ function renderAvatar() {
   if (userData.avatar_url) {
     el.innerHTML = `<img src="${esc(userData.avatar_url)}" alt="Your profile photo">`;
   } else {
-    el.textContent = initials(userData.first_name, userData.last_name) || '🐾';
+    const ini = initials(userData.first_name, userData.last_name);
+    if (ini) el.textContent = ini;
+    else el.innerHTML = `<svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><ellipse cx="8" cy="8" rx="1.5" ry="2"/><ellipse cx="16" cy="8" rx="1.5" ry="2"/><ellipse cx="5" cy="13" rx="1.3" ry="1.6"/><ellipse cx="19" cy="13" rx="1.3" ry="1.6"/><path d="M8.5 17.5c0-2.2 1.6-3.5 3.5-3.5s3.5 1.3 3.5 3.5-1.6 3-3.5 3-3.5-.8-3.5-3z"/></svg>`;
   }
 }
 function renderNav() {
