@@ -1121,7 +1121,7 @@ document.addEventListener('DOMContentLoaded', init);
     const s = JSON.parse(localStorage.getItem('truffl_session') || 'null');
     if (s && s.access_token) {
       const acc = document.getElementById('navAccount');
-      if (acc) { acc.textContent = 'My account'; acc.href = s.role === 'provider' ? '/dashboard/' : '/my/'; }
+      if (acc) { acc.textContent = 'My account'; acc.href = s.role === 'provider' ? '/dashboard/' : '/profile/'; }
       const su = document.getElementById('navSignup');
       if (su) su.style.display = 'none';
     }

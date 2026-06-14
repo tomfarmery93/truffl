@@ -434,7 +434,7 @@ async function init(){
     if (users.length){
       if (!role) role = users[0].role;
       const ini = ((users[0].first_name||'')[0]||'').toUpperCase() + ((users[0].last_name||'')[0]||'').toUpperCase();
-      const home = role === 'provider' ? '/dashboard/' : '/my/';
+      const home = role === 'provider' ? '/dashboard/' : '/profile/';
       document.getElementById('navRight').innerHTML = `<a class="nav-link" href="${home}">${role==='provider'?'Dashboard':'My account'}</a><div class="nav-avatar">${esc(ini)}</div>`;
     }
   } catch(e){}
