@@ -57,6 +57,9 @@
 
   .thread-body{flex:1;overflow-y:auto;padding:16px;background:var(--cream);display:flex;flex-direction:column;gap:8px;}
   .day-sep{align-self:center;font-size:0.7rem;color:var(--text-muted);background:var(--warm-white);border:1px solid var(--border);padding:2px 10px;border-radius:999px;margin:4px 0;}
+  /* Booking-context separator inside a person thread */
+  .ctx-sep{align-self:center;display:inline-flex;align-items:center;gap:6px;font-size:0.68rem;font-weight:500;color:var(--sage-dark);background:rgba(139,158,126,0.12);border:1px solid var(--sage-light);padding:3px 12px;border-radius:999px;margin:8px 0 2px;}
+  .ctx-sep svg{flex-shrink:0;}
   .bubble{max-width:74%;border-radius:14px;padding:8px 12px;}
   .bubble.theirs{align-self:flex-start;background:var(--warm-white);border:1px solid var(--border);border-bottom-left-radius:4px;}
   .bubble.mine{align-self:flex-end;background:var(--blush);border-bottom-right-radius:4px;}
@@ -129,9 +132,12 @@ const SERVICE_LABELS = {
 
 let authToken = null, authUid = null, role = null;
 let myProfileId = null;            // customer_profiles.id or provider_profiles.id
-let conversations = [];            // [{bookingId, name, initials, serviceType, scheduledAt, viewHref}]
-let msgsByBooking = {};            // bookingId -> [messages]
-let activeBookingId = null;
+// Each conversation is one counterparty. `key` (the participant pair) is the stable UI id;
+// `id` is the real conversations row (null until the first message creates it).
+let conversations = [];            // [{key, id, counterpartyUserId, name, initials, lastMessageAt, bookings:[...], composeBookingId}]
+let msgsByConv = {};               // conversationId -> [messages]
+let bookingMap = {};               // bookingId -> {serviceType, scheduledAt, status}
+let activeKey = null;
 let pollTimer = null;
 
 function h(token) {
@@ -171,10 +177,12 @@ function fmtListTime(iso){
   if(diff<7) return d.toLocaleDateString('en-AU',{weekday:'short'});
   return d.toLocaleDateString('en-AU',{day:'numeric',month:'short'});
 }
-function fmtBookingCtx(c){
-  const svc = SERVICE_LABELS[c.serviceType] || 'Booking';
-  if(!c.scheduledAt) return svc;
-  const d = new Date(c.scheduledAt);
+function bookingLabel(bookingId){
+  const b = bookingMap[bookingId];
+  if (!b) return 'Booking';
+  const svc = SERVICE_LABELS[b.serviceType] || 'Booking';
+  if (!b.scheduledAt) return svc;
+  const d = new Date(b.scheduledAt);
   return svc + ' · ' + d.toLocaleDateString('en-AU',{weekday:'short',day:'numeric',month:'short'});
 }
 function dayKey(iso){ return new Date(iso).toDateString(); }
@@ -186,140 +194,202 @@ function dayLabel(iso){
   return d.toLocaleDateString('en-AU',{weekday:'long',day:'numeric',month:'long'});
 }
 
-function unreadFor(bookingId){
-  return (msgsByBooking[bookingId]||[]).filter(m => m.sender_id !== authUid && !m.read_at).length;
-}
-function lastMsgFor(bookingId){
-  const arr = msgsByBooking[bookingId]||[];
-  return arr.length ? arr[arr.length-1] : null;
+function convByKey(key){ return conversations.find(c => c.key === key) || null; }
+function convMsgs(conv){ return (conv && conv.id) ? (msgsByConv[conv.id] || []) : []; }
+function unreadForConv(conv){ return convMsgs(conv).filter(m => m.sender_id !== authUid && !m.read_at).length; }
+function lastMsgForConv(conv){ const a = convMsgs(conv); return a.length ? a[a.length-1] : null; }
+
+/* Compose target: the most relevant booking to attach a new message to —
+   the latest active booking with this person, else their latest booking. */
+function pickComposeBooking(conv){
+  if (!conv.bookings.length) return null;
+  const active = conv.bookings.filter(b => ['pending','confirmed','in_progress'].includes(b.status));
+  const pool = active.length ? active : conv.bookings;
+  return pool.slice().sort((a,b) => new Date(b.scheduledAt||0) - new Date(a.scheduledAt||0))[0].id;
 }
 
 /* ── Data loading ── */
 async function loadConversations(){
+  // My bookings (context: service label, schedule, status)
   let bookings = [];
   if (role === 'provider') {
     const pp = await sbGet('provider_profiles', `user_id=eq.${authUid}&select=id`);
     if (!pp.length) return [];
     myProfileId = pp[0].id;
-    bookings = await sbGet('bookings', `provider_id=eq.${myProfileId}&select=id,customer_id,service_id,scheduled_at,created_at&order=created_at.desc`);
+    bookings = await sbGet('bookings', `provider_id=eq.${myProfileId}&select=id,customer_id,provider_id,service_id,scheduled_at,status,created_at`);
   } else {
     const cp = await sbGet('customer_profiles', `user_id=eq.${authUid}&select=id`);
     if (!cp.length) return [];
     myProfileId = cp[0].id;
-    bookings = await sbGet('bookings', `customer_id=eq.${myProfileId}&select=id,provider_id,service_id,scheduled_at,created_at&order=created_at.desc`);
+    bookings = await sbGet('bookings', `customer_id=eq.${myProfileId}&select=id,customer_id,provider_id,service_id,scheduled_at,status,created_at`);
   }
-  if (!bookings.length) return [];
 
-  const bookingIds = bookings.map(b => b.id);
   const serviceIds = [...new Set(bookings.map(b => b.service_id).filter(Boolean))];
-
-  // Service types
   const svcMap = {};
   if (serviceIds.length) {
     const svcs = await sbGet('provider_services', `id=in.(${serviceIds.join(',')})&select=id,service_type`);
     svcs.forEach(s => svcMap[s.id] = s.service_type);
   }
+  bookingMap = {};
+  bookings.forEach(b => { bookingMap[b.id] = { serviceType: svcMap[b.service_id] || null, scheduledAt: b.scheduled_at, status: b.status }; });
 
-  // Other-party names — via booking_party_names view (scoped to my bookings,
-  // resolves the counterparty's name despite per-table RLS).
-  const nameMap = {}; // bookingId -> name
-  const fallback = role === 'provider' ? 'Customer' : 'Carer';
+  // Per-booking participant pair + counterparty name (booking_party_names bypasses
+  // per-table RLS and resolves the other party's name, scoped to my bookings).
+  const pairByBooking = {}; // bookingId -> {custUser, provUser, name}
+  if (bookings.length) {
+    try {
+      const parties = await sbGet('booking_party_names', `booking_id=in.(${bookings.map(b=>b.id).join(',')})&select=*`);
+      parties.forEach(p => {
+        const name = role === 'provider'
+          ? `${p.customer_first_name||''} ${p.customer_last_name||''}`.trim()
+          : `${p.provider_first_name||''} ${p.provider_last_name||''}`.trim();
+        pairByBooking[p.booking_id] = { custUser: p.customer_user_id, provUser: p.provider_user_id, name };
+      });
+    } catch(e) { /* names fall back below */ }
+  }
+
+  // Existing conversation rows (RLS-scoped). May not exist yet for a brand-new booking.
+  let convRows = [];
+  try { convRows = await sbGet('conversations', `select=id,customer_user_id,provider_user_id,last_message_at&order=last_message_at.desc.nullslast`); }
+  catch(e) { convRows = []; }
+  const nameByConv = {};
   try {
-    const parties = await sbGet('booking_party_names', `booking_id=in.(${bookingIds.join(',')})&select=*`);
-    parties.forEach(p => {
-      const name = role === 'provider'
-        ? `${p.customer_first_name||''} ${p.customer_last_name||''}`.trim()
-        : `${p.provider_first_name||''} ${p.provider_last_name||''}`.trim();
-      nameMap[p.booking_id] = name || fallback;
+    const cpn = await sbGet('conversation_party_names', `select=*`);
+    cpn.forEach(r => {
+      nameByConv[r.conversation_id] = role === 'provider'
+        ? `${r.customer_first_name||''} ${r.customer_last_name||''}`.trim()
+        : `${r.provider_first_name||''} ${r.provider_last_name||''}`.trim();
     });
-  } catch(e) { /* names fall back below */ }
-  bookings.forEach(b => { if (!nameMap[b.id]) nameMap[b.id] = fallback; });
+  } catch(e) { /* fall back to booking party names */ }
 
-  await loadMessages(bookingIds);
+  const fallback = role === 'provider' ? 'Customer' : 'Carer';
+  const byKey = {};                  // pairKey -> conversation object
+  function ensureConv(custUser, provUser){
+    const key = `${custUser}|${provUser}`;
+    if (!byKey[key]) {
+      byKey[key] = { key, id: null, counterpartyUserId: role === 'provider' ? custUser : provUser,
+                     name: fallback, initials: '?', lastMessageAt: null, bookings: [], composeBookingId: null };
+    }
+    return byKey[key];
+  }
 
-  return bookings.map(b => {
-    const name = nameMap[b.id] || 'Conversation';
-    return {
-      bookingId: b.id,
-      name,
-      initials: initialsOf(name) || '?',
-      serviceType: svcMap[b.service_id] || null,
-      scheduledAt: b.scheduled_at,
-      viewHref: role === 'provider' ? '/dashboard/' : `/track/?booking=${b.id}`,
-    };
+  // Seed from existing conversation rows.
+  convRows.forEach(c => {
+    const conv = ensureConv(c.customer_user_id, c.provider_user_id);
+    conv.id = c.id;
+    conv.lastMessageAt = c.last_message_at;
+    const nm = nameByConv[c.id];
+    if (nm) { conv.name = nm; conv.initials = initialsOf(nm) || '?'; }
   });
+
+  // Attach every booking to its pair's conversation, creating a row-less ("pending")
+  // conversation for pairs that have no messages yet so they still appear in the inbox.
+  bookings.forEach(b => {
+    const pair = pairByBooking[b.id];
+    if (!pair) return;
+    const conv = ensureConv(pair.custUser, pair.provUser);
+    conv.bookings.push({ id: b.id, serviceType: bookingMap[b.id].serviceType, scheduledAt: b.scheduled_at, status: b.status, viewHref: role === 'provider' ? '/dashboard/' : `/track/?booking=${b.id}` });
+    if ((conv.name === fallback) && pair.name) { conv.name = pair.name; conv.initials = initialsOf(pair.name) || '?'; }
+  });
+
+  const convs = Object.values(byKey);
+  convs.forEach(c => { c.bookings.sort((a,b)=> new Date(a.scheduledAt||0)-new Date(b.scheduledAt||0)); c.composeBookingId = pickComposeBooking(c); });
+
+  await loadMessages(convs.map(c => c.id).filter(Boolean));
+  return convs;
 }
 
-async function loadMessages(bookingIds){
-  if (!bookingIds.length) { msgsByBooking = {}; return; }
-  const rows = await sbGet('messages', `booking_id=in.(${bookingIds.join(',')})&select=id,booking_id,sender_id,body,read_at,created_at&order=created_at.asc`);
+async function loadMessages(convIds){
+  if (!convIds.length) { msgsByConv = {}; return; }
+  const rows = await sbGet('messages', `conversation_id=in.(${convIds.join(',')})&select=id,conversation_id,booking_id,sender_id,body,read_at,created_at&order=created_at.asc`);
   const map = {};
-  rows.forEach(m => { (map[m.booking_id] = map[m.booking_id] || []).push(m); });
-  msgsByBooking = map;
+  rows.forEach(m => { (map[m.conversation_id] = map[m.conversation_id] || []).push(m); });
+  msgsByConv = map;
 }
 
 /* ── Rendering ── */
+function convSortTime(c){
+  const last = lastMsgForConv(c);
+  if (last) return new Date(last.created_at);
+  if (c.lastMessageAt) return new Date(c.lastMessageAt);
+  if (c.composeBookingId && bookingMap[c.composeBookingId] && bookingMap[c.composeBookingId].scheduledAt) return new Date(bookingMap[c.composeBookingId].scheduledAt);
+  return new Date(0);
+}
 function sortedConversations(){
-  return [...conversations].sort((a,b) => {
-    const la = lastMsgFor(a.bookingId), lb = lastMsgFor(b.bookingId);
-    const ta = la ? new Date(la.created_at) : new Date(a.scheduledAt||a.bookingId);
-    const tb = lb ? new Date(lb.created_at) : new Date(b.scheduledAt||b.bookingId);
-    return tb - ta;
-  });
+  return [...conversations].sort((a,b) => convSortTime(b) - convSortTime(a));
+}
+function convSubLine(c){
+  const n = c.bookings.length;
+  if (c.composeBookingId) {
+    const lbl = bookingLabel(c.composeBookingId);
+    return n > 1 ? `${lbl} · +${n-1} more` : lbl;
+  }
+  return n ? `${n} booking${n>1?'s':''}` : '';
 }
 
 function renderList(){
   const el = document.getElementById('convList');
   const list = sortedConversations();
   if (!list.length){
-    el.innerHTML = `<div class="list-empty"><p>No bookings yet. Once you have a booking you can message about it here.</p></div>`;
+    el.innerHTML = `<div class="list-empty"><p>No messages yet. Once you have a booking you can message the other person here.</p></div>`;
     return;
   }
   el.innerHTML = list.map(c => {
-    const last = lastMsgFor(c.bookingId);
-    const unread = unreadFor(c.bookingId);
+    const last = lastMsgForConv(c);
+    const unread = unreadForConv(c);
     const snippet = last ? (last.sender_id === authUid ? 'You: ' : '') + last.body : 'No messages yet';
     return `
-      <button class="conv ${c.bookingId===activeBookingId?'active':''} ${unread>0?'unread':''}" data-booking="${c.bookingId}">
+      <button class="conv ${c.key===activeKey?'active':''} ${unread>0?'unread':''}" data-key="${esc(c.key)}">
         <div class="conv-avatar">${esc(c.initials)}</div>
         <div class="conv-main">
           <div class="conv-top"><span class="conv-name">${esc(c.name)}</span><span class="conv-time">${last?fmtListTime(last.created_at):''}</span></div>
-          <div class="conv-sub">${esc(fmtBookingCtx(c))}</div>
+          <div class="conv-sub">${esc(convSubLine(c))}</div>
           <div class="conv-snippet">${esc(snippet)}</div>
         </div>
         ${unread>0?`<span class="conv-dot">${unread}</span>`:''}
       </button>`;
   }).join('');
-  el.querySelectorAll('.conv').forEach(btn => btn.addEventListener('click', () => openThread(btn.dataset.booking)));
+  el.querySelectorAll('.conv').forEach(btn => btn.addEventListener('click', () => openThread(btn.dataset.key)));
 }
+
+const CTX_ICON = `<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>`;
 
 function renderThread(preserveInput){
   const el = document.getElementById('thread');
-  const c = conversations.find(x => x.bookingId === activeBookingId);
+  const c = convByKey(activeKey);
   if (!c){
     el.innerHTML = `<div class="thread-empty">
       <svg class="te-icon" width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/></svg>
       <div class="te-title">Select a conversation</div>
-      <p>Choose a booking on the left to view and send messages.</p>
+      <p>Choose a person on the left to view and send messages.</p>
     </div>`;
     return;
   }
   const prevInput = preserveInput ? (document.getElementById('composerInput')||{}).value : '';
-  const msgs = msgsByBooking[activeBookingId] || [];
+  const msgs = convMsgs(c);
   let body = '';
-  let lastDay = null;
   if (!msgs.length){
-    body = `<div class="thread-empty"><p>No messages yet. Say hello and share any details for this booking — gate codes, your dog's quirks, timings.</p></div>`;
+    body = `<div class="thread-empty"><p>No messages yet. Say hello and share any details — gate codes, your dog's quirks, timings.</p></div>`;
   } else {
+    let lastDay = null, lastBooking = undefined;
     body = msgs.map(m => {
-      let sep = '';
+      let pre = '';
       const dk = dayKey(m.created_at);
-      if (dk !== lastDay){ sep = `<div class="day-sep">${dayLabel(m.created_at)}</div>`; lastDay = dk; }
+      if (dk !== lastDay){ pre += `<div class="day-sep">${dayLabel(m.created_at)}</div>`; lastDay = dk; }
+      // Context chip whenever the related booking changes within the person thread.
+      if (m.booking_id !== lastBooking){
+        if (m.booking_id) pre += `<div class="ctx-sep">${CTX_ICON}${esc(bookingLabel(m.booking_id))}</div>`;
+        lastBooking = m.booking_id;
+      }
       const mine = m.sender_id === authUid;
       const read = mine && m.read_at ? ' · Read' : '';
-      return `${sep}<div class="bubble ${mine?'mine':'theirs'}"><div class="bubble-body">${esc(m.body)}</div><div class="bubble-meta">${fmtMsgTime(m.created_at)}${read}</div></div>`;
+      return `${pre}<div class="bubble ${mine?'mine':'theirs'}"><div class="bubble-body">${esc(m.body)}</div><div class="bubble-meta">${fmtMsgTime(m.created_at)}${read}</div></div>`;
     }).join('');
   }
+
+  const ctxLine = c.composeBookingId ? bookingLabel(c.composeBookingId) : (c.bookings.length ? `${c.bookings.length} bookings` : '');
+  const viewHref = c.composeBookingId ? (role === 'provider' ? '/dashboard/' : `/track/?booking=${c.composeBookingId}`) : '';
+  const viewLink = viewHref ? `<a class="thread-link" href="${viewHref}">View booking →</a>` : '';
 
   el.innerHTML = `
     <div class="thread-head">
@@ -327,10 +397,10 @@ function renderThread(preserveInput){
         <button class="thread-back" id="threadBack" aria-label="Back to conversations"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg></button>
         <div style="min-width:0;">
           <div class="thread-title">${esc(c.name)}</div>
-          <div class="thread-ctx">${esc(fmtBookingCtx(c))}</div>
+          <div class="thread-ctx">${esc(ctxLine)}</div>
         </div>
       </div>
-      <a class="thread-link" href="${c.viewHref}">View booking →</a>
+      ${viewLink}
     </div>
     <div class="thread-body" id="threadBody">${body}</div>
     <form class="composer" id="composer">
@@ -353,30 +423,50 @@ function renderThread(preserveInput){
 
 function autosize(t){ t.style.height='auto'; t.style.height=Math.min(t.scrollHeight,120)+'px'; }
 
-async function openThread(bookingId){
-  activeBookingId = bookingId;
+function syncUrl(){
+  const c = convByKey(activeKey);
+  const url = new URL(window.location);
+  url.searchParams.delete('c'); url.searchParams.delete('booking');
+  if (c && c.id) url.searchParams.set('c', c.id);
+  else if (c && c.composeBookingId) url.searchParams.set('booking', c.composeBookingId);
+  history.replaceState({}, '', url);
+}
+
+async function openThread(key){
+  activeKey = key;
   document.body.classList.add('thread-open');
   renderList();
   renderThread(false);
-  // Update URL without reload
-  const url = new URL(window.location); url.searchParams.set('booking', bookingId); history.replaceState({}, '', url);
-  await markRead(bookingId);
+  syncUrl();
+  const c = convByKey(key);
+  if (c && c.id) await markRead(c);
+}
+
+/* Deep-link from a booking: open that person's conversation and target replies
+   at the clicked booking's context. */
+async function openByBooking(bookingId){
+  const conv = conversations.find(c => c.bookings.some(b => b.id === bookingId));
+  if (!conv) return false;
+  conv.composeBookingId = bookingId;
+  await openThread(conv.key);
+  return true;
 }
 
 function closeThread(){
-  activeBookingId = null;
+  activeKey = null;
   document.body.classList.remove('thread-open');
-  const url = new URL(window.location); url.searchParams.delete('booking'); history.replaceState({}, '', url);
+  const url = new URL(window.location); url.searchParams.delete('c'); url.searchParams.delete('booking'); history.replaceState({}, '', url);
   renderList();
   renderThread(false);
 }
 
-async function markRead(bookingId){
-  const unreadIds = (msgsByBooking[bookingId]||[]).filter(m => m.sender_id !== authUid && !m.read_at);
-  if (!unreadIds.length) return;
+async function markRead(conv){
+  if (!conv || !conv.id) return;
+  const unread = convMsgs(conv).filter(m => m.sender_id !== authUid && !m.read_at);
+  if (!unread.length) return;
   try {
-    await sbPatchWhere('messages', `booking_id=eq.${bookingId}&sender_id=neq.${authUid}&read_at=is.null`, { read_at: new Date().toISOString() });
-    unreadIds.forEach(m => m.read_at = new Date().toISOString());
+    await sbPatchWhere('messages', `conversation_id=eq.${conv.id}&sender_id=neq.${authUid}&read_at=is.null`, { read_at: new Date().toISOString() });
+    unread.forEach(m => m.read_at = new Date().toISOString());
     renderList();
   } catch(e){ /* non-fatal */ }
 }
@@ -385,14 +475,25 @@ async function onSend(e){
   e.preventDefault();
   const input = document.getElementById('composerInput');
   const text = (input.value||'').trim();
-  if (!text || !activeBookingId) return;
+  const c = convByKey(activeKey);
+  if (!text || !c) return;
+  // Need somewhere to attach: an existing conversation, or a booking (the trigger
+  // creates the conversation from booking_id on the first message).
+  if (!c.id && !c.composeBookingId) { alert('No booking to message about yet.'); return; }
   input.value=''; autosize(input);
   try {
-    const res = await sbInsert('messages', { booking_id: activeBookingId, sender_id: authUid, body: text });
+    const payload = { sender_id: authUid, body: text };
+    if (c.id) payload.conversation_id = c.id;
+    if (c.composeBookingId) payload.booking_id = c.composeBookingId; // context (and grouping seed)
+    const res = await sbInsert('messages', payload);
     const row = Array.isArray(res) ? res[0] : res;
-    if (row){ (msgsByBooking[activeBookingId] = msgsByBooking[activeBookingId] || []).push(row); }
+    if (row){
+      if (!c.id && row.conversation_id) { c.id = row.conversation_id; c.lastMessageAt = row.created_at; }
+      (msgsByConv[c.id] = msgsByConv[c.id] || []).push(row);
+    }
     renderThread(true);
     renderList();
+    syncUrl();
   } catch(err){
     input.value = text; autosize(input);
     alert('Could not send: ' + err.message);
@@ -403,14 +504,14 @@ async function onSend(e){
 async function poll(){
   if (!conversations.length) return;
   try {
-    const before = activeBookingId ? (msgsByBooking[activeBookingId]||[]).length : 0;
-    await loadMessages(conversations.map(c => c.bookingId));
+    const active = convByKey(activeKey);
+    const before = active ? convMsgs(active).length : 0;
+    await loadMessages(conversations.map(c => c.id).filter(Boolean));
     renderList();
-    if (activeBookingId){
-      const after = (msgsByBooking[activeBookingId]||[]).length;
-      // Only re-render the thread if something changed (avoids disrupting typing)
+    if (active){
+      const after = convMsgs(active).length;
       if (after !== before) { renderThread(true); }
-      markRead(activeBookingId);
+      markRead(active);
     }
   } catch(e){ /* transient; try again next tick */ }
 }
@@ -442,9 +543,15 @@ async function init(){
   try {
     conversations = await loadConversations();
     renderList();
-    const wanted = new URLSearchParams(window.location.search).get('booking');
-    if (wanted && conversations.some(c => c.bookingId === wanted)) {
-      await openThread(wanted);
+    const params = new URLSearchParams(window.location.search);
+    const wantConv = params.get('c');
+    const wantBooking = params.get('booking');
+    const byId = wantConv ? conversations.find(c => c.id === wantConv) : null;
+    if (byId) {
+      await openThread(byId.key);
+    } else if (wantBooking) {
+      const opened = await openByBooking(wantBooking);
+      if (!opened) renderThread(false);
     } else {
       renderThread(false);
     }
