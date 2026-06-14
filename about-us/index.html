@@ -920,7 +920,7 @@
       var s = JSON.parse(localStorage.getItem('truffl_session') || 'null');
       if (s && s.access_token) {
         var el = document.getElementById('navAuthLink');
-        if (el) { el.textContent = 'My account'; el.href = s.role === 'provider' ? '/dashboard/' : '/my/'; }
+        if (el) { el.textContent = 'My account'; el.href = s.role === 'provider' ? '/dashboard/' : '/profile/'; }
       }
     } catch (e) {}
   })();

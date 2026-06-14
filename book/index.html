@@ -679,7 +679,7 @@ async function submitBooking() {
         <p>${providerData.first_name} will review your request and confirm. We'll let you know once they respond.</p>
         <p style="margin-top:0.75rem;font-size:0.82rem;color:var(--text-muted);">You can track the booking status and live walk from your dashboard.</p>
         <div style="margin-top:2rem;display:flex;gap:12px;justify-content:center;flex-wrap:wrap;">
-          <a href="/my/" style="display:inline-block;padding:12px 28px;background:var(--terracotta);color:white;border-radius:10px;font-weight:500;text-decoration:none;font-size:0.9rem;">View my bookings</a>
+          <a href="/profile/" style="display:inline-block;padding:12px 28px;background:var(--terracotta);color:white;border-radius:10px;font-weight:500;text-decoration:none;font-size:0.9rem;">View my bookings</a>
           <a href="/search/" style="display:inline-block;padding:12px 28px;border:1px solid var(--border);color:var(--text-secondary);border-radius:10px;font-weight:500;text-decoration:none;font-size:0.9rem;">Browse more carers</a>
         </div>
       </div>
@@ -743,7 +743,7 @@ async function submitSeries() {
         <p>${providerData.first_name} will review your recurring ${SERVICE_LABELS[selectedSvc.service_type] || 'booking'} schedule — <strong>${frequencyLabel()}</strong> from ${new Date(recurring.startDate + 'T00:00:00').toLocaleDateString('en-AU', { day: 'numeric', month: 'short' })}${endText}.</p>
         <p style="margin-top:0.75rem;font-size:0.82rem;color:var(--text-muted);">Once they accept, your walks will appear in your bookings. The price per walk is locked in now and won't change.</p>
         <div style="margin-top:2rem;display:flex;gap:12px;justify-content:center;flex-wrap:wrap;">
-          <a href="/my/" style="display:inline-block;padding:12px 28px;background:var(--terracotta);color:white;border-radius:10px;font-weight:500;text-decoration:none;font-size:0.9rem;">View my bookings</a>
+          <a href="/profile/" style="display:inline-block;padding:12px 28px;background:var(--terracotta);color:white;border-radius:10px;font-weight:500;text-decoration:none;font-size:0.9rem;">View my bookings</a>
           <a href="/search/" style="display:inline-block;padding:12px 28px;border:1px solid var(--border);color:var(--text-secondary);border-radius:10px;font-weight:500;text-decoration:none;font-size:0.9rem;">Browse more carers</a>
         </div>
       </div>

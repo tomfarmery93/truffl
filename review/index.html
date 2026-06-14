@@ -155,7 +155,7 @@
       <text x="52" y="50" font-family="'DM Sans', sans-serif" font-size="12" font-weight="600" fill="#B0A090" letter-spacing="4">PETS</text>
     </svg>
   </a>
-  <a href="/my/" class="nav-back">
+  <a href="/profile/" class="nav-back">
     <svg width="14" height="14" viewBox="0 0 16 16" fill="none"><path d="M10 12L6 8L10 4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
     Back to dashboard
   </a>
@@ -302,7 +302,7 @@ function renderForm() {
       </div>
 
       <div class="btn-row">
-        <button type="button" class="btn btn-secondary" onclick="window.location.href='/my/'">Cancel</button>
+        <button type="button" class="btn btn-secondary" onclick="window.location.href='/profile/'">Cancel</button>
         <button type="button" id="submitBtn" class="btn btn-primary">${isEdit ? 'Save changes' : 'Submit review'}</button>
       </div>
     </div>
@@ -420,7 +420,7 @@ function renderSuccess() {
           ? 'Your changes are live on ' + esc(providerFirstName) + "'s profile."
           : 'Your review helps other pet parents find great carers like ' + esc(providerFirstName) + '.'}</p>
         <div class="success-actions">
-          <a href="/my/" class="btn btn-secondary">Back to dashboard</a>
+          <a href="/profile/" class="btn btn-secondary">Back to dashboard</a>
           <a href="/carer/?id=${esc(booking._provider_user_id || '')}" class="btn btn-primary" style="flex:0 0 auto;">View carer profile</a>
         </div>
       </div>
@@ -443,7 +443,7 @@ async function init() {
   }
 
   if (!bookingId) {
-    renderGate('No booking specified', 'We couldn\'t find a booking to review. Head back to your dashboard and pick a completed booking.', '/my/', 'Go to dashboard');
+    renderGate('No booking specified', 'We couldn\'t find a booking to review. Head back to your dashboard and pick a completed booking.', '/profile/', 'Go to dashboard');
     return;
   }
 
@@ -459,14 +459,14 @@ async function init() {
     // Fetch booking
     const bookings = await sbGet('bookings', `id=eq.${bookingId}&select=*`);
     if (!bookings.length) {
-      renderGate('Booking not found', 'We couldn\'t find this booking. It may have been removed.', '/my/', 'Back to dashboard');
+      renderGate('Booking not found', 'We couldn\'t find this booking. It may have been removed.', '/profile/', 'Back to dashboard');
       return;
     }
     booking = bookings[0];
 
     // Authorize: must be the booking's customer
     if (booking.customer_id !== customerProfileId) {
-      renderGate('Access denied', 'You can only review bookings on your own account.', '/my/', 'Back to dashboard');
+      renderGate('Access denied', 'You can only review bookings on your own account.', '/profile/', 'Back to dashboard');
       return;
     }
 
@@ -475,7 +475,7 @@ async function init() {
       const friendly = booking.status === 'cancelled'
         ? 'This booking was cancelled, so there\'s nothing to review.'
         : 'You can leave a review once this booking is completed.';
-      renderGate('Review not available yet', friendly, '/my/', 'Back to dashboard');
+      renderGate('Review not available yet', friendly, '/profile/', 'Back to dashboard');
       return;
     }
 
@@ -503,7 +503,7 @@ async function init() {
 
     renderForm();
   } catch (e) {
-    renderGate('Something went wrong', esc(e.message || 'Unable to load this booking right now.'), '/my/', 'Back to dashboard');
+    renderGate('Something went wrong', esc(e.message || 'Unable to load this booking right now.'), '/profile/', 'Back to dashboard');
   }
 }
 
