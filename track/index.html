@@ -57,7 +57,7 @@
   .update-icon.photo{background:rgba(139,158,126,0.1);color:var(--sage-dark);}
   .update-text{color:var(--text-secondary);line-height:1.4;}
   .update-time{font-size:0.7rem;color:var(--text-muted);margin-top:2px;}
-  .update-photo{width:100%;max-width:200px;border-radius:8px;margin-top:6px;}
+  .update-photo{width:100%;max-width:240px;border-radius:10px;margin-top:8px;display:block;}
 
   .booking-card{background:var(--warm-white);border:1px solid var(--border);border-radius:14px;padding:1.25rem;margin-bottom:1rem;}
 
@@ -206,7 +206,7 @@ function addUpdateToFeed(update) {
   if (emptyState) emptyState.remove();
   const iconClass = update.update_type === 'mood' ? 'mood' : update.update_type === 'photo' ? 'photo' : 'comment';
   const iconSymbol = update.update_type === 'mood' ? UPDATE_ICONS.mood : update.update_type === 'photo' ? UPDATE_ICONS.photo : UPDATE_ICONS.comment;
-  const photoHtml = update.photo_url ? `<img src="${update.photo_url}" class="update-photo" alt="Walk photo">` : '';
+  const photoHtml = update.photo_url ? `<img src="${update.photo_url}" class="update-photo" alt="Walk photo" loading="lazy" onerror="this.style.display='none'">` : '';
   const item = document.createElement('div');
   item.className = 'update-item fade-in';
   item.innerHTML = `
@@ -256,7 +256,7 @@ async function poll() {
     }
 
     const updateQuery = lastUpdateTime
-      ? `walk_session_id=eq.${walkSession.id}&created_at=gt.${lastUpdateTime}&order=created_at.asc&select=*`
+      ? `walk_session_id=eq.${walkSession.id}&created_at=gt.${encodeURIComponent(lastUpdateTime)}&order=created_at.asc&select=*`
       : `walk_session_id=eq.${walkSession.id}&order=created_at.asc&select=*`;
     const newUpdates = await sbGet('walk_updates', updateQuery);
     if (newUpdates.length) {
