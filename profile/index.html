@@ -281,7 +281,7 @@ function petFormFields(idp, p = {}) {
       <div class="inline-field"><label>Sex <span class="opt">(optional)</span></label><select id="${idp}sex"><option value="">—</option><option value="male" ${p.sex === 'male' ? 'selected' : ''}>Male</option><option value="female" ${p.sex === 'female' ? 'selected' : ''}>Female</option></select></div>
     </div>
     <div class="pet-form-row">
-      <div class="inline-field"><label>Age (years) <span class="opt">(optional)</span></label><input id="${idp}age" type="number" min="0" max="40" value="${p.age_years ?? ''}"></div>
+      <div class="inline-field"><label>Date of birth <span class="opt">(optional)</span></label><input id="${idp}dob" type="date" max="${new Date().toISOString().slice(0,10)}" value="${p.dob || ''}"></div>
       <div class="inline-field"><label>Weight (kg) <span class="opt">(optional)</span></label><input id="${idp}weight" type="number" min="0" max="120" step="0.1" value="${p.weight_kg ?? ''}"></div>
     </div>
     <label class="pet-checkbox"><input type="checkbox" id="${idp}desexed" ${p.is_desexed ? 'checked' : ''}> Desexed</label>
@@ -303,7 +303,7 @@ function collectPetForm(idp) {
     name,
     breed: str('breed'),
     sex: str('sex'),
-    age_years: num('age'),
+    dob: str('dob'),
     weight_kg: num('weight'),
     is_desexed: !!(document.getElementById(idp + 'desexed') || {}).checked,
     microchip_no: str('chip'),
@@ -321,11 +321,25 @@ function petAvatarHtml(p) {
     ? `<div class="pet-avatar"><img src="${esc(p.photo_url)}" alt=""></div>`
     : `<div class="pet-avatar">${esc(petInitial(p))}</div>`;
 }
+// Pet age derived from date of birth, so it stays current. Under a year, show months.
+function ageFromDob(dob) {
+  if (!dob) return null;
+  const b = new Date(dob + 'T00:00:00');
+  if (isNaN(b)) return null;
+  const now = new Date();
+  let months = (now.getFullYear() - b.getFullYear()) * 12 + (now.getMonth() - b.getMonth());
+  if (now.getDate() < b.getDate()) months--;
+  if (months < 0) return null;
+  if (months < 12) return months + (months === 1 ? ' mo' : ' mos');
+  const yrs = Math.floor(months / 12);
+  return yrs + (yrs === 1 ? ' yr' : ' yrs');
+}
 function petMetaLine(p) {
   const parts = [];
   if (p.breed) parts.push(esc(p.breed));
   if (p.sex && PET_SEX_LABELS[p.sex]) parts.push(PET_SEX_LABELS[p.sex]);
-  if (p.age_years != null) parts.push(p.age_years + (p.age_years === 1 ? ' yr' : ' yrs'));
+  const age = ageFromDob(p.dob);
+  if (age) parts.push(age);
   if (p.weight_kg != null) parts.push(p.weight_kg + 'kg');
   return parts.join(' · ');
 }
@@ -425,6 +439,20 @@ const PHONE_RE = /^[+]?[\d][\d\s()-]{6,}$/;
 
 function detailsFormHtml() {
   const suburb = profileRow ? (profileRow.suburb || '') : '';
+  const isCustomer = userData.role === 'customer';
+  const address = isCustomer && profileRow ? (profileRow.address || '') : '';
+  const postcode = isCustomer && profileRow ? (profileRow.postcode || '') : '';
+  const addressFields = isCustomer ? `
+      <div class="field">
+        <label for="f-address">Street address</label>
+        <input id="f-address" type="text" value="${esc(address)}" autocomplete="street-address" placeholder="e.g. 12 Smith St">
+        <div class="field-error" id="err-address"></div>
+      </div>
+      <div class="field">
+        <label for="f-postcode">Postcode</label>
+        <input id="f-postcode" type="text" value="${esc(postcode)}" autocomplete="postal-code" placeholder="e.g. 2130">
+        <div class="field-error" id="err-postcode"></div>
+      </div>` : '';
   return `
     <div class="details-card">
       <div class="row-2">
@@ -455,6 +483,7 @@ function detailsFormHtml() {
         <input id="f-suburb" type="text" value="${esc(suburb)}" autocomplete="address-level2" placeholder="e.g. Summer Hill">
         <div class="field-error" id="err-suburb"></div>
       </div>
+      ${addressFields}
       <div class="form-actions">
         <button class="pf-save" id="saveBtn" onclick="saveProfile()">Save changes</button>
         <button class="pf-discard" onclick="resetDetails()">Reset</button>
@@ -517,8 +546,19 @@ async function saveProfile() {
     userData.first_name = fn; userData.last_name = ln; userData.phone = phone || null;
 
     if (profileRow) {
-      await sbPatch(profileTable, 'user_id', authUid, { suburb: suburb || null });
+      const profilePatch = { suburb: suburb || null };
+      if (userData.role === 'customer') {
+        const address = document.getElementById('f-address').value.trim();
+        const postcode = document.getElementById('f-postcode').value.trim();
+        profilePatch.address = address || null;
+        profilePatch.postcode = postcode || null;
+      }
+      await sbPatch(profileTable, 'user_id', authUid, profilePatch);
       profileRow.suburb = suburb || null;
+      if (userData.role === 'customer') {
+        profileRow.address = profilePatch.address;
+        profileRow.postcode = profilePatch.postcode;
+      }
     }
 
     if (emailChanged) {
@@ -978,7 +1018,7 @@ async function init() {
 
     // Customer
     profileTable = 'customer_profiles';
-    const profiles = await sbGet('customer_profiles', `user_id=eq.${authUid}&select=id,suburb`);
+    const profiles = await sbGet('customer_profiles', `user_id=eq.${authUid}&select=id,suburb,address,postcode`);
     if (!profiles.length) {
       area.innerHTML = `<div class="login-prompt"><h2>Profile not set up</h2><p>Your customer profile isn't set up yet.</p><a href="/login/">Complete registration</a></div>`;
       return;

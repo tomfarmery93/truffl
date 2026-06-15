@@ -371,7 +371,7 @@
         <div class="field"><label>Pet's name</label><input type="text" id="cPetName" placeholder="e.g. Flick"></div>
         <div class="field"><label>Breed <span class="optional">(optional)</span></label><input type="text" id="cPetBreed" placeholder="e.g. Springer Spaniel"></div>
         <div class="field-row">
-          <div class="field"><label>Age <span class="optional">(years)</span></label><input type="number" id="cPetAge" placeholder="e.g. 4" min="0" max="30"></div>
+          <div class="field"><label>Date of birth <span class="optional">(optional)</span></label><input type="date" id="cPetDob"></div>
           <div class="field"><label>Weight <span class="optional">(kg, optional)</span></label><input type="number" id="cPetWeight" placeholder="e.g. 18" min="0" max="200" step="0.5"></div>
         </div>
         <div class="field-row">
@@ -653,7 +653,7 @@ async function custStep3() {
     await sb.insert('pets', {
       customer_id: customerProfileId, name, species: selectedSpecies,
       breed: document.getElementById('cPetBreed').value.trim() || null,
-      age_years: document.getElementById('cPetAge').value ? parseInt(document.getElementById('cPetAge').value) : null,
+      dob: document.getElementById('cPetDob').value || null,
       weight_kg: document.getElementById('cPetWeight').value ? parseFloat(document.getElementById('cPetWeight').value) : null,
       sex: document.getElementById('cPetSex').value || 'unknown',
       is_desexed: document.getElementById('cPetDesexed').value === 'true' ? true : document.getElementById('cPetDesexed').value === 'false' ? false : null,
@@ -722,6 +722,7 @@ async function provStep3() {
 document.addEventListener('DOMContentLoaded', () => {
   renderCheckboxes('servicesGrid', SERVICES);
   renderCheckboxes('attribGrid', ATTRIBUTES);
+  const petDob = document.getElementById('cPetDob'); if (petDob) petDob.max = new Date().toISOString().slice(0, 10);
   document.querySelectorAll('input').forEach(i => { i.addEventListener('keydown', e => { if (e.key === 'Enter') e.preventDefault(); }); });
 });
 </script>
