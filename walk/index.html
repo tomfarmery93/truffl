@@ -175,6 +175,8 @@ let gpsPoints=[], watchId=null, timerInterval=null, wakeLock=null;
 let hasComment=false, hasPhoto=false;
 let updates=[];
 let customerName='', petName='', petBreed='';
+let custContact=null, petCare=[];
+function esc(s){return (s||'').toString().replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
 
 function h(token){const hd={'Content-Type':'application/json','apikey':SUPABASE_ANON_KEY,'Authorization':`Bearer ${SUPABASE_ANON_KEY}`};if(token)hd['Authorization']=`Bearer ${token}`;return hd;}
 async function sbGet(t,p){const r=await fetch(`${SUPABASE_URL}/rest/v1/${t}?${p}`,{headers:h(authToken)});if(!r.ok){const e=await r.json();throw new Error(e.message);}return await r.json();}
@@ -402,16 +404,31 @@ async function endWalk(){
   }catch(e){showMsg(e.message,'error');}
 }
 
+function walkPetCareHtml(){
+  return (petCare||[]).map(p=>{
+    const bits=[];
+    if(p.vet_name||p.vet_phone) bits.push(`Vet: ${esc([p.vet_name,p.vet_phone].filter(Boolean).join(' · '))}`);
+    if(p.behaviour_notes) bits.push(`Behaviour: ${esc(p.behaviour_notes)}`);
+    if(p.medical_notes) bits.push(`Medical: ${esc(p.medical_notes)}`);
+    if(!bits.length) return '';
+    return `<div style="font-size:0.8rem;color:var(--text-secondary);margin-top:6px;"><strong style="font-weight:500;">${esc(p.name)}</strong> — ${bits.join(' · ')}</div>`;
+  }).filter(Boolean).join('');
+}
+
 function renderPreWalk(){
   const area=document.getElementById('walkContent');
+  const loc = custContact ? [custContact.address, custContact.suburb, custContact.postcode].filter(Boolean).join(', ') : '';
   area.innerHTML=`
     <div class="status-bar idle"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M10 9l5 3-5 3z"/></svg> Ready to start</div>
 
     <div style="background:var(--warm-white);border:1px solid var(--border);border-radius:14px;padding:1.25rem;margin-bottom:1rem;">
       <div style="font-size:0.78rem;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.08em;margin-bottom:8px;">Booking details</div>
-      <div style="font-size:0.95rem;font-weight:500;color:var(--text-primary);">${customerName}</div>
-      <div style="font-size:0.85rem;color:var(--text-muted);">${petName}${petBreed?' · '+petBreed:''}</div>
-      ${booking.customer_notes?`<div style="font-size:0.82rem;color:var(--text-secondary);margin-top:8px;font-style:italic;">"${booking.customer_notes}"</div>`:''}
+      <div style="font-size:0.95rem;font-weight:500;color:var(--text-primary);">${esc(customerName)}</div>
+      <div style="font-size:0.85rem;color:var(--text-muted);">${esc(petName)}${petBreed?' · '+esc(petBreed):''}</div>
+      ${loc?`<div style="font-size:0.85rem;color:var(--text-secondary);margin-top:8px;display:flex;gap:6px;align-items:flex-start;"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;margin-top:2px;color:var(--text-muted);"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg><span>${esc(loc)}</span></div>`:''}
+      ${custContact&&custContact.customer_phone?`<div style="font-size:0.85rem;margin-top:4px;"><a href="tel:${esc(custContact.customer_phone)}" style="color:var(--terracotta);text-decoration:none;">${esc(custContact.customer_phone)}</a></div>`:''}
+      ${walkPetCareHtml()}
+      ${booking.customer_notes?`<div style="font-size:0.82rem;color:var(--text-secondary);margin-top:8px;font-style:italic;">"${esc(booking.customer_notes)}"</div>`:''}
     </div>
 
     <div class="gps-notice">
@@ -558,12 +575,23 @@ async function init(){
     if(!bookings.length){area.innerHTML=`<div class="login-prompt"><h2>Booking not found</h2><p><a href="/dashboard/" style="color:var(--terracotta);">Back to dashboard</a></p></div>`;return;}
     booking=bookings[0];
 
-    // Get customer and pet names
+    // Customer name, contact/address and pet care details come from definer views —
+    // providers can't read the customer's users/customer_profiles/pets rows directly.
     try{
-      const custs=await sbGet('customer_profiles',`id=eq.${booking.customer_id}&select=user_id`);
-      if(custs.length){const users=await sbGet('users',`id=eq.${custs[0].user_id}&select=first_name,last_name`);if(users.length)customerName=`${users[0].first_name} ${users[0].last_name}`;}
-      const pets=await sbGet('pets',`id=eq.${booking.pet_id}&select=name,breed`);
-      if(pets.length){petName=pets[0].name;petBreed=pets[0].breed||'';}
+      const parties=await sbGet('booking_party_names',`booking_id=eq.${bookingId}&select=customer_first_name,customer_last_name`);
+      if(parties.length) customerName=`${parties[0].customer_first_name||''} ${parties[0].customer_last_name||''}`.trim();
+    }catch(e){}
+    try{
+      const c=await sbGet('booking_contact_details',`booking_id=eq.${bookingId}&select=*`);
+      if(c.length) custContact=c[0];
+    }catch(e){}
+    try{
+      petCare=await sbGet('booking_pet_care',`booking_id=eq.${bookingId}&select=*`);
+      if(petCare.length){
+        const names=petCare.map(p=>p.name).filter(Boolean);
+        petName=names.join(' + ');
+        petBreed=petCare.length===1?(petCare[0].breed||''):'';
+      }
     }catch(e){}
 
     // Check if walk already started

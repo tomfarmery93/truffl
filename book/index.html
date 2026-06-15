@@ -269,6 +269,41 @@ async function sbInsert(table, row, token) {
   return await r.json();
 }
 
+async function sbPatch(table, params, row, token) {
+  const r = await fetch(`${SUPABASE_URL}/rest/v1/${table}?${params}`, {
+    method: 'PATCH', headers: { ...headers(token), 'Prefer': 'return=minimal' }, body: JSON.stringify(row)
+  });
+  if (!r.ok) { const e = await r.json().catch(() => ({})); throw new Error(e.message || 'Update failed'); }
+}
+
+function esc(s) { return (s || '').toString().replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+
+// Services performed at the customer's home — we need their address for the carer.
+const AT_HOME_SERVICES = ['dog_walking', 'dog_sitting', 'pet_sitting'];
+
+// Toggle + validate/save the address block for at-home services.
+function updateAddressSection() {
+  const sec = document.getElementById('addressSection');
+  if (sec) sec.style.display = AT_HOME_SERVICES.includes(selectedSvcType) ? 'block' : 'none';
+}
+
+// Collects the address fields for an at-home service, validates them, and persists them to
+// the customer's profile so the carer can see them. Returns false if validation failed.
+async function captureAddressIfNeeded(svcType) {
+  if (!AT_HOME_SERVICES.includes(svcType)) return true;
+  const addr = (document.getElementById('bookAddress')?.value || '').trim();
+  const sub = (document.getElementById('bookSuburb')?.value || '').trim();
+  const pc = (document.getElementById('bookPostcode')?.value || '').trim();
+  if (!addr) { showMsg('Please add the address where the carer should come.', 'error'); return false; }
+  if (!sub) { showMsg('Please add your suburb.', 'error'); return false; }
+  const changed = addr !== (customerProfile.address || '') || sub !== (customerProfile.suburb || '') || pc !== (customerProfile.postcode || '');
+  if (changed) {
+    await sbPatch('customer_profiles', `user_id=eq.${authUid}`, { address: addr, suburb: sub, postcode: pc || null }, authToken);
+    customerProfile.address = addr; customerProfile.suburb = sub; customerProfile.postcode = pc || null;
+  }
+  return true;
+}
+
 function showMsg(t, type) { const el = document.getElementById('formMsg'); el.textContent = t; el.className = `msg ${type}`; }
 function clearMsg() { document.getElementById('formMsg').className = 'msg'; }
 function setLoading(btn, on) {
@@ -286,6 +321,7 @@ function selectService(el, serviceId) {
   if (!recurringAllowed(selectedSvcType)) bookingMode = 'oneoff'; // boarding/sitting are one-off multi-day
   document.getElementById('whenSection').innerHTML = renderWhenSection(selectedSvcType);
   updateWindowUI();
+  updateAddressSection();
   const sb = document.getElementById('submitBtn');
   if (sb) sb.textContent = (bookingMode === 'recurring') ? 'Request recurring schedule' : 'Send booking request';
   if (bookingMode === 'recurring') renderPreview();
@@ -594,6 +630,16 @@ function renderBookingForm() {
 
       ${customerPets.length > 1 ? `<div class="field"><label>Which pets? <span class="optional">(select one or more)</span></label><div class="pet-grid">${petsHtml}</div></div>` : ''}
 
+      <div class="field" id="addressSection" style="display:${AT_HOME_SERVICES.includes(selectedSvcType) ? 'block' : 'none'};">
+        <label>Your address <span class="optional">(so your carer can reach you)</span></label>
+        <input type="text" id="bookAddress" placeholder="Street address" value="${esc(customerProfile && customerProfile.address || '')}">
+        <div style="display:flex;gap:10px;margin-top:8px;">
+          <input type="text" id="bookSuburb" placeholder="Suburb" value="${esc(customerProfile && customerProfile.suburb || '')}" style="flex:1;">
+          <input type="text" id="bookPostcode" placeholder="Postcode" value="${esc(customerProfile && customerProfile.postcode || '')}" style="width:120px;">
+        </div>
+        <div style="font-size:0.75rem;color:var(--text-muted);margin-top:6px;">${customerProfile && customerProfile.address ? 'We\'ve pre-filled your saved address — check it\'s right for this booking.' : 'Your carer comes to you, so we need your address. We\'ll save it to your account.'}</div>
+      </div>
+
       <div class="field">
         <label>Notes for the carer <span class="optional">(optional)</span></label>
         <textarea id="bookNotes" placeholder="Gate code, special instructions, anything they should know..."></textarea>
@@ -651,6 +697,8 @@ async function submitBooking() {
   setLoading(btn, true);
 
   try {
+    // For at-home services, confirm/capture the address (saved to the profile) first.
+    if (!(await captureAddressIfNeeded(selectedSvc?.service_type))) return;
     // pet_id keeps the first selected pet as the "primary" for backward compat;
     // every selected pet (including the primary) is recorded in booking_pets.
     const inserted = await sbInsert('bookings', {
@@ -717,6 +765,8 @@ async function submitSeries() {
   const btn = document.querySelector('.btn-primary');
   setLoading(btn, true);
   try {
+    // For at-home services, confirm/capture the address (saved to the profile) first.
+    if (!(await captureAddressIfNeeded(selectedSvc?.service_type))) return;
     const inserted = await sbInsert('booking_series', {
       customer_id: customerProfile.id,
       provider_id: providerProfile.id,
