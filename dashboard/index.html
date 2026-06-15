@@ -101,6 +101,12 @@
   }
   .bc-time { font-size: 0.82rem; color: var(--text-secondary); }
   .bc-notes { font-size: 0.8rem; color: var(--text-muted); margin-top: 6px; font-style: italic; }
+  .bc-detail { margin-top: 8px; padding-top: 8px; border-top: 1px dashed var(--border); display: flex; flex-direction: column; gap: 4px; }
+  .bc-detail-row { font-size: 0.8rem; color: var(--text-secondary); display: flex; align-items: flex-start; gap: 6px; line-height: 1.4; }
+  .bc-detail-row svg { flex-shrink: 0; color: var(--text-muted); margin-top: 2px; }
+  .bc-detail-row a { color: var(--terracotta); text-decoration: none; }
+  .bc-detail-row a:hover { text-decoration: underline; }
+  .bc-detail-label { color: var(--text-muted); }
   .bc-actions { display: flex; gap: 8px; flex-shrink: 0; }
   .bc-btn {
     padding: 8px 16px; border-radius: 8px; font-size: 0.8rem; font-weight: 500;
@@ -432,35 +438,45 @@ async function loadBookings() {
   bookings = await sbGet('bookings', `provider_id=eq.${providerProfile.id}&select=*&order=scheduled_at.asc`);
   if (!bookings.length) return;
 
-  // Customer names via the booking_party_names view — providers can't read a
-  // customer's users/customer_profiles row directly under per-table RLS.
-  const nameByBooking = {};
+  const ids = bookings.map(b => b.id);
+
+  // Providers can't read a customer's users/customer_profiles/pets rows directly under
+  // per-table RLS, so customer name, contact/location and pet care details all come from
+  // definer views scoped to the provider's own bookings.
+  const nameByBooking = {}, contactByBooking = {}, petsByBooking = {};
   try {
-    const ids = bookings.map(b => b.id);
     const parties = await sbGet('booking_party_names', `booking_id=in.(${ids.join(',')})&select=booking_id,customer_first_name,customer_last_name`);
     parties.forEach(p => { nameByBooking[p.booking_id] = `${p.customer_first_name || ''} ${p.customer_last_name || ''}`.trim(); });
   } catch(e) { /* names fall back to 'Customer' */ }
+  try {
+    const rows = await sbGet('booking_contact_details', `booking_id=in.(${ids.join(',')})&select=*`);
+    rows.forEach(r => { contactByBooking[r.booking_id] = r; });
+  } catch(e) { /* contact details optional */ }
+  try {
+    const rows = await sbGet('booking_pet_care', `booking_id=in.(${ids.join(',')})&select=*`);
+    rows.forEach(r => { (petsByBooking[r.booking_id] = petsByBooking[r.booking_id] || []).push(r); });
+  } catch(e) { /* pet details optional */ }
 
-  // Load pet + service info for each booking
-  for (const b of bookings) {
+  const svcIds = [...new Set(bookings.map(b => b.service_id).filter(Boolean))];
+  const svcMap = {};
+  if (svcIds.length) {
     try {
-      b._customer_name = nameByBooking[b.id] || null;
-      let pets = [];
-      try {
-        const bp = await sbGet('booking_pets', `booking_id=eq.${b.id}&select=pet_id`);
-        const ids = bp.map(r => r.pet_id).filter(Boolean);
-        if (ids.length) pets = await sbGet('pets', `id=in.(${ids.join(',')})&select=name,breed,species`);
-      } catch(e) {}
-      if (!pets.length && b.pet_id) pets = await sbGet('pets', `id=eq.${b.pet_id}&select=name,breed,species`);
-      b._pet = pets[0] || null;
-      b._pet_label = pets.length
-        ? (pets.length === 1 ? pets[0].name + (pets[0].breed ? ' · ' + pets[0].breed : '') : pets.map(p => p.name).filter(Boolean).join(' + '))
-        : 'Pet';
-
-      const svcs = await sbGet('provider_services', `id=eq.${b.service_id}&select=service_type`);
-      if (svcs.length) b._service_type = svcs[0].service_type;
+      const svcs = await sbGet('provider_services', `id=in.(${svcIds.join(',')})&select=id,service_type`);
+      svcs.forEach(s => svcMap[s.id] = s.service_type);
     } catch(e) {}
   }
+
+  bookings.forEach(b => {
+    b._customer_name = nameByBooking[b.id] || null;
+    b._contact = contactByBooking[b.id] || null;
+    b._petcare = petsByBooking[b.id] || [];
+    const petNames = b._petcare.map(p => p.name).filter(Boolean);
+    b._pet = b._petcare[0] || null;
+    b._pet_label = petNames.length
+      ? (petNames.length === 1 ? petNames[0] + (b._petcare[0].breed ? ' · ' + b._petcare[0].breed : '') : petNames.join(' + '))
+      : 'Pet';
+    b._service_type = svcMap[b.service_id];
+  });
 }
 
 async function loadSeries() {
@@ -545,6 +561,47 @@ async function cancelSeriesWalks(seriesId) {
   } catch(e) { showMsg(e.message, 'error'); }
 }
 
+// Services performed at the customer's home — the provider needs the address.
+const AT_HOME_SERVICES = ['dog_walking', 'dog_sitting', 'pet_sitting'];
+const PIN_SVG = `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>`;
+const PHONE_SVG = `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72c.13.96.36 1.9.7 2.81a2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45c.91.34 1.85.57 2.81.7A2 2 0 0 1 22 16.92z"/></svg>`;
+
+function petCareHtml(petcare) {
+  return (petcare || []).map(p => {
+    const bits = [];
+    if (p.vet_name || p.vet_phone) bits.push(`Vet: ${esc([p.vet_name, p.vet_phone].filter(Boolean).join(' · '))}`);
+    if (p.behaviour_notes) bits.push(`Behaviour: ${esc(p.behaviour_notes)}`);
+    if (p.medical_notes) bits.push(`Medical: ${esc(p.medical_notes)}`);
+    if (!bits.length) return '';
+    return `<div class="bc-detail-row"><span><span class="bc-detail-label">${esc(p.name)} —</span> ${bits.join(' · ')}</span></div>`;
+  }).filter(Boolean).join('');
+}
+
+// Booking detail block for the provider. Pre-accept (pending) shows the suburb only so they
+// can judge the area; once accepted the full address + contact number are shown.
+function bookingDetailsHtml(b) {
+  const c = b._contact || {};
+  const isAtHome = AT_HOME_SERVICES.includes(b._service_type);
+  const accepted = ['confirmed', 'in_progress', 'completed'].includes(b.status);
+  const rows = [];
+  if (accepted && isAtHome && c.address) {
+    const loc = [c.address, c.suburb, c.postcode].filter(Boolean).join(', ');
+    rows.push(`<div class="bc-detail-row">${PIN_SVG}<span>${esc(loc)}</span></div>`);
+  } else if (c.suburb) {
+    const hint = (!accepted && isAtHome) ? ` <span class="bc-detail-label">(address shown once you accept)</span>` : '';
+    rows.push(`<div class="bc-detail-row">${PIN_SVG}<span>${esc(c.suburb)}${hint}</span></div>`);
+  }
+  if (accepted && c.customer_phone) {
+    rows.push(`<div class="bc-detail-row">${PHONE_SVG}<a href="tel:${esc(c.customer_phone)}">${esc(c.customer_phone)}</a></div>`);
+  }
+  if (accepted && c.emergency_phone) {
+    rows.push(`<div class="bc-detail-row"><span><span class="bc-detail-label">Emergency:</span> ${esc([c.emergency_contact, c.emergency_phone].filter(Boolean).join(' · '))}</span></div>`);
+  }
+  const care = petCareHtml(b._petcare);
+  if (care) rows.push(care);
+  return rows.length ? `<div class="bc-detail">${rows.join('')}</div>` : '';
+}
+
 function renderBookingsTab() {
   const pending = bookings.filter(b => b.status === 'pending');
   const confirmed = bookings.filter(b => b.status === 'confirmed');
@@ -581,7 +638,8 @@ function renderBookingsTab() {
           <div class="bc-pet">${b._pet_label || 'Pet'}</div>
           <span class="bc-service">${SERVICE_LABELS[b._service_type] || b._service_type || 'Service'}</span>
           <div class="bc-time">${bookingTimeLine(b)}</div>
-          ${b.customer_notes ? `<div class="bc-notes">"${b.customer_notes}"</div>` : ''}
+          ${b.customer_notes ? `<div class="bc-notes">"${esc(b.customer_notes)}"</div>` : ''}
+          ${bookingDetailsHtml(b)}
         </div>
         <div class="bc-actions">
           <button class="bc-btn accept" onclick="acceptBooking('${b.id}')">Accept</button>
@@ -601,7 +659,8 @@ function renderBookingsTab() {
           <div class="bc-pet">${b._pet_label || 'Pet'}</div>
           <span class="bc-service">${SERVICE_LABELS[b._service_type] || b._service_type || 'Service'}</span>
           <div class="bc-time">${bookingTimeLine(b)}</div>
-          ${b.customer_notes ? `<div class="bc-notes">"${b.customer_notes}"</div>` : ''}
+          ${b.customer_notes ? `<div class="bc-notes">"${esc(b.customer_notes)}"</div>` : ''}
+          ${bookingDetailsHtml(b)}
         </div>
         <div class="bc-actions">${dashCancelId === b.id ? dashCancelConfirm(b) : `
           <button class="bc-btn start-walk" onclick="window.location.href='/walk/?booking=${b.id}'">Start walk</button>
