@@ -96,6 +96,24 @@
   .input-base { width: 100%; padding: 9px 11px; border: 1px solid var(--border); border-radius: 10px; font-family: 'DM Sans', sans-serif; font-size: 0.85rem; color: var(--text-primary); background: var(--warm-white); outline: none; transition: border-color 0.2s, box-shadow 0.2s; }
   .input-base:focus { border-color: var(--border-focus); box-shadow: 0 0 0 3px rgba(196,117,91,0.10); }
 
+  /* Dual-handle time-window slider (earliest → latest walk time) */
+  .win-wrap { position: relative; height: 34px; margin: 6px 2px 2px; }
+  .win-track { position: absolute; top: 15px; left: 0; right: 0; height: 4px; background: var(--border); border-radius: 2px; }
+  .win-fill { position: absolute; top: 15px; height: 4px; background: var(--terracotta); border-radius: 2px; }
+  .win-wrap input[type=range] { position: absolute; top: 0; left: 0; width: 100%; height: 34px; margin: 0; background: none; pointer-events: none; -webkit-appearance: none; appearance: none; }
+  .win-wrap input[type=range]:focus { outline: none; }
+  .win-wrap input[type=range]::-webkit-slider-thumb { pointer-events: auto; -webkit-appearance: none; width: 20px; height: 20px; border-radius: 50%; background: #fff; border: 2px solid var(--terracotta); cursor: pointer; margin-top: 7px; box-shadow: 0 1px 3px rgba(61,43,31,0.2); }
+  .win-wrap input[type=range]::-moz-range-thumb { pointer-events: auto; width: 20px; height: 20px; border-radius: 50%; background: #fff; border: 2px solid var(--terracotta); cursor: pointer; }
+  .win-wrap input[type=range]::-webkit-slider-runnable-track { background: none; }
+  .win-label { font-size: 0.82rem; color: var(--text-secondary); }
+  .win-label b { color: var(--text-primary); font-weight: 600; }
+  /* Tooltip on the window heading */
+  .win-info { position: relative; display: inline-flex; align-items: center; color: var(--text-muted); cursor: help; }
+  .win-info svg { width: 14px; height: 14px; display: block; }
+  .win-tip { position: absolute; bottom: calc(100% + 8px); left: 50%; transform: translateX(-50%); width: 200px; background: var(--brown); color: #fff; font-size: 0.72rem; font-weight: 400; line-height: 1.4; padding: 8px 10px; border-radius: 8px; opacity: 0; visibility: hidden; transition: opacity 0.15s; z-index: 10; pointer-events: none; }
+  .win-tip::after { content: ''; position: absolute; top: 100%; left: 50%; transform: translateX(-50%); border: 5px solid transparent; border-top-color: var(--brown); }
+  .win-info:hover .win-tip, .win-info:focus .win-tip { opacity: 1; visibility: visible; }
+
   /* Pet size chips */
   .chip-row { display: flex; flex-wrap: wrap; gap: 6px; }
   .chip { display: inline-flex; align-items: center; gap: 5px; padding: 6px 12px; border-radius: 999px; border: 1px solid var(--border); background: var(--warm-white); font-size: 0.78rem; font-weight: 500; color: var(--text-secondary); cursor: pointer; transition: all 0.18s; font-family: 'DM Sans', sans-serif; }
@@ -366,6 +384,15 @@ const WINDOW_SERVICES = ['dog_walking', 'drop_in']; // get time-window + walk-le
 const LENGTHS = [['', 'Any'], ['30', '30 min'], ['60', '60 min'], ['90', '90 min'], ['120', '120 min']];
 function isWindowService() { return WINDOW_SERVICES.includes(state.service); }
 
+/* Time-window slider — 30-min indices over 6:00am–9:00pm; minimum 2-hour window. */
+const WIN_MIN = 12, WIN_MAX = 42, WIN_GAP = 4;
+function winIdxToHHMM(i) { return String(Math.floor(i / 2)).padStart(2, '0') + ':' + ((i % 2) ? '30' : '00'); }
+function winIdxToLabel(i) { const h = Math.floor(i / 2), m = (i % 2) ? 30 : 0; return ((h % 12) || 12) + ':' + String(m).padStart(2, '0') + ' ' + (h < 12 ? 'AM' : 'PM'); }
+function winHHMMToIdx(s) { const [h, m] = (s || '').split(':').map(Number); return h * 2 + (m >= 30 ? 1 : 0); }
+function winStartIdx() { return state.windowStart ? winHHMMToIdx(state.windowStart) : WIN_MIN; }
+function winEndIdx() { return state.windowEnd ? winHHMMToIdx(state.windowEnd) : WIN_MAX; }
+function winLabelFor(hhmm) { return hhmm ? winIdxToLabel(winHHMMToIdx(hhmm)) : 'any'; }
+
 /* ── Inline line-icon set (stroke=currentColor so they recolour with the tile) ── */
 const ICONS = {
   'dog-walking': '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round"><ellipse cx="31" cy="13" rx="11.5" ry="5"></ellipse><path d="M19.5 13c0 2.8 5.1 5 11.5 5s11.5-2.2 11.5-5"></path><path d="M19.5 13v5.5M42.5 13v5.5"></path><path d="M19.5 18.5c0 2.8 5.1 5 11.5 5s11.5-2.2 11.5-5"></path><path d="M31 23.5C31 30 32 36 27 37C22 38 18.5 34 18.5 29C18.5 24.5 15.5 23.5 13 26C11.8 27.3 12.2 29 12.2 30.5"></path><path d="M12.2 30.5C7 33.5 5 38.5 8.5 41.5C12.5 44.5 16 40 14.2 36C13.2 33.5 12.6 32 12.2 30.5Z"></path></svg>',
@@ -570,35 +597,31 @@ function syncWhenSection() {
   wireWhenFields();
 }
 
-function windowTimeOpts(selected) {
-  let opts = '<option value="">Any</option>';
-  for (let h = 6; h <= 20; h++) {
-    for (const m of [0, 30]) {
-      const v = String(h).padStart(2, '0') + ':' + (m ? '30' : '00');
-      const disp = ((h % 12) || 12) + ':' + (m ? '30' : '00') + ' ' + (h < 12 ? 'AM' : 'PM');
-      opts += `<option value="${v}" ${selected === v ? 'selected' : ''}>${disp}</option>`;
-    }
-  }
-  return opts;
-}
-/* Walk length + time window (walking / drop-in). */
+/* Walk length + time window (walking / drop-in). The window is a dual-handle
+   slider for the earliest → latest time the walk should happen, distinct from the
+   walk length above. Minimum 2-hour window. */
 function lengthAndWindowHtml() {
+  const sIdx = winStartIdx(), eIdx = winEndIdx();
+  const infoSvg = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>';
   return `
-    <div style="margin-bottom:10px;">
+    <div style="margin-bottom:12px;">
       <div class="field-label" style="margin-bottom:6px;">Walk length</div>
       <div class="chip-row" id="lenRow">
         ${LENGTHS.map(([v, l]) => `<button type="button" class="chip size ${state.length === v ? 'active' : ''}" data-len="${v}">${l}</button>`).join('')}
       </div>
     </div>
-    <div class="input-row">
-      <div>
-        <div class="field-label" style="margin-bottom:5px;">From</div>
-        <select class="input-base" id="inputWinStart" aria-label="Window start">${windowTimeOpts(state.windowStart)}</select>
+    <div>
+      <div class="field-label" style="margin-bottom:2px;display:flex;align-items:center;gap:6px;">
+        Time window
+        <span class="win-info" tabindex="0" role="img" aria-label="The window the walk should take place in — pick the earliest and latest time.">${infoSvg}<span class="win-tip">The window the walk should happen in — pick the earliest and latest time, and carers fit it in.</span></span>
       </div>
-      <div>
-        <div class="field-label" style="margin-bottom:5px;">To</div>
-        <select class="input-base" id="inputWinEnd" aria-label="Window end">${windowTimeOpts(state.windowEnd)}</select>
+      <div class="win-wrap">
+        <div class="win-track"></div>
+        <div class="win-fill"></div>
+        <input type="range" class="winStart" min="${WIN_MIN}" max="${WIN_MAX}" step="1" value="${sIdx}" aria-label="Earliest walk time">
+        <input type="range" class="winEnd" min="${WIN_MIN}" max="${WIN_MAX}" step="1" value="${eIdx}" aria-label="Latest walk time">
       </div>
+      <div class="win-label">Between <b class="winStartLbl">${winIdxToLabel(sIdx)}</b> and <b class="winEndLbl">${winIdxToLabel(eIdx)}</b></div>
     </div>
   `;
 }
@@ -722,6 +745,15 @@ function wireFilterForm(root) {
   });
 }
 
+function updateWinWrap(wrap, s, e) {
+  const fill = wrap.querySelector('.win-fill');
+  const range = WIN_MAX - WIN_MIN;
+  if (fill) { fill.style.left = ((s - WIN_MIN) / range * 100) + '%'; fill.style.width = ((e - s) / range * 100) + '%'; }
+  const host = wrap.parentElement;
+  const sl = host && host.querySelector('.winStartLbl'), el = host && host.querySelector('.winEndLbl');
+  if (sl) sl.textContent = winIdxToLabel(s);
+  if (el) el.textContent = winIdxToLabel(e);
+}
 function wireWhenFields(root) {
   const scope = root || document;
   scope.querySelectorAll('#inputDate').forEach(input => {
@@ -733,8 +765,23 @@ function wireWhenFields(root) {
   scope.querySelectorAll('#inputTime').forEach(input => {
     input.addEventListener('change', e => { state.time = e.target.value; });
   });
-  scope.querySelectorAll('#inputWinStart').forEach(s => s.addEventListener('change', e => { state.windowStart = e.target.value; }));
-  scope.querySelectorAll('#inputWinEnd').forEach(s => s.addEventListener('change', e => { state.windowEnd = e.target.value; }));
+  scope.querySelectorAll('.win-wrap').forEach(wrap => {
+    const sEl = wrap.querySelector('.winStart'), eEl = wrap.querySelector('.winEnd');
+    if (!sEl || !eEl) return;
+    const onIn = which => {
+      let s = parseInt(sEl.value, 10), e = parseInt(eEl.value, 10);
+      // Keep the handles at least WIN_GAP (2 hours) apart.
+      if (which === 'start') { if (s > e - WIN_GAP) { s = Math.max(WIN_MIN, e - WIN_GAP); sEl.value = s; } }
+      else { if (e < s + WIN_GAP) { e = Math.min(WIN_MAX, s + WIN_GAP); eEl.value = e; } }
+      // The full range means "any time" — keeps the default search clean.
+      if (s === WIN_MIN && e === WIN_MAX) { state.windowStart = ''; state.windowEnd = ''; }
+      else { state.windowStart = winIdxToHHMM(s); state.windowEnd = winIdxToHHMM(e); }
+      updateWinWrap(wrap, s, e);
+    };
+    sEl.addEventListener('input', () => onIn('start'));
+    eEl.addEventListener('input', () => onIn('end'));
+    updateWinWrap(wrap, parseInt(sEl.value, 10), parseInt(eEl.value, 10));
+  });
   scope.querySelectorAll('[data-len]').forEach(btn => {
     btn.addEventListener('click', () => {
       state.length = (state.length === btn.dataset.len) ? '' : btn.dataset.len;
@@ -782,7 +829,7 @@ function renderMobileSummary() {
   else if (state.date) sec.push(state.date);
   if (state.time) sec.push(state.time);
   if (state.length) sec.push(state.length + ' min');
-  if (state.windowStart || state.windowEnd) sec.push((state.windowStart || 'any') + '–' + (state.windowEnd || 'any'));
+  if (state.windowStart || state.windowEnd) sec.push(winLabelFor(state.windowStart) + '–' + winLabelFor(state.windowEnd));
   if (state.size) sec.push(state.size + ' dog');
   document.getElementById('msSecondary').textContent = sec.join(' · ') || 'Tap to refine';
 
@@ -799,7 +846,7 @@ function buildContextLine(count) {
   if (state.recurring && state.days.length) parts.push('Recurring · ' + state.days.map(d => DAY_FULL[d]).join(', '));
   else if (state.recurring) parts.push('Recurring');
   if (state.length) parts.push(state.length + '-min walk');
-  if (state.windowStart || state.windowEnd) parts.push('Between ' + (state.windowStart || 'any') + ' and ' + (state.windowEnd || 'any'));
+  if (state.windowStart || state.windowEnd) parts.push('Between ' + winLabelFor(state.windowStart) + ' and ' + winLabelFor(state.windowEnd));
   if (state.size) parts.push((state.size === 'small' ? 'Small' : state.size === 'medium' ? 'Medium' : 'Large') + ' dog');
   if (state.puppy) parts.push('Puppy');
   if (state.attributes.length) parts.push(state.attributes.length + ' filter' + (state.attributes.length !== 1 ? 's' : ''));
