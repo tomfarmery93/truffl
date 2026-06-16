@@ -46,6 +46,13 @@
   .conv:hover{background:var(--cream);}
   .conv.active{background:var(--cream);}
   .conv-avatar{width:38px;height:38px;border-radius:50%;background:var(--blush);display:flex;align-items:center;justify-content:center;font-family:'Cormorant Garamond',serif;font-weight:600;font-size:0.95rem;color:var(--brown);flex-shrink:0;}
+  .conv-avatar-system{background:var(--terracotta);color:#fff;}
+  .conv-verified{display:inline-flex;align-items:center;justify-content:center;width:15px;height:15px;border-radius:50%;background:var(--terracotta);color:#fff;font-size:0.62rem;font-weight:700;vertical-align:middle;}
+  .sys-cta{display:inline-block;margin-top:8px;padding:8px 16px;border-radius:8px;background:var(--terracotta);color:#fff;font-size:0.84rem;font-weight:500;text-decoration:none;}
+  .sys-cta:hover{background:var(--terracotta-light);}
+  .composer-disabled{display:flex;align-items:center;gap:8px;padding:14px 16px;border-top:1px solid var(--border);flex-shrink:0;font-size:0.8rem;color:var(--text-muted);background:var(--cream);line-height:1.4;}
+  .composer-disabled svg{flex-shrink:0;color:var(--sage-dark);}
+  .composer-disabled a{color:var(--terracotta);}
   .conv-main{min-width:0;flex:1;}
   .conv-top{display:flex;justify-content:space-between;gap:6px;align-items:baseline;}
   .conv-name{font-size:0.9rem;font-weight:500;color:var(--text-primary);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
@@ -157,6 +164,24 @@ let activeKey = null;
 const SERVICE_NATURAL = { dog_walking:'walk', dog_sitting:'sitting', dog_boarding:'boarding stay', pet_sitting:'visit' };
 const DAY_FULL_MG = { 1:'Mon', 2:'Tue', 3:'Wed', 4:'Thu', 5:'Fri', 6:'Sat', 7:'Sun' };
 let pollTimer = null;
+// One-way "Truffl" channel (TRU-15): system notifications rendered as a pinned,
+// reply-disabled conversation. Not a real conversations row.
+let systemConv = null;
+const SYSTEM_KEY = '__truffl__';
+const SYS_AVATAR = `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><path d="M9 12l2 2 4-4"/></svg>`;
+
+async function loadSystemConversation(){
+  let rows = [];
+  try { rows = await sbGet('system_messages', `recipient_user_id=eq.${authUid}&select=*&order=created_at.asc`); }
+  catch(e){ return null; }
+  if (!rows.length) return null;
+  return {
+    key: SYSTEM_KEY, id: SYSTEM_KEY, isSystem: true,
+    name: 'Truffl', initials: 'T', counterpartyUserId: null,
+    lastMessageAt: rows[rows.length - 1].created_at, bookings: [], composeBookingId: null,
+    sysMsgs: rows
+  };
+}
 
 function h(token) {
   const hd = { 'Content-Type':'application/json', 'apikey':SUPABASE_ANON_KEY, 'Authorization':`Bearer ${SUPABASE_ANON_KEY}` };
@@ -218,8 +243,8 @@ function dayLabel(iso){
 }
 
 function convByKey(key){ return conversations.find(c => c.key === key) || null; }
-function convMsgs(conv){ return (conv && conv.id) ? (msgsByConv[conv.id] || []) : []; }
-function unreadForConv(conv){ return convMsgs(conv).filter(m => m.sender_id !== authUid && !m.read_at).length; }
+function convMsgs(conv){ if (conv && conv.isSystem) return conv.sysMsgs || []; return (conv && conv.id) ? (msgsByConv[conv.id] || []) : []; }
+function unreadForConv(conv){ if (conv && conv.isSystem) return (conv.sysMsgs || []).filter(m => !m.read_at).length; return convMsgs(conv).filter(m => m.sender_id !== authUid && !m.read_at).length; }
 function lastMsgForConv(conv){ const a = convMsgs(conv); return a.length ? a[a.length-1] : null; }
 
 /* Compose target: the most relevant booking to attach a new message to —
@@ -359,9 +384,15 @@ function convSortTime(c){
   return new Date(0);
 }
 function sortedConversations(){
-  return [...conversations].sort((a,b) => convSortTime(b) - convSortTime(a));
+  // Truffl's one-way channel is always pinned to the top.
+  return [...conversations].sort((a,b) => {
+    if (a.isSystem) return -1;
+    if (b.isSystem) return 1;
+    return convSortTime(b) - convSortTime(a);
+  });
 }
 function convSubLine(c){
+  if (c.isSystem) return 'Help & safety';
   const n = c.bookings.length;
   if (c.composeBookingId) {
     const lbl = bookingLabel(c.composeBookingId);
@@ -381,11 +412,15 @@ function renderList(){
     const last = lastMsgForConv(c);
     const unread = unreadForConv(c);
     const snippet = last ? (last.sender_id === authUid ? 'You: ' : '') + last.body : 'No messages yet';
+    const avatar = c.isSystem
+      ? `<div class="conv-avatar conv-avatar-system">${SYS_AVATAR}</div>`
+      : `<div class="conv-avatar">${esc(c.initials)}</div>`;
+    const nameHtml = c.isSystem ? `${esc(c.name)} <span class="conv-verified" title="Official Truffl channel">✓</span>` : esc(c.name);
     return `
       <button class="conv ${c.key===activeKey?'active':''} ${unread>0?'unread':''}" data-key="${esc(c.key)}">
-        <div class="conv-avatar">${esc(c.initials)}</div>
+        ${avatar}
         <div class="conv-main">
-          <div class="conv-top"><span class="conv-name">${esc(c.name)}</span><span class="conv-time">${last?fmtListTime(last.created_at):''}</span></div>
+          <div class="conv-top"><span class="conv-name">${nameHtml}</span><span class="conv-time">${last?fmtListTime(last.created_at):''}</span></div>
           <div class="conv-sub">${esc(convSubLine(c))}</div>
           <div class="conv-snippet">${esc(snippet)}</div>
         </div>
@@ -408,6 +443,7 @@ function renderThread(preserveInput){
     </div>`;
     return;
   }
+  if (c.isSystem) { renderSystemThread(c); return; }
   const prevInput = preserveInput ? (document.getElementById('composerInput')||{}).value : '';
   const msgs = convMsgs(c);
   let body = '';
@@ -461,6 +497,43 @@ function renderThread(preserveInput){
   const back = document.getElementById('threadBack');
   if (back) back.addEventListener('click', closeThread);
 
+  const tb = document.getElementById('threadBody');
+  tb.scrollTop = tb.scrollHeight;
+}
+
+// The one-way Truffl channel: incoming-only bubbles (each can carry a CTA link),
+// and a disabled composer making clear the customer can't reply.
+function renderSystemThread(c){
+  const el = document.getElementById('thread');
+  const msgs = convMsgs(c);
+  let lastDay = null;
+  const body = msgs.map(m => {
+    let pre = '';
+    const dk = dayKey(m.created_at);
+    if (dk !== lastDay){ pre += `<div class="day-sep">${dayLabel(m.created_at)}</div>`; lastDay = dk; }
+    const cta = m.link_url ? `<a class="sys-cta" href="${esc(m.link_url)}">${esc(m.link_label || 'Open')}</a>` : '';
+    return `${pre}<div class="bubble theirs"><div class="bubble-body">${esc(m.body)}</div>${cta}<div class="bubble-meta">${fmtMsgTime(m.created_at)}</div></div>`;
+  }).join('');
+
+  el.innerHTML = `
+    <div class="thread-head">
+      <div style="display:flex;align-items:center;min-width:0;gap:10px;">
+        <button class="thread-back" id="threadBack" aria-label="Back to conversations"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg></button>
+        <div class="conv-avatar conv-avatar-system" style="width:34px;height:34px;">${SYS_AVATAR}</div>
+        <div style="min-width:0;">
+          <div class="thread-title">Truffl <span class="conv-verified" title="Official Truffl channel">✓</span></div>
+          <div class="thread-ctx">Help &amp; safety · official updates</div>
+        </div>
+      </div>
+    </div>
+    <div class="thread-body" id="threadBody">${body}</div>
+    <div class="composer-disabled" aria-disabled="true">
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+      <span>This is a one-way channel from Truffl — you can't reply here. Need a hand? <a href="/trust-and-safety/reporting-a-concern/">Get in touch</a>.</span>
+    </div>`;
+
+  const back = document.getElementById('threadBack');
+  if (back) back.addEventListener('click', closeThread);
   const tb = document.getElementById('threadBody');
   tb.scrollTop = tb.scrollHeight;
 }
@@ -555,7 +628,19 @@ function closeThread(){
 }
 
 async function markRead(conv){
-  if (!conv || !conv.id) return;
+  if (!conv) return;
+  if (conv.isSystem){
+    const unread = (conv.sysMsgs || []).filter(m => !m.read_at);
+    if (!unread.length) return;
+    try {
+      await sbPatchWhere('system_messages', `recipient_user_id=eq.${authUid}&read_at=is.null`, { read_at: new Date().toISOString() });
+      const now = new Date().toISOString();
+      unread.forEach(m => m.read_at = now);
+      renderList();
+    } catch(e){ /* non-fatal */ }
+    return;
+  }
+  if (!conv.id) return;
   const unread = convMsgs(conv).filter(m => m.sender_id !== authUid && !m.read_at);
   if (!unread.length) return;
   try {
@@ -570,7 +655,7 @@ async function onSend(e){
   const input = document.getElementById('composerInput');
   const text = (input.value||'').trim();
   const c = convByKey(activeKey);
-  if (!text || !c) return;
+  if (!text || !c || c.isSystem) return;
   // Need somewhere to attach: an existing conversation, or a booking (the trigger
   // creates the conversation from booking_id on the first message).
   if (!c.id && !c.composeBookingId) { alert('No booking to message about yet.'); return; }
@@ -600,7 +685,7 @@ async function poll(){
   try {
     const active = convByKey(activeKey);
     const before = active ? convMsgs(active).length : 0;
-    await loadMessages(conversations.map(c => c.id).filter(Boolean));
+    await loadMessages(conversations.map(c => c.id).filter(id => id && id !== SYSTEM_KEY));
     renderList();
     if (active){
       const after = convMsgs(active).length;
@@ -636,6 +721,8 @@ async function init(){
 
   try {
     conversations = await loadConversations();
+    systemConv = await loadSystemConversation();
+    if (systemConv) conversations.unshift(systemConv);
     renderList();
     const params = new URLSearchParams(window.location.search);
     const wantConv = params.get('c');
