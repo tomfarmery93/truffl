@@ -226,6 +226,17 @@ const SERVICE_LABELS = {
 
 const MULTI_DAY_SERVICES = ['dog_boarding', 'dog_sitting'];
 
+// --- Meet & greet (TRU-14) ---------------------------------------------------
+// Natural-language service word for the [Service] token in M&G copy.
+const SERVICE_NATURAL = { dog_walking: 'walk', dog_sitting: 'sitting', dog_boarding: 'boarding stay', pet_sitting: 'visit' };
+// Conditional copy blocks each service swaps in (TRU-14 service-variant mapping).
+const MG_VARIANTS = {
+  dog_walking: ['walking'],
+  dog_boarding: ['carers_home', 'overnight'],
+  dog_sitting: ['home_access', 'overnight'],
+  pet_sitting: ['home_access']
+};
+
 const PAW_SVG = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><ellipse cx="8" cy="8" rx="1.5" ry="2"/><ellipse cx="16" cy="8" rx="1.5" ry="2"/><ellipse cx="5" cy="13" rx="1.3" ry="1.6"/><ellipse cx="19" cy="13" rx="1.3" ry="1.6"/><path d="M8.5 17.5c0-2.2 1.6-3.5 3.5-3.5s3.5 1.3 3.5 3.5-1.6 3-3.5 3-3.5-.8-3.5-3z"/></svg>';
 const CAT_SVG = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"><path d="M5 8l1-3 3 2.5M19 8l-1-3-3 2.5"/><path d="M5 8c-.5 2-.5 4 0 6 1 3 4 5 7 5s6-2 7-5c.5-2 .5-4 0-6"/><path d="M10 13h.01M14 13h.01M11 16c.5.4 1.5.4 2 0"/></svg>';
 const SPECIES_ICONS = { dog: PAW_SVG, cat: CAT_SVG, other: PAW_SVG };
@@ -674,6 +685,141 @@ function renderBookingForm() {
   renderPriceEstimate();
 }
 
+// Owner-modal conditional blocks, keyed to MG_VARIANTS. {Dog}/{Carer} are filled in.
+const MG_OWNER_BLOCKS = {
+  walking: "Where they'll wander, how long they'll be out, and how {Carer} handles other dogs and busy roads.",
+  home_access: "Letting them into your home: how you'll sort keys, the alarm, and anywhere that's off limits.",
+  carers_home: "If you can, meet at {Carer}'s place so you can picture where {Dog} will be. Have a look at the yard and say hello to any other pets in the mix.",
+  overnight: "Where {Dog} will sleep, how the evenings go, and how {Carer} settles a pup who's missing home."
+};
+
+function lockedPriceFor(svc, petCount) {
+  const base = svc.price_cents, extra = svc.additional_pet_price_cents || 0;
+  return base != null ? base + Math.max(0, petCount - 1) * extra : null;
+}
+
+// Has this customer already completed a meet & greet with this carer? If so the
+// gate is cleared for good and we book normally (TRU-14: keyed on a completed M&G
+// existing for the pair, not on booking history).
+async function hasCompletedMeetGreet() {
+  const rows = await sbGet('bookings',
+    `customer_id=eq.${customerProfile.id}&provider_id=eq.${providerProfile.id}&is_meet_and_greet=eq.true&status=eq.completed&select=id`,
+    authToken);
+  return rows.length > 0;
+}
+
+let pendingMgIntent = null;
+
+// First booking with a new carer routes here instead of inserting directly: show
+// the owner education modal, then (on confirm) save the series as pending_meet_greet
+// with a free flagged M&G booking. Address is already captured by the caller.
+function enterMeetGreetFlow(intent) {
+  pendingMgIntent = intent;
+  const dog = esc((customerPets.find(p => p.id === intent.petIds[0]) || {}).name || 'your dog');
+  const carer = esc(providerData.first_name || 'your carer');
+  const svc = SERVICE_NATURAL[intent.svcType] || 'visit';
+  const fill = s => s.replace(/{Dog}/g, dog).replace(/{Carer}/g, carer).replace(/{Service}/g, svc);
+  const extras = (MG_VARIANTS[intent.svcType] || []).map(k => `<li>${fill(MG_OWNER_BLOCKS[k])}</li>`).join('');
+
+  const overlay = document.createElement('div');
+  overlay.id = 'mgModal';
+  overlay.style.cssText = 'position:fixed;inset:0;background:rgba(40,30,25,.55);display:flex;align-items:center;justify-content:center;padding:1rem;z-index:1000;';
+  overlay.innerHTML = `
+    <div class="form-card fade-in" style="max-width:520px;max-height:90vh;overflow-y:auto;margin:0;">
+      <h2 style="margin-top:0;">Time for a proper hello</h2>
+      <p>Trusting someone new with ${dog} is a big deal, and it should be. So before your first ${svc}, you'll meet ${carer} in person. It's free, there's no pressure, and your booking is safely saved. You only go ahead once you've met and you're happy.</p>
+      <p>Think of it as a chance to see the two of them together. Ask anything you like, watch how ${dog} takes to them, and go with your gut. You'll know.</p>
+      <p style="font-weight:600;margin-bottom:.4rem;">A few things worth chatting about:</p>
+      <ul style="margin:0 0 1rem;padding-left:1.2rem;line-height:1.6;">
+        <li>How ${carer} handles dogs like ${dog}: their temperament, recall and energy</li>
+        <li>${dog}'s little routines, what they love, and anything that sets them off</li>
+        <li>Health, vet details, and what happens if something ever goes wrong</li>
+        <li>How you'll stay in the loop, including live GPS updates</li>
+        ${extras}
+      </ul>
+      <p style="background:var(--cream,#fbf6ef);border-radius:10px;padding:.75rem .9rem;font-size:.9rem;">Green flags: they're just as curious about ${dog} as you are, they're calm and easy around them, and no question feels like too much.</p>
+      <div id="mgModalMsg" class="msg" style="margin:.5rem 0;"></div>
+      <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:1rem;flex-wrap:wrap;">
+        <button class="btn" id="mgCancelBtn" onclick="closeMgModal()" style="background:none;border:1px solid var(--border);color:var(--text-secondary);">Not now</button>
+        <button class="btn btn-primary" id="mgConfirmBtn" onclick="createMeetGreetSeries()">Set up the meet &amp; greet</button>
+      </div>
+    </div>`;
+  document.body.appendChild(overlay);
+}
+
+function closeMgModal() {
+  const m = document.getElementById('mgModal');
+  if (m) m.remove();
+  pendingMgIntent = null;
+}
+
+// Persist the pending series + the free, short, flagged M&G booking.
+async function createMeetGreetSeries() {
+  const intent = pendingMgIntent;
+  if (!intent) return;
+  const msg = document.getElementById('mgModalMsg');
+  const btn = document.getElementById('mgConfirmBtn');
+  setLoading(btn, true);
+  try {
+    const seriesIns = await sbInsert('booking_series', {
+      customer_id: customerProfile.id,
+      provider_id: providerProfile.id,
+      service_id: intent.serviceId,
+      booking_kind: intent.kind,
+      frequency_type: intent.frequency_type,
+      days_of_week: intent.days_of_week,
+      time_of_day: intent.time_of_day,
+      window_end_time: intent.window_end_time,
+      start_date: intent.start_date,
+      end_date: intent.end_date,
+      status: 'pending_meet_greet',
+      locked_price_cents: intent.lockedPrice
+    }, authToken);
+    const series = Array.isArray(seriesIns) ? seriesIns[0] : seriesIns;
+    await sbInsert('series_pets', intent.petIds.map(pid => ({ series_id: series.id, pet_id: pid })), authToken);
+
+    // Placeholder time — the real timing is arranged in the messages thread.
+    const mgScheduled = new Date(`${intent.start_date}T12:00:00`).toISOString();
+    const mgIns = await sbInsert('bookings', {
+      customer_id: customerProfile.id,
+      provider_id: providerProfile.id,
+      pet_id: intent.petIds[0],
+      service_id: intent.serviceId,
+      status: 'confirmed',
+      scheduled_at: mgScheduled,
+      duration_mins: 30,
+      total_cents: 0,
+      is_meet_and_greet: true,
+      series_id: series.id
+    }, authToken);
+    const mg = Array.isArray(mgIns) ? mgIns[0] : mgIns;
+    if (mg && mg.id) {
+      await sbInsert('booking_pets', intent.petIds.map(pid => ({ booking_id: mg.id, pet_id: pid })), authToken);
+    }
+    closeMgModal();
+    showMeetGreetSuccess(intent);
+  } catch (e) {
+    if (msg) { msg.textContent = e.message; msg.className = 'msg error'; }
+    setLoading(btn, false);
+  }
+}
+
+function showMeetGreetSuccess(intent) {
+  const carer = esc(providerData.first_name || 'your carer');
+  document.getElementById('bookingContent').innerHTML = `
+    <div class="form-card success-card fade-in">
+      <div class="success-icon"><svg width="28" height="28" viewBox="0 0 24 24" fill="none"><path d="M5 13l4 4L19 7" stroke="#5B8C5A" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
+      <h2>Your booking is saved</h2>
+      <p>Before your first time with ${carer}, you'll have a quick, free meet &amp; greet — no charge and no commitment. Your booking is locked in and waiting; it only goes ahead once you've met and you're happy.</p>
+      <p style="margin-top:0.75rem;font-size:0.82rem;color:var(--text-muted);">Head to your messages to arrange a time that suits you both. You'll mark the meet &amp; greet complete there once you've met.</p>
+      <div style="margin-top:2rem;display:flex;gap:12px;justify-content:center;flex-wrap:wrap;">
+        <a href="/messages/" style="display:inline-block;padding:12px 28px;background:var(--terracotta);color:white;border-radius:10px;font-weight:500;text-decoration:none;font-size:0.9rem;">Arrange the meet &amp; greet</a>
+        <a href="/profile/" style="display:inline-block;padding:12px 28px;border:1px solid var(--border);color:var(--text-secondary);border-radius:10px;font-weight:500;text-decoration:none;font-size:0.9rem;">View my bookings</a>
+      </div>
+    </div>`;
+  clearMsg();
+}
+
 async function submitBooking() {
   if (bookingMode === 'recurring') return submitSeries();
   clearMsg();
@@ -708,6 +854,24 @@ async function submitBooking() {
   try {
     // For at-home services, confirm/capture the address (saved to the profile) first.
     if (!(await captureAddressIfNeeded(selectedSvc?.service_type))) return;
+
+    // First booking with this carer? Route into the meet & greet flow: the intended
+    // booking is wrapped in a pending_meet_greet series and gated on the M&G.
+    if (!(await hasCompletedMeetGreet())) {
+      const lockedPrice = lockedPriceFor(selectedSvc, selectedPetIds.length);
+      const intent = isMultiDay ? {
+        kind: 'multiday', svcType: selectedSvc.service_type, serviceId: selectedServiceId, petIds: selectedPetIds.slice(),
+        frequency_type: 'daily', days_of_week: [], time_of_day: '12:00', window_end_time: null,
+        start_date: date, end_date: document.getElementById('bookDateEnd')?.value, lockedPrice
+      } : {
+        kind: 'oneoff', svcType: selectedSvc.service_type, serviceId: selectedServiceId, petIds: selectedPetIds.slice(),
+        frequency_type: 'daily', days_of_week: [], time_of_day: idxToHHMM(win.start), window_end_time: idxToHHMM(win.end),
+        start_date: date, end_date: null, lockedPrice
+      };
+      setLoading(btn, false);
+      return enterMeetGreetFlow(intent);
+    }
+
     // pet_id keeps the first selected pet as the "primary" for backward compat;
     // every selected pet (including the primary) is recorded in booking_pets.
     const inserted = await sbInsert('bookings', {
@@ -776,6 +940,22 @@ async function submitSeries() {
   try {
     // For at-home services, confirm/capture the address (saved to the profile) first.
     if (!(await captureAddressIfNeeded(selectedSvc?.service_type))) return;
+
+    // First booking with this carer? Route into the meet & greet flow instead of
+    // activating the schedule straight away.
+    if (!(await hasCompletedMeetGreet())) {
+      const intent = {
+        kind: 'recurring', svcType: selectedSvc.service_type, serviceId: selectedServiceId, petIds: selectedPetIds.slice(),
+        frequency_type: recurring.frequency,
+        days_of_week: recurring.frequency === 'specific_days' ? recurring.days.slice().sort((a, b) => a - b) : [],
+        time_of_day: idxToHHMM(win.start), window_end_time: idxToHHMM(win.end),
+        start_date: recurring.startDate, end_date: recurring.endMode === 'until' ? recurring.endDate : null,
+        lockedPrice
+      };
+      setLoading(btn, false);
+      return enterMeetGreetFlow(intent);
+    }
+
     const inserted = await sbInsert('booking_series', {
       customer_id: customerProfile.id,
       provider_id: providerProfile.id,
