@@ -815,8 +815,11 @@ async function refreshMsgBadge() {
   if (!authToken || !authUid) return;
   try {
     const rows = await sbGet('messages', `sender_id=neq.${authUid}&read_at=is.null&select=id`, authToken);
+    let sysUnread = 0;
+    try { const sm = await sbGet('system_messages', `recipient_user_id=eq.${authUid}&read_at=is.null&select=id`, authToken); sysUnread = sm.length; } catch (e) {}
+    const total = rows.length + sysUnread;
     const badge = document.getElementById('navMsgBadge');
-    if (badge) { badge.textContent = rows.length > 9 ? '9+' : String(rows.length); badge.style.display = rows.length > 0 ? '' : 'none'; }
+    if (badge) { badge.textContent = total > 9 ? '9+' : String(total); badge.style.display = total > 0 ? '' : 'none'; }
   } catch (e) { /* non-fatal */ }
 }
 
