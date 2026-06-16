@@ -78,9 +78,11 @@
   .win-fill { position: absolute; top: 15px; height: 4px; background: var(--terracotta); border-radius: 2px; }
   .win-wrap input[type=range] { position: absolute; top: 0; left: 0; width: 100%; height: 34px; margin: 0; background: none; pointer-events: none; -webkit-appearance: none; appearance: none; }
   .win-wrap input[type=range]:focus { outline: none; }
-  .win-wrap input[type=range]::-webkit-slider-thumb { pointer-events: auto; -webkit-appearance: none; width: 20px; height: 20px; border-radius: 50%; background: #fff; border: 2px solid var(--terracotta); cursor: pointer; margin-top: 7px; box-shadow: 0 1px 3px rgba(61,43,31,0.2); }
+  /* Centre the 20px thumb on the 4px track: margin-top = (4 - 20) / 2 = -8px. */
+  .win-wrap input[type=range]::-webkit-slider-runnable-track { height: 4px; background: none; }
+  .win-wrap input[type=range]::-webkit-slider-thumb { pointer-events: auto; -webkit-appearance: none; width: 20px; height: 20px; border-radius: 50%; background: #fff; border: 2px solid var(--terracotta); cursor: pointer; margin-top: -8px; box-shadow: 0 1px 3px rgba(61,43,31,0.2); }
+  .win-wrap input[type=range]::-moz-range-track { height: 4px; background: none; border: none; }
   .win-wrap input[type=range]::-moz-range-thumb { pointer-events: auto; width: 20px; height: 20px; border-radius: 50%; background: #fff; border: 2px solid var(--terracotta); cursor: pointer; }
-  .win-wrap input[type=range]::-webkit-slider-runnable-track { background: none; }
   .win-label { font-size: 0.85rem; color: var(--text-secondary); }
   .win-label b { color: var(--text-primary); font-weight: 600; }
   .days-row { display: flex; gap: 6px; margin-bottom: 14px; }
