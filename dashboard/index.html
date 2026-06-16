@@ -136,6 +136,9 @@
   }
   .status-pending { background: var(--warning-bg); color: var(--warning); }
   .status-confirmed { background: var(--success-bg); color: var(--success); }
+  .mg-chips { display: flex; flex-wrap: wrap; gap: 8px; }
+  .mg-chip { font: inherit; font-size: 0.82rem; padding: 6px 12px; border-radius: 20px; border: 1px solid var(--border); background: #fff; color: var(--text-secondary); cursor: pointer; }
+  .mg-chip-on { background: var(--terracotta); border-color: var(--terracotta); color: #fff; }
 
   /* Empty state */
   .empty { text-align: center; padding: 2.5rem 1rem; color: var(--text-muted); font-size: 0.9rem; }
@@ -295,9 +298,29 @@ const SERVICE_LABELS = {
   dog_walking:'Dog walking', dog_sitting:'Dog sitting', dog_boarding:'Dog boarding',
   pet_sitting:'Other pet sitting'
 };
+// --- Meet & greet (TRU-14) ---
+const SERVICE_NATURAL = { dog_walking:'walk', dog_sitting:'sitting', dog_boarding:'boarding stay', pet_sitting:'visit' };
+const MG_VARIANTS = {
+  dog_walking: ['walking'],
+  dog_boarding: ['carers_home', 'overnight'],
+  dog_sitting: ['home_access', 'overnight'],
+  pet_sitting: ['home_access']
+};
+const MG_CARER_BLOCKS = {
+  walking: "Confirm the route, timing, and how {Dog} does on lead and around other dogs.",
+  home_access: "You'll be coming into {Owner}'s home, so check access, the alarm, and what's yours to use while you're there.",
+  carers_home: "Show {Owner} around so they can see where {Dog} will stay, including the yard and any other pets you'll have that day.",
+  overnight: "Talk through the overnight setup: where {Dog} sleeps, the evening wind-down, and how you'll handle a restless night."
+};
+const MG_CARER_DECLINE_CHIPS = [
+  'Not comfortable with the dog', 'Location or travel', 'Scheduling clash',
+  'Not the right fit for me', 'Something about the owner'
+];
 
 let authToken = null, authUid = null;
 let userData = null, providerProfile = null, providerServices = [], bookings = [], series = [];
+let mgSeriesById = {};       // pending_meet_greet series (provider side), keyed by id
+let mgBowOutSel = {};        // series_id -> Set of selected carer decline chips
 let dashCancelId = null;
 
 const DAY_SHORT = { 1: 'Mon', 2: 'Tue', 3: 'Wed', 4: 'Thu', 5: 'Fri', 6: 'Sat', 7: 'Sun' };
@@ -346,6 +369,15 @@ async function sbInsert(table, row) {
     method: 'POST', headers: { ...headers(authToken), 'Prefer':'return=representation' }, body: JSON.stringify(row)
   });
   if (!r.ok) { const e = await r.json(); throw new Error(e.message); } return await r.json();
+}
+// Insert without reading the row back — for write-only tables (e.g. decline
+// feedback) that intentionally have no SELECT policy, where return=representation
+// would be rejected by RLS.
+async function sbInsertQuiet(table, row) {
+  const r = await fetch(`${SUPABASE_URL}/rest/v1/${table}`, {
+    method: 'POST', headers: { ...headers(authToken), 'Prefer':'return=minimal' }, body: JSON.stringify(row)
+  });
+  if (!r.ok) { const e = await r.json().catch(() => ({})); throw new Error(e.message || 'Insert failed'); }
 }
 
 function esc(s) {
@@ -508,6 +540,32 @@ async function loadSeries() {
   });
 }
 
+// Pending meet & greet series assigned to this carer — drives the M&G cards.
+async function loadMgSeries() {
+  mgSeriesById = {};
+  let rows = [];
+  try {
+    rows = await sbGet('booking_series', `provider_id=eq.${providerProfile.id}&status=eq.pending_meet_greet&select=*&order=created_at.desc`);
+  } catch(e) { return; }
+  if (!rows.length) return;
+  const ids = rows.map(s => s.id);
+  let nameMap = {};
+  try {
+    const names = await sbGet('series_party_names', `series_id=in.(${ids.join(',')})&select=*`);
+    nameMap = Object.fromEntries(names.map(n => [n.series_id, n]));
+  } catch(e) {}
+  const svcIds = [...new Set(rows.map(s => s.service_id).filter(Boolean))];
+  const svcs = svcIds.length ? await sbGet('provider_services', `id=in.(${svcIds.join(',')})&select=id,service_type`) : [];
+  const svcMap = Object.fromEntries(svcs.map(s => [s.id, s.service_type]));
+  rows.forEach(s => {
+    const n = nameMap[s.id] || {};
+    s._customer_name = `${n.customer_first_name || ''} ${n.customer_last_name || ''}`.trim() || 'the owner';
+    s._pet_names = n.pet_names || (n.pet_count ? `${n.pet_count} pet${n.pet_count > 1 ? 's' : ''}` : 'their dog');
+    s._service_type = svcMap[s.service_id];
+    mgSeriesById[s.id] = s;
+  });
+}
+
 async function acceptSeries(id) {
   try {
     await sbPatch('booking_series', 'id', id, { status: 'active' });
@@ -612,11 +670,18 @@ function bookingDetailsHtml(b) {
 }
 
 function renderBookingsTab() {
-  const pending = bookings.filter(b => b.status === 'pending');
-  const confirmed = bookings.filter(b => b.status === 'confirmed');
+  const pending = bookings.filter(b => b.status === 'pending' && !b.is_meet_and_greet);
+  const confirmed = bookings.filter(b => b.status === 'confirmed' && !b.is_meet_and_greet);
+  // M&G bookings whose series is still awaiting the meet & greet.
+  const mgBookings = bookings.filter(b => b.is_meet_and_greet && mgSeriesById[b.series_id]);
   const area = document.getElementById('tab-bookings');
 
   let html = '';
+
+  if (mgBookings.length > 0) {
+    html += `<div class="card-title" style="margin-bottom:0.75rem;">Meet &amp; greets (${mgBookings.length})</div>`;
+    html += mgBookings.map(mgCarerCardHtml).join('');
+  }
 
   if (series.length > 0) {
     html += `<div class="card-title" style="margin-bottom:0.75rem;">Recurring requests (${series.length})</div>`;
@@ -680,12 +745,146 @@ function renderBookingsTab() {
     `).join('');
   }
 
-  if (pending.length === 0 && confirmed.length === 0 && series.length === 0) {
+  if (pending.length === 0 && confirmed.length === 0 && series.length === 0 && mgBookings.length === 0) {
     html = `<div class="empty"><div class="empty-icon"><svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3.5" y="5" width="17" height="15" rx="2"/><path d="M3.5 9.5h17M8 3v4M16 3v4"/></svg></div>No bookings yet. Once customers book you, their requests will appear here.</div>`;
   }
 
   area.innerHTML = html;
+  maybeShowCarerMgModal();
 }
+
+/* ── Meet & greet, carer side (TRU-14) ── */
+function mgFirstName(full) { return (full || '').trim().split(/\s+/)[0] || 'the owner'; }
+function mgProposedText(s) {
+  if (!s) return '';
+  if (s.booking_kind === 'multiday') return `${seriesDateText(s)}`;
+  if (s.booking_kind === 'oneoff') {
+    const d = new Date(s.start_date + 'T00:00:00').toLocaleDateString('en-AU', { weekday: 'long', day: 'numeric', month: 'short' });
+    return `${d} at ${formatTimeOfDay(s.time_of_day)}${s.window_end_time ? '–' + formatTimeOfDay(s.window_end_time) : ''}`;
+  }
+  return `${seriesPatternText(s)} · ${seriesDateText(s)}`;
+}
+function mgCarerCardHtml(b) {
+  const s = mgSeriesById[b.series_id] || {};
+  const owner = esc(mgFirstName(s._customer_name));
+  const dog = esc(s._pet_names || b._pet_label || 'their dog');
+  const serviceLabel = SERVICE_LABELS[s._service_type || b._service_type] || 'Service';
+  const priceLine = s.locked_price_cents != null ? `<div class="bc-time">$${priceToDollars(s.locked_price_cents)} per service · locked</div>` : '';
+
+  let actions;
+  if (mgBowOutSel[b.series_id]) {
+    actions = mgBowOutFormHtml(b.series_id, owner, dog);
+  } else {
+    actions = `
+      <button class="bc-btn message" onclick="window.location.href='/messages/?booking=${b.id}'">Message ${owner} <span class="bc-msg-badge" id="cardbadge-${b.id}" style="display:none;">0</span></button>
+      <button class="bc-btn decline" onclick="carerBowOutStart('${b.series_id}')">This one isn't the right fit for me</button>`;
+  }
+
+  return `
+    <div class="booking-card">
+      <div class="bc-info">
+        <div class="bc-customer">${esc(s._customer_name || b._customer_name || 'Owner')} <span class="recurring-tag">Meet &amp; greet</span></div>
+        <div class="bc-pet">${dog}</div>
+        <span class="bc-service">${serviceLabel}</span>
+        <div class="bc-time">Proposed: ${esc(mgProposedText(s))}</div>
+        ${priceLine}
+        ${bookingDetailsHtml(b)}
+        <p class="bc-notes" style="font-style:normal;">A free, no-commitment hello before the first paid ${esc(SERVICE_NATURAL[s._service_type || b._service_type] || 'visit')}. Arrange a time in your messages — ${owner} marks it complete once you've met.</p>
+      </div>
+      <div class="bc-actions">${actions}</div>
+    </div>`;
+}
+function mgBowOutFormHtml(seriesId, owner, dog) {
+  const sel = mgBowOutSel[seriesId] || new Set();
+  const chips = MG_CARER_DECLINE_CHIPS.map(raw => {
+    const on = sel.has(raw) ? ' mg-chip-on' : '';
+    return `<button type="button" class="mg-chip${on}" onclick="toggleMgBowChip('${seriesId}','${encodeURIComponent(raw)}')">${esc(raw)}</button>`;
+  }).join('');
+  return `
+    <div style="width:100%;">
+      <p style="font-weight:600;margin:0 0 2px;">Quick word, just for us?</p>
+      <p style="font-size:0.84rem;color:var(--text-muted);margin:0 0 10px;">${owner} won't see this. It helps us send better-matched jobs your way.</p>
+      <div class="mg-chips">${chips}</div>
+      <textarea id="mg-bow-note-${seriesId}" rows="2" placeholder="Anything else? (optional)" style="width:100%;margin-top:10px;border:1px solid var(--border);border-radius:8px;padding:8px;font:inherit;font-size:0.86rem;"></textarea>
+      <div class="bc-actions" style="margin-top:10px;">
+        <button class="bc-btn accept" onclick="carerBowOutConfirm('${seriesId}')">Done</button>
+        <button class="bc-btn" onclick="carerBowOutConfirm('${seriesId}', true)" style="background:none;border:1px solid var(--border);">Skip</button>
+      </div>
+    </div>`;
+}
+function carerBowOutStart(seriesId) { mgBowOutSel[seriesId] = new Set(); renderBookingsTab(); }
+function toggleMgBowChip(seriesId, encRaw) {
+  const raw = decodeURIComponent(encRaw);
+  const set = mgBowOutSel[seriesId] || (mgBowOutSel[seriesId] = new Set());
+  if (set.has(raw)) set.delete(raw); else set.add(raw);
+  renderBookingsTab();
+}
+async function carerBowOutConfirm(seriesId, skip) {
+  const note = skip ? '' : (document.getElementById('mg-bow-note-' + seriesId)?.value || '').trim();
+  const reasons = skip ? [] : [...(mgBowOutSel[seriesId] || [])];
+  const s = mgSeriesById[seriesId] || {};
+  const owner = esc(mgFirstName(s._customer_name));
+  try {
+    if (reasons.length || note) {
+      try { await sbInsertQuiet('series_decline_feedback', { series_id: seriesId, declined_by: 'carer', decline_reason: reasons, decline_note: note || null }); } catch(e) {}
+    }
+    await sbPatch('booking_series', 'id', seriesId, { status: 'cancelled' });
+    delete mgBowOutSel[seriesId];
+    // Confirmation first, so the per-series education modal doesn't stomp it.
+    mgOverlay(`
+      <h2 style="margin-top:0;">Thanks for being upfront</h2>
+      <p>Thanks for being upfront, it's the kind thing to do. We've gently let ${owner} know it won't go ahead and cancelled the booking. Nothing more for you to do.</p>
+      <div style="display:flex;justify-content:flex-end;"><button class="bc-btn accept" onclick="closeMgOverlay()">Done</button></div>`);
+    await loadBookings();
+    await loadMgSeries();
+    renderBookingsTab();
+  } catch(e) { showMsg(e.message, 'error'); }
+}
+
+// Carer education modal — shown once per M&G series, on entry to the flow.
+function maybeShowCarerMgModal() {
+  if (document.getElementById('mgOverlay')) return; // don't stomp a confirmation/overlay
+  const ids = Object.keys(mgSeriesById);
+  for (const id of ids) {
+    const key = 'mg_carer_seen_' + id;
+    if (localStorage.getItem(key)) continue;
+    localStorage.setItem(key, '1');
+    showCarerMgModal(mgSeriesById[id]);
+    break;
+  }
+}
+function showCarerMgModal(s) {
+  if (!s) return;
+  const owner = esc(mgFirstName(s._customer_name));
+  const dog = esc(s._pet_names || 'their dog');
+  const svc = SERVICE_NATURAL[s._service_type] || 'visit';
+  const fill = str => str.replace(/{Dog}/g, dog).replace(/{Owner}/g, owner).replace(/{Service}/g, svc);
+  const extras = (MG_VARIANTS[s._service_type] || []).map(k => `<li>${fill(MG_CARER_BLOCKS[k])}</li>`).join('');
+  mgOverlay(`
+    <h2 style="margin-top:0;">Say hello to ${owner} and ${dog}</h2>
+    <p>Before your first paid ${esc(svc)}, you'll meet ${owner} and ${dog} in person. It's free, relaxed, and there's no commitment on either side.</p>
+    <p>This one's for you too. It's your chance to make sure the job feels right and that you and ${dog} click, not just the other way round.</p>
+    <p style="font-weight:600;margin-bottom:.3rem;">Worth covering while you're there:</p>
+    <ul style="margin:0 0 1rem;padding-left:1.2rem;line-height:1.6;">
+      <li>Get to know ${dog}: their temperament, recall, and how they are with new people and other dogs</li>
+      <li>Run through the routine, feeding, handling notes, and any triggers</li>
+      <li>Ask about health, vet details, and what they'd want you to do in an emergency</li>
+      <li>Agree how you'll keep ${owner} posted, including GPS</li>
+      ${extras}
+    </ul>
+    <p style="background:var(--cream,#fbf6ef);border-radius:10px;padding:.75rem .9rem;font-size:.9rem;">The little things that put an owner at ease: turn up on time, make a fuss of ${dog}, and be honest about what you can and can't take on.</p>
+    <div style="display:flex;justify-content:flex-end;margin-top:1rem;"><button class="bc-btn accept" onclick="closeMgOverlay()">Set up the meet &amp; greet</button></div>`);
+}
+
+function mgOverlay(html) {
+  closeMgOverlay();
+  const o = document.createElement('div');
+  o.id = 'mgOverlay';
+  o.style.cssText = 'position:fixed;inset:0;background:rgba(40,30,25,.55);display:flex;align-items:center;justify-content:center;padding:1rem;z-index:1000;';
+  o.innerHTML = `<div class="fade-in" style="max-width:520px;width:100%;max-height:90vh;overflow-y:auto;margin:0;background:#fff;border-radius:14px;padding:1.5rem;">${html}</div>`;
+  document.body.appendChild(o);
+}
+function closeMgOverlay() { const o = document.getElementById('mgOverlay'); if (o) o.remove(); }
 
 function renderDashboard() {
   const initials = ((userData.first_name||'')[0]||'') + ((userData.last_name||'')[0]||'');
@@ -1005,6 +1204,7 @@ async function init() {
     // Load bookings
     await loadBookings();
     await loadSeries();
+    await loadMgSeries();
 
     renderDashboard();
     refreshMsgBadge();
