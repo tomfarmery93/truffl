@@ -65,6 +65,9 @@
   .bc-time{font-size:0.82rem;color:var(--text-muted);margin-bottom:8px;}
 
   .status-badge{display:inline-flex;align-items:center;gap:5px;font-size:0.72rem;font-weight:600;padding:2px 10px;border-radius:20px;text-transform:uppercase;letter-spacing:0.03em;}
+  .mg-chips{display:flex;flex-wrap:wrap;gap:8px;}
+  .mg-chip{font:inherit;font-size:0.82rem;padding:6px 12px;border-radius:20px;border:1px solid var(--border);background:#fff;color:var(--text-secondary);cursor:pointer;}
+  .mg-chip-on{background:var(--terracotta);border-color:var(--terracotta);color:#fff;}
   .badge-pending{background:var(--warning-bg);color:var(--warning);}
   .badge-confirmed{background:var(--success-bg);color:var(--success);}
   .badge-in-progress{background:var(--success-bg);color:var(--success);}
@@ -225,8 +228,18 @@ const SERVICE_LABELS = {
   dog_walking:'Dog walking', dog_sitting:'Dog sitting', dog_boarding:'Dog boarding',
   pet_sitting:'Other pet sitting'
 };
+// Natural-language service word for meet & greet copy (TRU-14).
+const SERVICE_NATURAL = { dog_walking:'walk', dog_sitting:'sitting', dog_boarding:'boarding stay', pet_sitting:'visit' };
+// Customer decline-feedback chips (private; never shown to the carer).
+const MG_CUSTOMER_DECLINE_CHIPS = [
+  'Didn’t feel like the right match', 'Wasn’t sure about them with {Dog}',
+  'Timing or availability', 'Price', 'Going with someone else', 'My plans changed'
+];
+const DAY_FULL_MG = { 1:'Mon', 2:'Tue', 3:'Wed', 4:'Thu', 5:'Fri', 6:'Sat', 7:'Sun' };
 
 let authToken = null, authUid = null;
+let seriesById = {};          // booking_series.id -> series row (for M&G bookings)
+let mgDeclineSel = {};        // series_id -> Set of selected chip labels (decline feedback)
 let userData = null;          // row from users
 let customerProfile = null;   // customer_profiles row (id, suburb) — customers only
 let profileRow = null;        // role-specific profile row holding suburb
@@ -249,6 +262,17 @@ async function sbGet(t, p) {
   const r = await fetch(`${SUPABASE_URL}/rest/v1/${t}?${p}`, { headers: h(authToken) });
   if (!r.ok) { const e = await r.json(); throw new Error(e.message); }
   return await r.json();
+}
+async function sbRpc(fn, args) {
+  const r = await fetch(`${SUPABASE_URL}/rest/v1/rpc/${fn}`, { method: 'POST', headers: { ...h(authToken), 'Prefer': 'return=representation' }, body: JSON.stringify(args || {}) });
+  if (!r.ok) { const e = await r.json().catch(() => ({})); throw new Error(e.message || 'Request failed'); }
+  return await r.json();
+}
+// Insert without reading the row back — for write-only tables (decline feedback)
+// that have no SELECT policy by design.
+async function sbInsertQuiet(t, row) {
+  const r = await fetch(`${SUPABASE_URL}/rest/v1/${t}`, { method: 'POST', headers: { ...h(authToken), 'Prefer': 'return=minimal' }, body: JSON.stringify(row) });
+  if (!r.ok) { const e = await r.json().catch(() => ({})); throw new Error(e.message || 'Insert failed'); }
 }
 async function sbPatch(t, col, val, upd) {
   const r = await fetch(`${SUPABASE_URL}/rest/v1/${t}?${col}=eq.${val}`, { method: 'PATCH', headers: { ...h(authToken), 'Prefer': 'return=representation' }, body: JSON.stringify(upd) });
@@ -412,7 +436,102 @@ function cancelConfirmHtml(b) {
   }
   return `<div class="cancel-confirm"><span>Are you sure?</span><button class="btn-cancel-yes" onclick="doCancelBooking('${b.id}')">Yes, cancel</button><button class="btn-cancel-keep" onclick="dismissCancel()">Keep booking</button></div>`;
 }
+/* ── Meet & greet (TRU-14) ── */
+// An M&G card stays in the "active" list while it still needs the customer's
+// attention: before completion, and after completion while the series awaits a
+// proceed/decline decision.
+function mgNeedsAction(b) {
+  const s = seriesById[b.series_id];
+  return b.status === 'confirmed' || (b.status === 'completed' && s && s.status === 'pending_meet_greet');
+}
+function firstName(full) { return (full || '').trim().split(/\s+/)[0] || 'your carer'; }
+function mgScheduleSummary(s) {
+  if (!s) return '';
+  const fdate = d => new Date(d + 'T00:00:00').toLocaleDateString('en-AU', { weekday: 'long', day: 'numeric', month: 'long' });
+  const fwin = () => {
+    if (!s.time_of_day) return '';
+    const t = hhmm => { const [h, m] = hhmm.split(':'); const dd = new Date(); dd.setHours(+h, +m, 0); return dd.toLocaleTimeString('en-AU', { hour: 'numeric', minute: '2-digit', hour12: true }); };
+    return s.window_end_time ? ` between ${t(s.time_of_day)}–${t(s.window_end_time)}` : ` at ${t(s.time_of_day)}`;
+  };
+  if (s.booking_kind === 'multiday') return `${fdate(s.start_date)} to ${s.end_date ? fdate(s.end_date) : ''}`.trim();
+  if (s.booking_kind === 'oneoff') return `${fdate(s.start_date)}${fwin()}`;
+  // recurring
+  let freq = 'every weekday';
+  if (s.frequency_type === 'daily') freq = 'every day';
+  else if (s.frequency_type === 'specific_days') freq = 'every ' + (s.days_of_week || []).slice().sort((a, b) => a - b).map(n => DAY_FULL_MG[n]).join(', ');
+  return `${freq} from ${fdate(s.start_date)}${fwin()}`;
+}
+function mgCardHtml(b) {
+  const s = seriesById[b.series_id];
+  const carer = esc(firstName(b._provider_name));
+  const dog = esc(b._pet_name || 'your dog');
+  const svcNat = SERVICE_NATURAL[b._service_type] || 'visit';
+  const serviceLabel = SERVICE_LABELS[b._service_type] || 'Service';
+  const summary = esc(mgScheduleSummary(s));
+
+  let body;
+  if (b.status === 'confirmed') {
+    // Awaiting the meet & greet.
+    body = `
+      <div class="bc-time">Your ${esc(svcNat)} is saved — ${summary || 'ready when you are'}.</div>
+      <div style="margin-bottom:10px;"><span class="status-badge badge-pending">Meet &amp; greet</span></div>
+      <p style="font-size:0.86rem;color:var(--text-secondary);margin:0 0 12px;">Arrange a time with ${carer} in your messages. Once you've met, mark it complete to decide whether to go ahead.</p>
+      <div class="bc-actions">
+        <button class="btn-track" onclick="markMgComplete('${b.id}')">Mark meet &amp; greet complete</button>
+        <a href="/messages/?booking=${b.id}" class="btn-ghost">Message ${carer}</a>
+      </div>`;
+  } else if (b.status === 'completed' && s && s.status === 'pending_meet_greet') {
+    // Met — decide whether to proceed.
+    if (mgDeclineSel[b.series_id]) {
+      body = mgDeclineFormHtml(b, s, dog, carer);
+    } else {
+      body = `
+        <div style="margin-bottom:10px;"><span class="status-badge badge-completed">Met</span></div>
+        <p style="font-weight:600;margin:0 0 2px;">How did you two get on?</p>
+        <p style="font-size:0.86rem;color:var(--text-secondary);margin:0 0 12px;">Whenever you're ready, ${carer} is all set to look after ${dog}.</p>
+        <div class="bc-actions">
+          <button class="btn-track" onclick="proceedMg('${b.series_id}')">Yes, let's go ahead</button>
+          <button class="btn-ghost danger" onclick="declineMgStart('${b.series_id}')">Not quite the right fit</button>
+        </div>`;
+    }
+  } else {
+    // Resolved.
+    const resolved = s && s.status === 'active'
+      ? `Your ${esc(svcNat)} is confirmed.`
+      : `This booking was cancelled.`;
+    body = `
+      <div style="margin-bottom:10px;"><span class="status-badge badge-completed">Meet &amp; greet complete</span></div>
+      <p style="font-size:0.86rem;color:var(--text-secondary);margin:0;">${resolved}</p>`;
+  }
+
+  return `
+    <div class="booking-card">
+      <div class="bc-pet-name">Meet &amp; greet with ${carer} <span class="recurring-tag">Free</span></div>
+      <div class="bc-meta">${dog} · ${serviceLabel}</div>
+      ${body}
+    </div>`;
+}
+function mgDeclineFormHtml(b, s, dog, carer) {
+  const sel = mgDeclineSel[b.series_id] || new Set();
+  const chips = MG_CUSTOMER_DECLINE_CHIPS.map(raw => {
+    const label = raw.replace(/{Dog}/g, dog);
+    const on = sel.has(raw) ? ' mg-chip-on' : '';
+    return `<button type="button" class="mg-chip${on}" onclick="toggleMgChip('${b.series_id}','${encodeURIComponent(raw)}')">${esc(label)}</button>`;
+  }).join('');
+  return `
+    <div style="margin-bottom:10px;"><span class="status-badge badge-completed">Met</span></div>
+    <p style="font-weight:600;margin:0 0 2px;">Mind telling us why?</p>
+    <p style="font-size:0.84rem;color:var(--text-secondary);margin:0 0 10px;">It stays between us, ${carer} won't see a thing. It just helps us look after you and ${dog} better next time.</p>
+    <div class="mg-chips">${chips}</div>
+    <textarea id="mg-note-${b.series_id}" rows="2" placeholder="Anything else you'd like us to know? (optional)" style="width:100%;margin-top:10px;border:1px solid var(--border);border-radius:8px;padding:8px;font:inherit;font-size:0.86rem;"></textarea>
+    <div class="bc-actions" style="margin-top:10px;">
+      <button class="btn-track" onclick="declineMgConfirm('${b.series_id}')">Done</button>
+      <button class="btn-ghost" onclick="declineMgConfirm('${b.series_id}', true)">Skip</button>
+    </div>`;
+}
+
 function bookingCardHtml(b) {
+  if (b.is_meet_and_greet) return mgCardHtml(b);
   const petLabel = esc(b._pet_name || 'Your pet') + (b._pet_breed ? ' · ' + esc(b._pet_breed) : '');
   const serviceLabel = SERVICE_LABELS[b._service_type] || esc(b._service_type) || 'Service';
   const provLabel = esc(b._provider_name || 'Your carer');
@@ -719,12 +838,16 @@ function renderBookingsTab() {
   const area = document.getElementById('tab-bookings');
   if (!area) return;
 
+  const isActive = b => b.is_meet_and_greet
+    ? mgNeedsAction(b)
+    : ['pending', 'confirmed', 'in_progress'].includes(b.status);
+
   const active = bookings
-    .filter(b => ['pending', 'confirmed', 'in_progress'].includes(b.status))
+    .filter(isActive)
     .sort((a, b) => new Date(a.scheduled_at) - new Date(b.scheduled_at));
 
   const past = bookings
-    .filter(b => ['completed', 'cancelled'].includes(b.status))
+    .filter(b => !isActive(b) && ['completed', 'cancelled'].includes(b.status))
     .sort((a, b) => new Date(b.scheduled_at) - new Date(a.scheduled_at))
     .slice(0, 10);
 
@@ -889,6 +1012,90 @@ async function doCancelSeries(seriesId) {
   } catch(e) { showMsg(e.message, 'error'); }
 }
 
+/* ── Meet & greet actions (TRU-14) ── */
+async function markMgComplete(bookingId) {
+  try {
+    await sbRpc('mark_meet_greet_complete', { p_booking_id: bookingId });
+    const b = bookings.find(x => x.id === bookingId);
+    if (b) b.status = 'completed';
+    renderBookingsTab();
+  } catch(e) { showMsg(e.message, 'error'); }
+}
+
+function mgOverlay(html) {
+  closeMgOverlay();
+  const o = document.createElement('div');
+  o.id = 'mgOverlay';
+  o.style.cssText = 'position:fixed;inset:0;background:rgba(40,30,25,.55);display:flex;align-items:center;justify-content:center;padding:1rem;z-index:1000;';
+  o.innerHTML = `<div class="form-card fade-in" style="max-width:460px;width:100%;margin:0;background:#fff;border-radius:14px;padding:1.5rem;">${html}</div>`;
+  document.body.appendChild(o);
+}
+function closeMgOverlay() { const o = document.getElementById('mgOverlay'); if (o) o.remove(); }
+
+// Proceed: stubbed payment-method step (no card stored — Stripe Connect lands later),
+// then activate the series. The DB gate requires a completed M&G to allow this.
+function proceedMg(seriesId) {
+  mgOverlay(`
+    <h2 style="margin-top:0;">Add a payment method</h2>
+    <p style="font-size:0.9rem;">You're only ever charged after a service is finished — never before, and never for the meet &amp; greet.</p>
+    <div style="background:var(--cream,#fbf6ef);border:1px dashed var(--border);border-radius:10px;padding:1rem;margin:1rem 0;font-size:0.84rem;color:var(--text-muted);">Card payments are coming soon. During launch there's nothing to add — just confirm to go ahead.</div>
+    <div id="mgOverlayMsg" class="msg"></div>
+    <div style="display:flex;gap:10px;justify-content:flex-end;flex-wrap:wrap;">
+      <button class="btn-ghost" onclick="closeMgOverlay()">Not now</button>
+      <button class="btn-track" id="mgProceedConfirm" onclick="confirmProceedMg('${seriesId}')">Confirm and go ahead</button>
+    </div>`);
+}
+async function confirmProceedMg(seriesId) {
+  const btn = document.getElementById('mgProceedConfirm');
+  if (btn) { btn.disabled = true; btn.textContent = 'Confirming…'; }
+  try {
+    await sbPatch('booking_series', 'id', seriesId, { status: 'active' });
+    const s = seriesById[seriesId];
+    if (s) s.status = 'active';
+    const carer = esc(firstName((bookings.find(b => b.series_id === seriesId) || {})._provider_name));
+    const dog = esc((bookings.find(b => b.series_id === seriesId) || {})._pet_name || 'your dog');
+    const svcNat = SERVICE_NATURAL[(bookings.find(b => b.series_id === seriesId) || {})._service_type] || 'visit';
+    const startTxt = s && s.start_date ? new Date(s.start_date + 'T00:00:00').toLocaleDateString('en-AU', { weekday: 'long', day: 'numeric', month: 'long' }) : 'soon';
+    mgOverlay(`
+      <h2 style="margin-top:0;">You're all set</h2>
+      <p>Wonderful. ${carer} can't wait to spend time with ${dog}. Your ${esc(svcNat)} starts ${startTxt}, and you're only ever charged once a service is done, never a moment before.</p>
+      <div style="display:flex;justify-content:flex-end;"><button class="btn-track" onclick="closeMgOverlay();reloadBookings()">Done</button></div>`);
+  } catch(e) {
+    const m = document.getElementById('mgOverlayMsg');
+    if (m) { m.textContent = e.message; m.className = 'msg error'; }
+    if (btn) { btn.disabled = false; btn.textContent = 'Confirm and go ahead'; }
+  }
+}
+
+function declineMgStart(seriesId) { mgDeclineSel[seriesId] = new Set(); renderBookingsTab(); }
+function toggleMgChip(seriesId, encRaw) {
+  const raw = decodeURIComponent(encRaw);
+  const set = mgDeclineSel[seriesId] || (mgDeclineSel[seriesId] = new Set());
+  if (set.has(raw)) set.delete(raw); else set.add(raw);
+  renderBookingsTab();
+}
+async function declineMgConfirm(seriesId, skip) {
+  const note = skip ? '' : (document.getElementById('mg-note-' + seriesId)?.value || '').trim();
+  const reasons = skip ? [] : [...(mgDeclineSel[seriesId] || [])];
+  try {
+    // Private feedback (carer never sees it). Best-effort — never blocks the decline.
+    if (reasons.length || note) {
+      try { await sbInsertQuiet('series_decline_feedback', { series_id: seriesId, declined_by: 'customer', decline_reason: reasons, decline_note: note || null }); } catch(e) {}
+    }
+    await sbPatch('booking_series', 'id', seriesId, { status: 'cancelled' });
+    const s = seriesById[seriesId]; if (s) s.status = 'cancelled';
+    delete mgDeclineSel[seriesId];
+    const dog = esc((bookings.find(b => b.series_id === seriesId) || {})._pet_name || 'your dog');
+    mgOverlay(`
+      <h2 style="margin-top:0;">No harm done</h2>
+      <p>That's completely okay. We've cancelled the booking, no harm done. The right carer for ${dog} is out there, so take your time and have another look whenever you feel like it.</p>
+      <div style="display:flex;justify-content:flex-end;gap:10px;"><a href="/search/" class="btn-ghost">Find another carer</a><button class="btn-track" onclick="closeMgOverlay();reloadBookings()">Done</button></div>`);
+  } catch(e) { showMsg(e.message, 'error'); }
+}
+
+// After proceed/decline the generated rows (or cancellation) need a fresh read.
+async function reloadBookings() { location.reload(); }
+
 /* ── Pet management ── */
 function showPetEdit(id) { editingPetId = id; renderAccountTab(); }
 function cancelPetEdit() { editingPetId = null; renderAccountTab(); }
@@ -987,8 +1194,12 @@ async function refreshMsgBadge() {
   if (!authToken || !authUid) return;
   try {
     const rows = await sbGet('messages', `sender_id=neq.${authUid}&read_at=is.null&select=id,booking_id`);
+    // Unread one-way Truffl notifications count towards the message-centre badge too.
+    let sysUnread = 0;
+    try { const sm = await sbGet('system_messages', `recipient_user_id=eq.${authUid}&read_at=is.null&select=id`); sysUnread = sm.length; } catch(e) {}
+    const total = rows.length + sysUnread;
     const badge = document.getElementById('navMsgBadge');
-    if (badge) { badge.textContent = rows.length > 9 ? '9+' : String(rows.length); badge.style.display = rows.length > 0 ? '' : 'none'; }
+    if (badge) { badge.textContent = total > 9 ? '9+' : String(total); badge.style.display = total > 0 ? '' : 'none'; }
     const byBooking = {};
     rows.forEach(r => { byBooking[r.booking_id] = (byBooking[r.booking_id] || 0) + 1; });
     document.querySelectorAll('[id^="cardbadge-"]').forEach(el => {
@@ -1036,6 +1247,13 @@ async function init() {
     profileRow = profiles[0];
 
     const rawBookings = await sbGet('bookings', `customer_id=eq.${customerProfile.id}&select=*&order=scheduled_at.desc`);
+
+    // Series this customer owns — used to drive the meet & greet card state.
+    seriesById = {};
+    try {
+      const seriesRows = await sbGet('booking_series', `customer_id=eq.${customerProfile.id}&select=id,status,booking_kind,frequency_type,days_of_week,time_of_day,window_end_time,start_date,end_date,locked_price_cents,service_id`);
+      seriesRows.forEach(s => { seriesById[s.id] = s; });
+    } catch(e) { /* non-fatal */ }
 
     let reviewedBookingIds = new Set();
     try {
