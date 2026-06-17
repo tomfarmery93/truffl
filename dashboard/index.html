@@ -136,6 +136,27 @@
   }
   .status-pending { background: var(--warning-bg); color: var(--warning); }
   .status-confirmed { background: var(--success-bg); color: var(--success); }
+  /* Check-in prompts + composer (TRU-125) */
+  .checkin-prompt { margin-top: 8px; font-size: 0.78rem; font-weight: 600; display: inline-flex; align-items: center; padding: 3px 10px; border-radius: 20px; }
+  .checkin-prompt.due { background: var(--warning-bg); color: var(--warning); }
+  .checkin-prompt.ok { background: var(--success-bg); color: var(--success); }
+  .ci-card { background: var(--warm-white); border-radius: 16px; padding: 1.5rem; max-width: 440px; width: 100%; max-height: 92vh; overflow-y: auto; }
+  .ci-card h2 { font-family: 'Cormorant Garamond', serif; font-weight: 500; font-size: 1.4rem; color: var(--brown); }
+  .ci-photo { display: block; border: 1.5px dashed var(--border); border-radius: 12px; padding: 18px; text-align: center; cursor: pointer; background: var(--cream); margin-bottom: 12px; transition: border-color 0.18s; }
+  .ci-photo:hover { border-color: var(--terracotta); }
+  .ci-photo.has-photo { border-style: solid; border-color: var(--sage); padding: 8px; }
+  .ci-photo #ciPhotoInner { display: flex; flex-direction: column; align-items: center; gap: 4px; font-size: 0.84rem; color: var(--text-secondary); }
+  .ci-photo .ci-photo-plus { font-size: 1.6rem; color: var(--terracotta); line-height: 1; }
+  .ci-photo .ci-photo-note { font-size: 0.72rem; color: var(--text-muted); }
+  .ci-photo img { max-width: 100%; max-height: 180px; border-radius: 8px; display: block; margin: 0 auto 6px; }
+  .ci-text { width: 100%; border: 1px solid var(--border); border-radius: 10px; padding: 10px 12px; font: inherit; font-size: 0.88rem; resize: vertical; margin-bottom: 12px; }
+  .ci-text:focus { outline: none; border-color: var(--border-focus); }
+  .ci-chips { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 12px; }
+  .ci-chip { font: inherit; font-size: 0.8rem; padding: 6px 12px; border-radius: 20px; border: 1px solid var(--border); background: #fff; color: var(--text-secondary); cursor: pointer; }
+  .ci-chip.on { background: var(--terracotta); border-color: var(--terracotta); color: #fff; }
+  .ci-concern { display: flex; align-items: center; gap: 8px; font-size: 0.84rem; color: var(--text-secondary); cursor: pointer; }
+  .ci-concern input { accent-color: var(--terracotta); }
+  .ci-error { color: var(--error); font-size: 0.82rem; margin-top: 8px; min-height: 1em; }
 
   /* Empty state */
   .empty { text-align: center; padding: 2.5rem 1rem; color: var(--text-muted); font-size: 0.9rem; }
@@ -299,6 +320,9 @@ const SERVICE_LABELS = {
 let authToken = null, authUid = null;
 let userData = null, providerProfile = null, providerServices = [], bookings = [], series = [];
 let dashCancelId = null;
+// Check-in composer state (TRU-125)
+const CHECKIN_TAGS = ['Very well behaved', 'Lots of energy', 'Calm & relaxed', 'Ate well', 'A little unsettled', 'Loved their walk'];
+let checkinDraft = null; // { bookingId, type, tags:Set, photoUrl, concern }
 
 const DAY_SHORT = { 1: 'Mon', 2: 'Tue', 3: 'Wed', 4: 'Thu', 5: 'Fri', 6: 'Sat', 7: 'Sun' };
 function formatTimeOfDay(t) {
@@ -486,6 +510,13 @@ async function loadBookings() {
       : 'Pet';
     b._service_type = svcMap[b.service_id];
   });
+
+  // Check-in status (arrival/daily counts + nights) for non-walk stays.
+  try {
+    const st = await sbGet('booking_checkin_status', `booking_id=in.(${ids.join(',')})&select=*`);
+    const byId = Object.fromEntries(st.map(s => [s.booking_id, s]));
+    bookings.forEach(b => { b._checkin = byId[b.id] || null; });
+  } catch(e) { /* non-fatal */ }
 }
 
 async function loadSeries() {
@@ -670,12 +701,9 @@ function renderBookingsTab() {
           <div class="bc-time">${bookingTimeLine(b)}</div>
           ${b.customer_notes ? `<div class="bc-notes">"${esc(b.customer_notes)}"</div>` : ''}
           ${bookingDetailsHtml(b)}
+          ${stayPromptHtml(b)}
         </div>
-        <div class="bc-actions">${dashCancelId === b.id ? dashCancelConfirm(b) : `
-          <button class="bc-btn start-walk" onclick="window.location.href='/walk/?booking=${b.id}'">Start walk</button>
-          <button class="bc-btn message" onclick="window.location.href='/messages/?booking=${b.id}'">Message <span class="bc-msg-badge" id="cardbadge-${b.id}" style="display:none;">0</span></button>
-          <button class="bc-btn decline" onclick="dashShowCancel('${b.id}')">Cancel</button>
-        `}</div>
+        <div class="bc-actions">${dashCancelId === b.id ? dashCancelConfirm(b) : confirmedActions(b)}</div>
       </div>
     `).join('');
   }
@@ -685,6 +713,129 @@ function renderBookingsTab() {
   }
 
   area.innerHTML = html;
+}
+
+/* ── Carer check-ins for non-walk stays (TRU-125) ── */
+function bookingIsStay(b) {
+  return b._checkin ? b._checkin.requires_checkins
+    : (b._service_type && b._service_type !== 'dog_walking' && !b.is_meet_and_greet);
+}
+function stayPromptHtml(b) {
+  const ck = b._checkin;
+  if (!ck || !ck.requires_checkins) return '';
+  let txt, cls;
+  if (ck.arrival_count < 1) { txt = 'Arrival check-in needed'; cls = 'due'; }
+  else if (ck.daily_count < ck.nights) { txt = `Evening update due · ${ck.daily_count}/${ck.nights} done`; cls = 'due'; }
+  else { txt = 'All check-ins done'; cls = 'ok'; }
+  return `<div class="checkin-prompt ${cls}">${cls === 'ok' ? '✓ ' : ''}${txt}</div>`;
+}
+function confirmedActions(b) {
+  const msg = `<button class="bc-btn message" onclick="window.location.href='/messages/?booking=${b.id}'">Message <span class="bc-msg-badge" id="cardbadge-${b.id}" style="display:none;">0</span></button>`;
+  const cancel = `<button class="bc-btn decline" onclick="dashShowCancel('${b.id}')">Cancel</button>`;
+  if (!bookingIsStay(b)) {
+    return `<button class="bc-btn start-walk" onclick="window.location.href='/walk/?booking=${b.id}'">Start walk</button>${msg}${cancel}`;
+  }
+  const ck = b._checkin;
+  const done = ck && ck.arrival_count >= 1 && ck.daily_count >= ck.nights;
+  return `<button class="bc-btn start-walk" onclick="openCheckin('${b.id}')">Post check-in</button>
+    <button class="bc-btn accept" onclick="markStayComplete('${b.id}')"${done ? '' : ' style="opacity:.6;"'}>Mark complete</button>${msg}${cancel}`;
+}
+
+function closeCheckin() { const o = document.getElementById('checkinModal'); if (o) o.remove(); checkinDraft = null; }
+function openCheckin(bookingId) {
+  const b = bookings.find(x => x.id === bookingId);
+  if (!b) return;
+  const ck = b._checkin;
+  const type = (ck && ck.arrival_count < 1) ? 'arrival' : 'daily';
+  checkinDraft = { bookingId, type, tags: new Set(), photoUrl: null, concern: false };
+  const heading = type === 'arrival' ? 'Arrival check-in' : 'Daily update';
+  const sub = type === 'arrival'
+    ? `Let ${esc((b._customer_name || 'the owner').split(' ')[0])} know ${esc(b._pet_label || 'their dog')} has arrived and is settling in.`
+    : `A quick update on how ${esc(b._pet_label || 'their dog')} is getting on.`;
+  const chips = CHECKIN_TAGS.map(t => `<button type="button" class="ci-chip" onclick="toggleCheckinTag('${encodeURIComponent(t)}',this)">${esc(t)}</button>`).join('');
+  const o = document.createElement('div');
+  o.id = 'checkinModal';
+  o.style.cssText = 'position:fixed;inset:0;background:rgba(40,30,25,.55);display:flex;align-items:center;justify-content:center;padding:1rem;z-index:1000;';
+  o.innerHTML = `
+    <div class="ci-card">
+      <h2 style="margin:0 0 2px;">${heading}</h2>
+      <p style="font-size:0.85rem;color:var(--text-muted);margin:0 0 14px;">${sub}</p>
+      <label class="ci-photo" id="ciPhotoLabel">
+        <input type="file" accept="image/*" capture="environment" id="ciPhoto" onchange="onCheckinPhoto(this)" style="display:none;">
+        <div id="ciPhotoInner"><span class="ci-photo-plus">＋</span><span>Take a photo (required)</span><span class="ci-photo-note">Snap one now — it can't be uploaded from your gallery</span></div>
+      </label>
+      <textarea id="ciMessage" rows="3" placeholder="How are they doing? Eating, toileting, mood…" class="ci-text"></textarea>
+      <div class="ci-chips">${chips}</div>
+      <label class="ci-concern"><input type="checkbox" id="ciConcern" onchange="checkinDraft.concern=this.checked"> Flag something for the owner to look at</label>
+      <div id="ciMsg" class="ci-error"></div>
+      <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:14px;flex-wrap:wrap;">
+        <button class="bc-btn decline" onclick="closeCheckin()">Cancel</button>
+        <button class="bc-btn accept" id="ciSubmit" onclick="submitCheckin()">Send to owner</button>
+      </div>
+    </div>`;
+  document.body.appendChild(o);
+}
+function toggleCheckinTag(enc, el) {
+  const t = decodeURIComponent(enc);
+  if (checkinDraft.tags.has(t)) { checkinDraft.tags.delete(t); el.classList.remove('on'); }
+  else { checkinDraft.tags.add(t); el.classList.add('on'); }
+}
+async function onCheckinPhoto(input) {
+  const file = input.files && input.files[0];
+  if (!file) return;
+  const label = document.getElementById('ciPhotoLabel');
+  const inner = document.getElementById('ciPhotoInner');
+  inner.innerHTML = '<span class="ci-photo-note">Uploading…</span>';
+  try {
+    const ext = (file.name.split('.').pop() || 'jpg').toLowerCase();
+    const fileName = `${checkinDraft.bookingId}/${Date.now()}.${ext}`;
+    const r = await fetch(`${SUPABASE_URL}/storage/v1/object/walk-photos/${fileName}`, {
+      method: 'POST',
+      headers: { 'apikey': SUPABASE_ANON_KEY, 'Authorization': `Bearer ${authToken}`, 'Content-Type': file.type || 'image/jpeg' },
+      body: file
+    });
+    if (!r.ok) throw new Error('Upload failed');
+    checkinDraft.photoUrl = `${SUPABASE_URL}/storage/v1/object/public/walk-photos/${fileName}`;
+    label.classList.add('has-photo');
+    inner.innerHTML = `<img src="${checkinDraft.photoUrl}" alt="check-in photo"><span class="ci-photo-note">Photo added · tap to change</span>`;
+  } catch(e) {
+    inner.innerHTML = '<span class="ci-photo-note" style="color:var(--error);">Upload failed — tap to retry</span>';
+  }
+}
+async function submitCheckin() {
+  const d = checkinDraft;
+  const msgEl = document.getElementById('ciMsg');
+  if (!d.photoUrl) { msgEl.textContent = 'A photo is required — please take one.'; return; }
+  const btn = document.getElementById('ciSubmit');
+  btn.disabled = true; btn.textContent = 'Sending…';
+  try {
+    await sbInsert('booking_updates', {
+      booking_id: d.bookingId, provider_user_id: authUid, update_type: d.type,
+      message: (document.getElementById('ciMessage').value || '').trim() || null,
+      tags: [...d.tags], photo_url: d.photoUrl, has_concern: d.concern
+    });
+    closeCheckin();
+    await loadBookings();
+    renderBookingsTab();
+    showMsg('Check-in sent to the owner.', 'success');
+  } catch(e) {
+    msgEl.textContent = e.message;
+    btn.disabled = false; btn.textContent = 'Send to owner';
+  }
+}
+async function markStayComplete(bookingId) {
+  try {
+    await sbPatch('bookings', 'id', bookingId, { status: 'completed', completed_at: new Date().toISOString() });
+    await loadBookings();
+    renderBookingsTab();
+    showMsg('Booking marked complete.', 'success');
+  } catch(e) {
+    const b = bookings.find(x => x.id === bookingId), ck = b && b._checkin;
+    if (/check-?ins? required/i.test(e.message) || /check_violation/i.test(e.message)) {
+      const need = ck ? `Post the arrival check-in and ${ck.nights} evening update${ck.nights > 1 ? 's' : ''} first.` : 'Post the required check-ins first.';
+      showMsg('Can\'t complete yet — ' + need, 'error');
+    } else { showMsg(e.message, 'error'); }
+  }
 }
 
 function renderDashboard() {
