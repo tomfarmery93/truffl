@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <title>Truffl Pets</title>
+  <link rel="icon" type="image/svg+xml" href="/favicon.svg">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;1,400&family=DM+Sans:opsz,wght@9..40,300;9..40,400;9..40,500&display=swap" rel="stylesheet">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --cream: #F7F3EE; --terracotta: #C4866A; --terracotta-dark: #B8795C;
+      --brown: #5C4033; --text-mid: #7A6860;
+    }
+    html, body { height: 100%; }
+    body {
+      font-family: 'DM Sans', sans-serif; background: var(--cream); color: var(--brown);
+      display: flex; flex-direction: column; align-items: center; justify-content: center;
+      text-align: center; padding: 32px; -webkit-font-smoothing: antialiased;
+      padding-top: env(safe-area-inset-top); padding-bottom: env(safe-area-inset-bottom);
+    }
+    .logo { margin-bottom: 28px; }
+    h1 { font-family: 'Cormorant Garamond', Georgia, serif; font-style: italic; font-weight: 400; font-size: 2rem; margin-bottom: 12px; }
+    p { font-size: 0.95rem; color: var(--text-mid); line-height: 1.6; max-width: 320px; margin-bottom: 26px; }
+    .spinner { width: 34px; height: 34px; border: 3px solid rgba(196,134,106,0.25); border-top-color: var(--terracotta); border-radius: 50%; animation: spin 0.9s linear infinite; margin-bottom: 26px; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    button {
+      font-family: 'DM Sans', sans-serif; font-size: 0.9rem; font-weight: 500;
+      background: var(--terracotta); color: #fff; border: 0; border-radius: 999px;
+      padding: 13px 30px; cursor: pointer; transition: background 0.2s;
+    }
+    button:hover { background: var(--terracotta-dark); }
+    .hint { margin-top: 18px; font-size: 0.78rem; color: var(--text-mid); opacity: 0.7; }
+  </style>
+</head>
+<body>
+  <div class="logo">
+    <svg width="170" height="54" viewBox="0 0 180 56" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <circle cx="20" cy="33" r="20" fill="#C4866A"/>
+      <text x="20" y="38" font-family="'Cormorant Garamond', Georgia, serif" font-size="14" font-style="italic" fill="#F7F3EE" text-anchor="middle">truffl</text>
+      <text x="52" y="30" font-family="'Cormorant Garamond', Georgia, serif" font-size="32" font-style="italic" fill="#5C4033" letter-spacing="-0.5">truffl</text>
+      <text x="52" y="50" font-family="'DM Sans', sans-serif" font-size="12" font-weight="600" fill="#B0A090" letter-spacing="4">PETS</text>
+    </svg>
+  </div>
+  <div class="spinner" id="spinner"></div>
+  <h1 id="title">Loading Truffl Pets…</h1>
+  <p id="msg">Just a moment while we connect you.</p>
+  <button id="retry" style="display:none;" onclick="go()">Try again</button>
+  <p class="hint">This screen only appears if the app can't reach the network.</p>
+
+  <script>
+    // The native shell loads https://trufflpets.com directly (see capacitor.config.ts).
+    // This bundled page is the offline fallback: if there's no connection, show a
+    // retry; once back online, send the user to the live site.
+    function go() { window.location.href = 'https://trufflpets.com/'; }
+    function showOffline() {
+      document.getElementById('spinner').style.display = 'none';
+      document.getElementById('title').textContent = 'You’re offline';
+      document.getElementById('msg').textContent = 'Truffl needs an internet connection. Check your network and try again.';
+      document.getElementById('retry').style.display = 'inline-block';
+    }
+    if (navigator.onLine) { go(); } else { showOffline(); }
+    window.addEventListener('online', go);
+  </script>
+</body>
+</html>
