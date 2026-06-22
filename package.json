@@ -1,0 +1,21 @@
+{
+  "name": "truffl-pets-app",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Capacitor native shell (iOS + Android) wrapping the Truffl Pets site",
+  "scripts": {
+    "sync": "cap sync",
+    "open:ios": "cap open ios",
+    "open:android": "cap open android",
+    "run:ios": "cap run ios",
+    "run:android": "cap run android"
+  },
+  "dependencies": {
+    "@capacitor/android": "^8.4.1",
+    "@capacitor/core": "^8.4.1",
+    "@capacitor/ios": "^8.4.1"
+  },
+  "devDependencies": {
+    "@capacitor/cli": "^8.4.1"
+  }
+}
