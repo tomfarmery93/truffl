@@ -76,8 +76,9 @@
   .win-wrap { position: relative; height: 34px; margin: 8px 2px 2px; }
   .win-track { position: absolute; top: 15px; left: 0; right: 0; height: 4px; background: var(--border); border-radius: 2px; }
   .win-fill { position: absolute; top: 15px; height: 4px; background: var(--terracotta); border-radius: 2px; }
-  .win-wrap input[type=range] { position: absolute; top: 0; left: 0; width: 100%; height: 34px; margin: 0; background: none; pointer-events: none; -webkit-appearance: none; appearance: none; }
-  .win-wrap input[type=range]:focus { outline: none; }
+  /* Reset the generic .field input styling (border/padding/radius/bg) so the range inputs render as bare sliders, not boxed fields. */
+  .win-wrap input[type=range] { position: absolute; top: 0; left: 0; width: 100%; height: 34px; margin: 0; padding: 0; border: none; border-radius: 0; background: none; pointer-events: none; -webkit-appearance: none; appearance: none; }
+  .win-wrap input[type=range]:focus { outline: none; box-shadow: none; }
   /* Centre the 20px thumb on the 4px track: margin-top = (4 - 20) / 2 = -8px. */
   .win-wrap input[type=range]::-webkit-slider-runnable-track { height: 4px; background: none; }
   .win-wrap input[type=range]::-webkit-slider-thumb { pointer-events: auto; -webkit-appearance: none; width: 20px; height: 20px; border-radius: 50%; background: #fff; border: 2px solid var(--terracotta); cursor: pointer; margin-top: -8px; box-shadow: 0 1px 3px rgba(61,43,31,0.2); }
