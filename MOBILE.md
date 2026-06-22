@@ -2,7 +2,7 @@
 
 The Truffl Pets iOS and Android apps are a thin [Capacitor](https://capacitorjs.com)
 WebView shell around the existing site. The WebView loads the live site at
-`https://trufflpets.com` (see `server.url` in `capacitor.config.ts`), so **content
+`https://trufflpets.com` (see `server.url` in `capacitor.config.json`), so **content
 changes ship via the normal GitHub Pages deploy — no app-store resubmit needed**
 for site updates. A resubmit is only required when native code, plugins,
 permissions, icons/splash, or the app version change.
@@ -27,7 +27,7 @@ From the repo root (`~/truffl`):
 # 1. Install the Capacitor tooling pinned in package.json
 npm install
 
-# 2. Initialise Capacitor (only if capacitor.config.ts were missing — it isn't,
+# 2. Initialise Capacitor (only if capacitor.config.json were missing — it isn't,
 #    so you can normally SKIP this. Listed for completeness.)
 # npx cap init "Truffl Pets" com.trufflpets.app --web-dir=www
 
@@ -68,7 +68,7 @@ The app should boot straight into the live Truffl site.
 ## Notes / follow-ups
 
 - **Bundle ID / app name** (`com.trufflpets.app`, "Truffl Pets") are placeholders
-  pending **TRU-128**. Change `appId`/`appName` in `capacitor.config.ts`, then
+  pending **TRU-128**. Change `appId`/`appName` in `capacitor.config.json`, then
   `npx cap sync`, before any store submission.
 - **Background geolocation** on `/walk/` is **TRU-56** (separate plugin + native
   permission setup) — out of scope here.

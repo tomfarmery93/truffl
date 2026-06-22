@@ -1,0 +1,13 @@
+{
+  "appId": "com.trufflpets.app",
+  "appName": "Truffl Pets",
+  "webDir": "www",
+  "server": {
+    "url": "https://trufflpets.com",
+    "cleartext": false,
+    "allowNavigation": ["trufflpets.com", "www.trufflpets.com"]
+  },
+  "ios": {
+    "contentInset": "always"
+  }
+}
