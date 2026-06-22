@@ -15,7 +15,8 @@ the steps below add the platforms and build.
 
 - **macOS** with **Xcode** (+ Command Line Tools, an iOS simulator or device).
 - **Android Studio** (+ an SDK and an emulator or device).
-- **Node 18+** and **CocoaPods** (`sudo gem install cocoapods`).
+- **Node 18+**. (Capacitor 8 manages iOS dependencies with Swift Package
+  Manager, so **CocoaPods is not required** — Xcode opens `App.xcodeproj` directly.)
 - If git/build tooling errors with *"You have not agreed to the Xcode license"*,
   run `sudo xcodebuild -license accept`.
 
