@@ -181,6 +181,8 @@ const UPDATE_ICONS = {
 let authToken=null, authUid=null;
 let booking=null, walkSession=null, map=null, polyline=null;
 let gpsPoints=[], watchId=null, timerInterval=null, wakeLock=null;
+let bgWatcherId=null, lastPingTs=0;
+const PING_INTERVAL_MS=10000; // native: persist a ping at most every 10s
 let hasComment=false, hasPhoto=false;
 let updates=[];
 let customerName='', petName='', petBreed='';
@@ -287,21 +289,60 @@ function updateMap(lat,lng){
   window._currentMarker=L.circleMarker([lat,lng],{radius:8,color:'#C4755B',fillColor:'#C4755B',fillOpacity:1}).addTo(map);
 }
 
+function isNative(){ return !!(window.Capacitor && typeof window.Capacitor.isNativePlatform==='function' && window.Capacitor.isNativePlatform()); }
+
+// Shared: record one GPS fix — init the map on the first fix, draw it, persist the ping.
+async function recordPing(lat,lng,accuracy){
+  const pt={lat,lng,acc:Math.round(accuracy||0)};
+  if(!map) initMap(pt.lat,pt.lng);
+  gpsPoints.push(pt);
+  updateMap(pt.lat,pt.lng);
+  updateStats();
+  try{
+    await sbInsert('gps_pings',{walk_session_id:walkSession.id,lat:pt.lat,lng:pt.lng,accuracy_metres:pt.acc,recorded_at:new Date().toISOString()});
+  }catch(e){}
+}
+
 async function startGpsTracking(){
+  if(isNative()) return startNativeGpsTracking();
+  // Web fallback — unchanged behaviour (records every fix).
   if(!navigator.geolocation){showMsg('GPS not available on this device.','error');return;}
   watchId=navigator.geolocation.watchPosition(
-    async(pos)=>{
-      const pt={lat:pos.coords.latitude,lng:pos.coords.longitude,acc:Math.round(pos.coords.accuracy)};
-      gpsPoints.push(pt);
-      updateMap(pt.lat,pt.lng);
-      updateStats();
-      try{
-        await sbInsert('gps_pings',{walk_session_id:walkSession.id,lat:pt.lat,lng:pt.lng,accuracy_metres:pt.acc,recorded_at:new Date().toISOString()});
-      }catch(e){}
-    },
+    (pos)=>recordPing(pos.coords.latitude,pos.coords.longitude,pos.coords.accuracy),
     (err)=>{showMsg('GPS error: '+err.message,'error');},
     {enableHighAccuracy:true,maximumAge:5000,timeout:15000}
   );
+}
+
+// Native: keeps tracking with the screen locked / app backgrounded. The plugin streams
+// continuously (distance-filtered), so throttle persisted pings to PING_INTERVAL_MS.
+async function startNativeGpsTracking(){
+  const BG=window.Capacitor.Plugins&&window.Capacitor.Plugins.BackgroundGeolocation;
+  if(!BG){showMsg('GPS not available on this device.','error');return;}
+  try{
+    bgWatcherId=await BG.addWatcher(
+      {
+        backgroundMessage:'Tracking your walk so the owner can follow along live.',
+        backgroundTitle:'Truffl — walk in progress',
+        requestPermissions:true,
+        stale:false,
+        distanceFilter:5
+      },
+      (location,error)=>{
+        if(error){
+          if(error.code==='NOT_AUTHORIZED'){
+            showMsg('Location permission is needed to track the walk. Enable “Always” for Truffl in Settings.','error');
+          }
+          return;
+        }
+        if(!location) return;
+        const now=Date.now();
+        if(now-lastPingTs < PING_INTERVAL_MS) return;
+        lastPingTs=now;
+        recordPing(location.latitude,location.longitude,location.accuracy);
+      }
+    );
+  }catch(e){showMsg('Could not start GPS: '+((e&&e.message)||e),'error');}
 }
 
 async function startWalk(){
@@ -393,6 +434,7 @@ async function endWalk(){
   clearMsg();
   if(!hasComment||!hasPhoto){showMsg('Please add at least one comment/mood and one photo before ending the walk.','error');return;}
   try{
+    if(bgWatcherId!==null){ try{ await window.Capacitor.Plugins.BackgroundGeolocation.removeWatcher({id:bgWatcherId}); }catch(e){} bgWatcherId=null; }
     if(watchId!==null) navigator.geolocation.clearWatch(watchId);
     if(timerInterval) clearInterval(timerInterval);
     if(wakeLock){try{wakeLock.release();}catch(e){}}
@@ -513,7 +555,10 @@ function renderActiveWalk(){
   `;
 
   setTimeout(()=>{
-    if(navigator.geolocation){
+    if(isNative()){
+      // Native fixes come from the plugin watcher; show the map now, it recenters on the first ping.
+      initMap(-33.87,151.21);
+    } else if(navigator.geolocation){
       navigator.geolocation.getCurrentPosition(
         (pos)=>initMap(pos.coords.latitude,pos.coords.longitude),
         ()=>initMap(-33.87,151.21)
