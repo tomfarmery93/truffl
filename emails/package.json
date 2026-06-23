@@ -1,0 +1,23 @@
+{
+  "name": "truffl-emails",
+  "private": true,
+  "version": "1.0.0",
+  "description": "Branded React Email templates for Truffl Pets (transactional notifications + auth)",
+  "scripts": {
+    "dev": "email dev",
+    "export": "email export --outDir out",
+    "build": "email export --outDir out"
+  },
+  "dependencies": {
+    "@react-email/components": "^1.0.12",
+    "@react-email/render": "^1.0.12",
+    "react": "^19.1.0",
+    "react-dom": "^19.1.0"
+  },
+  "devDependencies": {
+    "react-email": "^6.6.4",
+    "typescript": "^5.6.0",
+    "@types/react": "^19.0.0",
+    "@types/react-dom": "^19.0.0"
+  }
+}
