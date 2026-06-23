@@ -181,6 +181,8 @@ const UPDATE_ICONS = {
 let authToken=null, authUid=null;
 let booking=null, walkSession=null, map=null, polyline=null;
 let gpsPoints=[], watchId=null, timerInterval=null, wakeLock=null;
+let bgWatcherId=null, lastPingTs=0;
+const PING_INTERVAL_MS=10000;
 let hasComment=false, hasPhoto=false;
 let updates=[];
 let customerName='', petName='', petBreed='';
@@ -272,6 +274,22 @@ async function requestWakeLock(){
   try{if('wakeLock' in navigator){wakeLock=await navigator.wakeLock.request('screen');}}catch(e){}
 }
 
+function isNative(){
+  return !!(window.Capacitor && typeof window.Capacitor.isNativePlatform === 'function' && window.Capacitor.isNativePlatform());
+}
+
+// Shared: record one GPS fix — inits map on first fix, draws it, persists to Supabase.
+async function recordPing(lat, lng, accuracy){
+  const pt={lat, lng, acc: Math.round(accuracy||0)};
+  if(!map) initMap(pt.lat, pt.lng);
+  gpsPoints.push(pt);
+  updateMap(pt.lat, pt.lng);
+  updateStats();
+  try{
+    await sbInsert('gps_pings',{walk_session_id:walkSession.id,lat:pt.lat,lng:pt.lng,accuracy_metres:pt.acc,recorded_at:new Date().toISOString()});
+  }catch(e){}
+}
+
 function initMap(lat,lng){
   map=L.map('map').setView([lat,lng],16);
   L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:19,attribution:'© OpenStreetMap'}).addTo(map);
@@ -288,20 +306,64 @@ function updateMap(lat,lng){
 }
 
 async function startGpsTracking(){
+  if(isNative()) return startNativeGpsTracking();
+  // Web fallback — records every fix (screen must stay on).
   if(!navigator.geolocation){showMsg('GPS not available on this device.','error');return;}
   watchId=navigator.geolocation.watchPosition(
-    async(pos)=>{
-      const pt={lat:pos.coords.latitude,lng:pos.coords.longitude,acc:Math.round(pos.coords.accuracy)};
-      gpsPoints.push(pt);
-      updateMap(pt.lat,pt.lng);
-      updateStats();
-      try{
-        await sbInsert('gps_pings',{walk_session_id:walkSession.id,lat:pt.lat,lng:pt.lng,accuracy_metres:pt.acc,recorded_at:new Date().toISOString()});
-      }catch(e){}
-    },
+    (pos)=>recordPing(pos.coords.latitude,pos.coords.longitude,pos.coords.accuracy),
     (err)=>{showMsg('GPS error: '+err.message,'error');},
     {enableHighAccuracy:true,maximumAge:5000,timeout:15000}
   );
+}
+
+// Native path: uses BackgroundGeolocation foreground service so GPS continues with screen locked.
+// The plugin streams continuously; we throttle persisted pings to PING_INTERVAL_MS for battery.
+async function startNativeGpsTracking(){
+  const BG = window.Capacitor.Plugins && window.Capacitor.Plugins.BackgroundGeolocation;
+  if(!BG){
+    // Plugin not present in this build — fall back to web watchPosition.
+    showMsg('Background GPS plugin not found, falling back to standard tracking. Keep the screen on.','error');
+    if(navigator.geolocation){
+      watchId=navigator.geolocation.watchPosition(
+        (pos)=>recordPing(pos.coords.latitude,pos.coords.longitude,pos.coords.accuracy),
+        (err)=>{showMsg('GPS error: '+err.message,'error');},
+        {enableHighAccuracy:true,maximumAge:5000,timeout:15000}
+      );
+    }
+    return;
+  }
+  try{
+    bgWatcherId=await BG.addWatcher(
+      {
+        backgroundMessage:'Tracking your walk so the owner can follow along live.',
+        backgroundTitle:'Truffl — walk in progress',
+        requestPermissions:true,
+        stale:false,
+        distanceFilter:5
+      },
+      (location,error)=>{
+        if(error){
+          if(error.code==='NOT_AUTHORIZED'){
+            // On Android, this means only foreground location was granted — not "Allow all the time".
+            // The foreground service cannot run, so background tracking stops when the screen locks.
+            showMsg(
+              'Background location access is needed to track while your screen is locked. ' +
+              'Go to Settings › Apps › Truffl › Permissions › Location and select "Allow all the time".',
+              'error'
+            );
+          }
+          return;
+        }
+        if(!location) return;
+        const now=Date.now();
+        if(now - lastPingTs < PING_INTERVAL_MS) return;
+        lastPingTs=now;
+        recordPing(location.latitude, location.longitude, location.accuracy);
+      }
+    );
+  }catch(e){
+    showMsg('Could not start GPS: '+((e&&e.message)||e),'error');
+  }
 }
 
 async function startWalk(){
@@ -393,6 +455,10 @@ async function endWalk(){
   clearMsg();
   if(!hasComment||!hasPhoto){showMsg('Please add at least one comment/mood and one photo before ending the walk.','error');return;}
   try{
+    if(bgWatcherId!==null){
+      try{ await window.Capacitor.Plugins.BackgroundGeolocation.removeWatcher({id:bgWatcherId}); }catch(e){}
+      bgWatcherId=null;
+    }
     if(watchId!==null) navigator.geolocation.clearWatch(watchId);
     if(timerInterval) clearInterval(timerInterval);
     if(wakeLock){try{wakeLock.release();}catch(e){}}
@@ -440,10 +506,15 @@ function renderPreWalk(){
       ${booking.customer_notes?`<div style="font-size:0.82rem;color:var(--text-secondary);margin-top:8px;font-style:italic;">"${esc(booking.customer_notes)}"</div>`:''}
     </div>
 
+    ${isNative() ? `
+    <div class="gps-notice">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+      <div><strong>Location permission:</strong> When prompted, choose <strong>"Allow all the time"</strong> so GPS tracks while your screen is locked. If you only see "While using the app", go to Settings › Apps › Truffl › Permissions › Location and select "Allow all the time".</div>
+    </div>` : `
     <div class="gps-notice">
       <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
       <div><strong>Heads up:</strong> GPS tracking requires this screen to stay open during the walk. Pop your phone in your pocket with the screen on — we'll keep it awake for you. This is how your customer sees the live route.</div>
-    </div>
+    </div>`}
 
     <div class="walk-controls">
       <button class="btn-walk btn-start" onclick="startWalk()">
@@ -513,7 +584,10 @@ function renderActiveWalk(){
   `;
 
   setTimeout(()=>{
-    if(navigator.geolocation){
+    if(isNative()){
+      // Map will init automatically on the first GPS ping from the native watcher.
+      initMap(-33.87,151.21);
+    } else if(navigator.geolocation){
       navigator.geolocation.getCurrentPosition(
         (pos)=>initMap(pos.coords.latitude,pos.coords.longitude),
         ()=>initMap(-33.87,151.21)

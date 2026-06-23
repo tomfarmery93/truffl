@@ -47,5 +47,14 @@
 	</array>
 	<key>UIViewControllerBasedStatusBarAppearance</key>
 	<true/>
+	<!-- Background GPS tracking during walks -->
+	<key>NSLocationWhenInUseUsageDescription</key>
+	<string>Truffl needs your location to track the walk route so the pet owner can follow along live.</string>
+	<key>NSLocationAlwaysAndWhenInUseUsageDescription</key>
+	<string>Truffl tracks your location in the background so walk routes are recorded accurately even when your screen is locked.</string>
+	<key>UIBackgroundModes</key>
+	<array>
+		<string>location</string>
+	</array>
 </dict>
 </plist>
