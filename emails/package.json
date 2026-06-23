@@ -6,7 +6,8 @@
   "scripts": {
     "dev": "email dev",
     "export": "email export --outDir out",
-    "build": "email export --outDir out"
+    "build": "email export --outDir out",
+    "send": "email export --outDir out && node send.mjs"
   },
   "dependencies": {
     "@react-email/components": "^1.0.12",
