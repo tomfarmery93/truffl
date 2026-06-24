@@ -47,5 +47,13 @@
 	</array>
 	<key>UIViewControllerBasedStatusBarAppearance</key>
 	<true/>
+	<key>NSLocationWhenInUseUsageDescription</key>
+	<string>Truffl uses your location during a walk so the pet's owner can follow along live and see the route.</string>
+	<key>NSLocationAlwaysAndWhenInUseUsageDescription</key>
+	<string>Truffl keeps tracking your location during a walk — even with the screen locked — so the owner can follow along live until you end the walk.</string>
+	<key>UIBackgroundModes</key>
+	<array>
+		<string>location</string>
+	</array>
 </dict>
 </plist>
