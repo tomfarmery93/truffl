@@ -291,8 +291,20 @@ function updateMap(lat,lng){
 
 function isNative(){ return !!(window.Capacitor && typeof window.Capacitor.isNativePlatform==='function' && window.Capacitor.isNativePlatform()); }
 
+// Metres between two lat/lng points (haversine).
+function metresBetween(aLat,aLng,bLat,bLng){
+  const R=6371000, toRad=x=>x*Math.PI/180;
+  const dLat=toRad(bLat-aLat), dLng=toRad(bLng-aLng);
+  const s=Math.sin(dLat/2)**2 + Math.cos(toRad(aLat))*Math.cos(toRad(bLat))*Math.sin(dLng/2)**2;
+  return 2*R*Math.asin(Math.sqrt(s));
+}
+
 // Shared: record one GPS fix — init the map on the first fix, draw it, persist the ping.
+// Filters out poor-accuracy fixes and stationary GPS noise so distance/pings don't creep.
 async function recordPing(lat,lng,accuracy){
+  if(accuracy && accuracy > 50) return;                 // ignore low-accuracy fixes
+  const last = gpsPoints[gpsPoints.length-1];
+  if(last && metresBetween(last.lat,last.lng,lat,lng) < 8) return;  // ignore non-movement
   const pt={lat,lng,acc:Math.round(accuracy||0)};
   if(!map) initMap(pt.lat,pt.lng);
   gpsPoints.push(pt);

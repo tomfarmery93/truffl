@@ -14,6 +14,7 @@ import android.os.Build;
 import android.os.Bundle;
 import android.os.IBinder;
 import android.os.Looper;
+import android.util.Log;
 
 import androidx.annotation.Nullable;
 import androidx.core.app.NotificationCompat;
@@ -34,17 +35,25 @@ import java.util.concurrent.Executors;
  * Foreground service that collects GPS fixes and uploads each as a gps_pings row to
  * Supabase from native code, so tracking survives the screen being off / the app
  * being backgrounded (where the WebView's JS is suspended). See WalkTrackerPlugin.
+ *
+ * Logs under tag "TrufflWalk" — filter Logcat by that tag when debugging.
  */
 public class WalkTrackingService extends Service implements LocationListener {
 
+  private static final String TAG = "TrufflWalk";
   private static final String CHANNEL_ID = "truffl_walk_tracking";
   private static final int NOTIF_ID = 4201;
+
+  // Drop obviously-bad fixes and stationary GPS noise.
+  private static final float MAX_ACCURACY_M = 50f;
+  private static final float MIN_MOVE_M = 8f;
 
   private LocationManager locationManager;
   private ExecutorService executor;
   private String supabaseUrl, anonKey, accessToken, walkSessionId;
   private long intervalMs = 10000;
   private long lastSent = 0;
+  private Location lastRecorded = null;
 
   @Override
   public void onCreate() {
@@ -62,6 +71,7 @@ public class WalkTrackingService extends Service implements LocationListener {
       walkSessionId = intent.getStringExtra("walkSessionId");
       intervalMs = intent.getIntExtra("intervalMs", 10000);
     }
+    Log.d(TAG, "Service start — session=" + walkSessionId + " interval=" + intervalMs + "ms");
     startForegroundWithNotification();
     requestLocationUpdates();
     return START_STICKY;
@@ -81,33 +91,57 @@ public class WalkTrackingService extends Service implements LocationListener {
       .setOngoing(true)
       .build();
 
-    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) { // API 34+
-      startForeground(NOTIF_ID, notification, ServiceInfo.FOREGROUND_SERVICE_TYPE_LOCATION);
-    } else {
-      startForeground(NOTIF_ID, notification);
+    try {
+      if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) { // API 34+
+        startForeground(NOTIF_ID, notification, ServiceInfo.FOREGROUND_SERVICE_TYPE_LOCATION);
+      } else {
+        startForeground(NOTIF_ID, notification);
+      }
+      Log.d(TAG, "Foreground notification started");
+    } catch (Exception e) {
+      Log.e(TAG, "startForeground failed", e);
     }
   }
 
   private void requestLocationUpdates() {
     try {
+      // Ask for updates ~every 5s; we throttle persistence to intervalMs + a movement filter below.
+      long minTime = Math.min(5000, intervalMs);
       if (locationManager.isProviderEnabled(LocationManager.GPS_PROVIDER)) {
-        locationManager.requestLocationUpdates(
-          LocationManager.GPS_PROVIDER, intervalMs, 0, this, Looper.getMainLooper());
+        locationManager.requestLocationUpdates(LocationManager.GPS_PROVIDER, minTime, 0, this, Looper.getMainLooper());
+        Log.d(TAG, "Requested GPS_PROVIDER updates");
       }
       if (locationManager.isProviderEnabled(LocationManager.NETWORK_PROVIDER)) {
-        locationManager.requestLocationUpdates(
-          LocationManager.NETWORK_PROVIDER, intervalMs, 0, this, Looper.getMainLooper());
+        locationManager.requestLocationUpdates(LocationManager.NETWORK_PROVIDER, minTime, 0, this, Looper.getMainLooper());
       }
     } catch (SecurityException e) {
-      // Location permission not granted — nothing we can do here.
+      Log.e(TAG, "Location permission missing when requesting updates", e);
     }
   }
 
   @Override
   public void onLocationChanged(Location location) {
+    if (location == null) return;
+
+    if (location.hasAccuracy() && location.getAccuracy() > MAX_ACCURACY_M) {
+      Log.d(TAG, "skip fix: poor accuracy " + Math.round(location.getAccuracy()) + "m");
+      return;
+    }
+
     long now = System.currentTimeMillis();
-    if (now - lastSent < intervalMs) return; // throttle to the configured cadence
+    boolean first = (lastRecorded == null);
+    if (!first) {
+      if (now - lastSent < intervalMs) return;                       // time throttle
+      if (location.distanceTo(lastRecorded) < MIN_MOVE_M) {          // stationary filter
+        Log.d(TAG, "skip fix: moved <" + (int) MIN_MOVE_M + "m");
+        return;
+      }
+    }
+
     lastSent = now;
+    lastRecorded = location;
+    Log.d(TAG, "record fix: " + location.getLatitude() + "," + location.getLongitude()
+      + " acc=" + Math.round(location.getAccuracy()) + "m");
     postPing(location.getLatitude(), location.getLongitude(), location.getAccuracy());
   }
 
@@ -141,9 +175,14 @@ public class WalkTrackingService extends Service implements LocationListener {
         os.flush();
         os.close();
 
-        conn.getResponseCode(); // execute the request
+        int code = conn.getResponseCode();
+        if (code >= 200 && code < 300) {
+          Log.d(TAG, "ping POST ok (" + code + ")");
+        } else {
+          Log.e(TAG, "ping POST failed: HTTP " + code);
+        }
       } catch (Exception e) {
-        // Swallow — the next fix will produce another ping; we don't crash the service.
+        Log.e(TAG, "ping POST exception", e);
       } finally {
         if (conn != null) conn.disconnect();
       }
@@ -152,6 +191,7 @@ public class WalkTrackingService extends Service implements LocationListener {
 
   @Override
   public void onDestroy() {
+    Log.d(TAG, "Service destroy");
     try { if (locationManager != null) locationManager.removeUpdates(this); } catch (Exception e) {}
     if (executor != null) executor.shutdown();
     super.onDestroy();
@@ -161,7 +201,6 @@ public class WalkTrackingService extends Service implements LocationListener {
   @Override
   public IBinder onBind(Intent intent) { return null; }
 
-  // Required for older LocationListener signatures.
   @Override public void onStatusChanged(String provider, int status, Bundle extras) {}
   @Override public void onProviderEnabled(String provider) {}
   @Override public void onProviderDisabled(String provider) {}

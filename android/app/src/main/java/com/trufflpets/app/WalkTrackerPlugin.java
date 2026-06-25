@@ -1,12 +1,16 @@
 package com.trufflpets.app;
 
+import android.Manifest;
 import android.content.Intent;
 import android.os.Build;
 
+import com.getcapacitor.PermissionState;
 import com.getcapacitor.Plugin;
 import com.getcapacitor.PluginCall;
 import com.getcapacitor.PluginMethod;
 import com.getcapacitor.annotation.CapacitorPlugin;
+import com.getcapacitor.annotation.Permission;
+import com.getcapacitor.annotation.PermissionCallback;
 
 /**
  * TRU-56: native background walk tracking.
@@ -15,12 +19,43 @@ import com.getcapacitor.annotation.CapacitorPlugin;
  * backgrounded, so persisting GPS pings from JS is unreliable. This plugin runs a
  * foreground service that collects locations and POSTs them to Supabase from native
  * code, independent of the WebView — so tracking continues with the app off-screen.
+ *
+ * We only request "while in use" (fine) location: a foreground service of type
+ * `location` started while the app is visible may keep accessing location in the
+ * background, so ACCESS_BACKGROUND_LOCATION isn't required.
  */
-@CapacitorPlugin(name = "TrufflWalkTracker")
+@CapacitorPlugin(
+  name = "TrufflWalkTracker",
+  permissions = {
+    @Permission(
+      alias = "location",
+      strings = { Manifest.permission.ACCESS_FINE_LOCATION, Manifest.permission.ACCESS_COARSE_LOCATION }
+    )
+  }
+)
 public class WalkTrackerPlugin extends Plugin {
 
   @PluginMethod
   public void start(PluginCall call) {
+    if (getPermissionState("location") != PermissionState.GRANTED) {
+      // Persist the call and request the runtime prompt; resumes in the callback.
+      bridge.saveCall(call);
+      requestPermissionForAlias("location", call, "locationPermsCallback");
+      return;
+    }
+    startTracking(call);
+  }
+
+  @PermissionCallback
+  private void locationPermsCallback(PluginCall call) {
+    if (getPermissionState("location") == PermissionState.GRANTED) {
+      startTracking(call);
+    } else {
+      call.reject("Location permission denied");
+    }
+  }
+
+  private void startTracking(PluginCall call) {
     String supabaseUrl = call.getString("supabaseUrl");
     String anonKey = call.getString("anonKey");
     String accessToken = call.getString("accessToken");
