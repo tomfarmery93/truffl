@@ -181,7 +181,7 @@ const UPDATE_ICONS = {
 let authToken=null, authUid=null;
 let booking=null, walkSession=null, map=null, polyline=null;
 let gpsPoints=[], watchId=null, timerInterval=null, wakeLock=null;
-let bgWatcherId=null, lastPingTs=0;
+let bgWatcherId=null, lastPingTs=0, nativeTracking=false;
 const PING_INTERVAL_MS=10000; // native: persist a ping at most every 10s
 let hasComment=false, hasPhoto=false;
 let updates=[];
@@ -298,6 +298,9 @@ async function recordPing(lat,lng,accuracy){
   gpsPoints.push(pt);
   updateMap(pt.lat,pt.lng);
   updateStats();
+  // When the native service is tracking, it persists pings from native code (survives
+  // backgrounding) — JS here only drives the live map, so skip the DB write to avoid dupes.
+  if(nativeTracking) return;
   try{
     await sbInsert('gps_pings',{walk_session_id:walkSession.id,lat:pt.lat,lng:pt.lng,accuracy_metres:pt.acc,recorded_at:new Date().toISOString()});
   }catch(e){}
@@ -314,35 +317,34 @@ async function startGpsTracking(){
   );
 }
 
-// Native: keeps tracking with the screen locked / app backgrounded. The plugin streams
-// continuously (distance-filtered), so throttle persisted pings to PING_INTERVAL_MS.
+// Native: a foreground service (TrufflWalkTracker) uploads pings to Supabase from native
+// code, so tracking continues with the screen off / app backgrounded — where the WebView's
+// JS is suspended and can't be relied on. The JS watchPosition below only drives the live
+// map while the app is on-screen (recordPing skips the DB write when nativeTracking is on).
 async function startNativeGpsTracking(){
-  const BG=window.Capacitor.Plugins&&window.Capacitor.Plugins.BackgroundGeolocation;
-  if(!BG){showMsg('GPS not available on this device.','error');return;}
-  try{
-    bgWatcherId=await BG.addWatcher(
-      {
-        backgroundMessage:'Tracking your walk so the owner can follow along live.',
-        backgroundTitle:'Truffl — walk in progress',
-        requestPermissions:true,
-        stale:false,
-        distanceFilter:5
-      },
-      (location,error)=>{
-        if(error){
-          if(error.code==='NOT_AUTHORIZED'){
-            showMsg('Location permission is needed to track the walk. Enable “Always” for Truffl in Settings.','error');
-          }
-          return;
-        }
-        if(!location) return;
-        const now=Date.now();
-        if(now-lastPingTs < PING_INTERVAL_MS) return;
-        lastPingTs=now;
-        recordPing(location.latitude,location.longitude,location.accuracy);
-      }
+  const T = window.Capacitor.Plugins && window.Capacitor.Plugins.TrufflWalkTracker;
+  if(T){
+    try{
+      await T.start({
+        supabaseUrl: SUPABASE_URL,
+        anonKey: SUPABASE_ANON_KEY,
+        accessToken: authToken,
+        walkSessionId: walkSession.id,
+        intervalMs: PING_INTERVAL_MS
+      });
+      nativeTracking = true;
+    }catch(e){ showMsg('Could not start background tracking: '+((e&&e.message)||e),'error'); }
+  }
+  // Live map while on-screen. If the native plugin isn't available (e.g. iOS or an
+  // un-synced build), nativeTracking stays false and recordPing persists from JS as a
+  // foreground-only fallback so the walk still works.
+  if(navigator.geolocation){
+    watchId=navigator.geolocation.watchPosition(
+      (pos)=>recordPing(pos.coords.latitude,pos.coords.longitude,pos.coords.accuracy),
+      ()=>{},
+      {enableHighAccuracy:true,maximumAge:5000,timeout:15000}
     );
-  }catch(e){showMsg('Could not start GPS: '+((e&&e.message)||e),'error');}
+  }
 }
 
 async function startWalk(){
@@ -434,7 +436,8 @@ async function endWalk(){
   clearMsg();
   if(!hasComment||!hasPhoto){showMsg('Please add at least one comment/mood and one photo before ending the walk.','error');return;}
   try{
-    if(bgWatcherId!==null){ try{ await window.Capacitor.Plugins.BackgroundGeolocation.removeWatcher({id:bgWatcherId}); }catch(e){} bgWatcherId=null; }
+    try{ const T=window.Capacitor&&window.Capacitor.Plugins&&window.Capacitor.Plugins.TrufflWalkTracker; if(T) await T.stop(); }catch(e){}
+    nativeTracking=false;
     if(watchId!==null) navigator.geolocation.clearWatch(watchId);
     if(timerInterval) clearInterval(timerInterval);
     if(wakeLock){try{wakeLock.release();}catch(e){}}
