@@ -362,6 +362,7 @@ const MG_CARER_DECLINE_CHIPS = [
 let authToken = null, authUid = null;
 let userData = null, providerProfile = null, providerServices = [], bookings = [], series = [];
 let mgSeriesById = {};       // pending_meet_greet series (provider side), keyed by id
+let activeWalkBookingIds = new Set();  // bookings with a genuinely active walk_session (source of truth, not booking.status)
 let mgBowOutSel = {};        // series_id -> Set of selected carer decline chips
 let dashCancelId = null;
 // Check-in composer state (TRU-125)
@@ -580,6 +581,15 @@ async function loadBookings() {
     } catch(e) {}
   }
 
+  // "In progress" is driven by an actually-active walk_session, not booking.status
+  // (which can go stale if a session ends without the booking being patched).
+  // walk_sessions.provider_id = users.id (authUid).
+  activeWalkBookingIds = new Set();
+  try {
+    const activeSessions = await sbGet('walk_sessions', `provider_id=eq.${authUid}&status=eq.active&select=booking_id`);
+    activeSessions.forEach(s => { if (s.booking_id) activeWalkBookingIds.add(s.booking_id); });
+  } catch(e) { /* fall back to booking.status below if this fails */ }
+
   bookings.forEach(b => {
     b._customer_name = nameByBooking[b.id] || null;
     b._contact = contactByBooking[b.id] || null;
@@ -755,7 +765,7 @@ function renderBookingsTab() {
   const confirmed = bookings.filter(b => b.status === 'confirmed' && !b.is_meet_and_greet);
   // M&G bookings whose series is still awaiting the meet & greet.
   const mgBookings = bookings.filter(b => b.is_meet_and_greet && mgSeriesById[b.series_id]);
-  const inProgress = bookings.filter(b => b.status === 'in_progress');
+  const inProgress = bookings.filter(b => activeWalkBookingIds.has(b.id));
   const completedWalks = bookings.filter(b => b.status === 'completed' && !bookingIsStay(b) && !b.is_meet_and_greet);
   const area = document.getElementById('tab-bookings');
 
@@ -1124,7 +1134,7 @@ function closeMgOverlay() { const o = document.getElementById('mgOverlay'); if (
 /* Persistent "active walk" overlay so a carer can always get back into an
    in-progress walk after leaving it / reopening the app (TRU-133). */
 function activeWalkBarHtml() {
-  const active = bookings.filter(b => b.status === 'in_progress');
+  const active = bookings.filter(b => activeWalkBookingIds.has(b.id));
   if (!active.length) return '';
   return active.map(b => {
     const sub = [b._pet_label, b._customer_name].filter(Boolean).join(' · ') || 'Tap to resume';
