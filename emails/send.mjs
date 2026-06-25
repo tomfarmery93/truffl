@@ -26,9 +26,13 @@ const FROM = process.env.EMAIL_FROM || 'Truffl Pets <hello@trufflpets.com>';
 const RECIPIENTS = (process.env.EMAIL_TO ||
   'tom_farmery@hotmail.co.uk,tomfarmery17@googlemail.com')
   .split(',').map(s => s.trim()).filter(Boolean);
-const SUBJECT = process.env.EMAIL_SUBJECT || 'Your booking is confirmed (Truffl email test)';
+const SUBJECT = process.env.EMAIL_SUBJECT || 'Truffl email test';
 
-const html = await readFile(join(__dirname, 'out', 'layout-preview.html'), 'utf8');
+// Which exported template to send, e.g. EMAIL_TEMPLATE=booking-confirmed npm run send
+// (or `node send.mjs booking-confirmed`). Defaults to the layout preview.
+const TEMPLATE = process.env.EMAIL_TEMPLATE || process.argv[2] || 'layout-preview';
+const html = await readFile(join(__dirname, 'out', `${TEMPLATE}.html`), 'utf8');
+console.log(`Sending template: ${TEMPLATE}`);
 
 let ok = 0;
 for (const to of RECIPIENTS) {
