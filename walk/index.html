@@ -181,7 +181,7 @@ const UPDATE_ICONS = {
 let authToken=null, authUid=null;
 let booking=null, walkSession=null, map=null, polyline=null;
 let gpsPoints=[], watchId=null, timerInterval=null, wakeLock=null;
-let bgWatcherId=null, lastPingTs=0, nativeTracking=false;
+let bgWatcherId=null, lastPingTs=0, nativeTracking=false, pollInterval=null, lastPingTime=null;
 const PING_INTERVAL_MS=10000; // native: persist a ping at most every 10s
 let hasComment=false, hasPhoto=false;
 let updates=[];
@@ -318,6 +318,25 @@ async function recordPing(lat,lng,accuracy){
   }catch(e){}
 }
 
+// Carer-side: read pings back from the DB (the native service's source of truth) so the
+// map/stats reflect everything recorded — including while the app was backgrounded.
+async function loadPingsFromDb(full){
+  if(!walkSession) return;
+  if(full){ gpsPoints=[]; lastPingTime=null; if(polyline) polyline.setLatLngs([]); }
+  const q = lastPingTime
+    ? `walk_session_id=eq.${walkSession.id}&recorded_at=gt.${encodeURIComponent(lastPingTime)}&order=recorded_at.asc&select=*`
+    : `walk_session_id=eq.${walkSession.id}&order=recorded_at.asc&select=*`;
+  let rows=[];
+  try{ rows=await sbGet('gps_pings', q); }catch(e){ return; }
+  rows.forEach(p=>{
+    gpsPoints.push({lat:p.lat,lng:p.lng,acc:p.accuracy_metres});
+    if(!map) initMap(p.lat,p.lng);
+    updateMap(p.lat,p.lng);
+  });
+  if(rows.length) lastPingTime=rows[rows.length-1].recorded_at;
+  updateStats();
+}
+
 async function startGpsTracking(){
   if(isNative()) return startNativeGpsTracking();
   // Web fallback — unchanged behaviour (records every fix).
@@ -345,15 +364,19 @@ async function startNativeGpsTracking(){
         intervalMs: PING_INTERVAL_MS
       });
       nativeTracking = true;
+      // The native service persists pings; the carer's map/stats poll them back from the DB
+      // so the screen matches what's recorded, even after the app was backgrounded.
+      await loadPingsFromDb(false);
+      pollInterval = setInterval(()=>loadPingsFromDb(false), 8000);
+      return;
     }catch(e){ showMsg('Could not start background tracking: '+((e&&e.message)||e),'error'); }
   }
-  // Live map while on-screen. If the native plugin isn't available (e.g. iOS or an
-  // un-synced build), nativeTracking stays false and recordPing persists from JS as a
-  // foreground-only fallback so the walk still works.
+  // Fallback (iOS / un-synced build / plugin missing): JS foreground-only tracking,
+  // persisting each fix from JS via recordPing.
   if(navigator.geolocation){
     watchId=navigator.geolocation.watchPosition(
       (pos)=>recordPing(pos.coords.latitude,pos.coords.longitude,pos.coords.accuracy),
-      ()=>{},
+      (err)=>{showMsg('GPS error: '+err.message,'error');},
       {enableHighAccuracy:true,maximumAge:5000,timeout:15000}
     );
   }
@@ -452,8 +475,11 @@ async function endWalk(){
     nativeTracking=false;
     if(watchId!==null) navigator.geolocation.clearWatch(watchId);
     if(timerInterval) clearInterval(timerInterval);
+    if(pollInterval) clearInterval(pollInterval);
     if(wakeLock){try{wakeLock.release();}catch(e){}}
 
+    // Pull the full set of persisted pings so the summary distance/route are accurate.
+    await loadPingsFromDb(true);
     const dist=getTotalDistance();
     const dur=getElapsedSeconds();
 
@@ -675,6 +701,7 @@ async function init(){
       await requestWakeLock();
     } else if(sessions.length && sessions[0].status==='completed'){
       walkSession=sessions[0];
+      await loadPingsFromDb(true);
       renderSummary();
     } else {
       renderPreWalk();
