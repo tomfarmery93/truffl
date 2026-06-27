@@ -1016,6 +1016,9 @@ function mgCarerCardHtml(b) {
   const dog = esc(s._pet_names || b._pet_label || 'their dog');
   const serviceLabel = SERVICE_LABELS[s._service_type || b._service_type] || 'Service';
   const priceLine = s.locked_price_cents != null ? `<div class="bc-time">$${priceToDollars(s.locked_price_cents)} per service · locked</div>` : '';
+  // Customer marks the M&G complete (status -> completed); the series stays
+  // pending_meet_greet until they proceed. So a completed M&G = "met, waiting on the owner".
+  const met = b.status === 'completed';
 
   let actions;
   if (mgBowOutSel[b.series_id]) {
@@ -1026,6 +1029,13 @@ function mgCarerCardHtml(b) {
       <button class="bc-btn decline" onclick="carerBowOutStart('${b.series_id}')">This one isn't the right fit for me</button>`;
   }
 
+  const statusBlock = met
+    ? `<div class="checkin-prompt ok">✓ Meet &amp; greet complete — waiting for ${owner} to confirm and go ahead</div>`
+    : '';
+  const blurb = met
+    ? `<p class="bc-notes" style="font-style:normal;">Nice — you've met ${owner} and ${dog}. They just need to confirm to start the bookings; we'll let you know as soon as they do. Nothing more for you to do right now.</p>`
+    : `<p class="bc-notes" style="font-style:normal;">A free, no-commitment hello before the first paid ${esc(SERVICE_NATURAL[s._service_type || b._service_type] || 'visit')}. Arrange a time in your messages — ${owner} marks it complete once you've met.</p>`;
+
   return `
     <div class="booking-card">
       <div class="bc-info">
@@ -1034,8 +1044,9 @@ function mgCarerCardHtml(b) {
         <span class="bc-service">${serviceLabel}</span>
         <div class="bc-time">Proposed: ${esc(mgProposedText(s))}</div>
         ${priceLine}
+        ${statusBlock}
         ${bookingDetailsHtml(b)}
-        <p class="bc-notes" style="font-style:normal;">A free, no-commitment hello before the first paid ${esc(SERVICE_NATURAL[s._service_type || b._service_type] || 'visit')}. Arrange a time in your messages — ${owner} marks it complete once you've met.</p>
+        ${blurb}
       </div>
       <div class="bc-actions">${actions}</div>
     </div>`;
