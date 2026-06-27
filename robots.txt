@@ -1,0 +1,16 @@
+User-agent: *
+Allow: /
+
+# Authenticated / app pages — no SEO value, keep out of the index
+Disallow: /dashboard/
+Disallow: /book/
+Disallow: /walk/
+Disallow: /track/
+Disallow: /messages/
+Disallow: /my/
+Disallow: /profile/
+Disallow: /login/
+Disallow: /review/
+Disallow: /www/
+
+Sitemap: https://trufflpets.com/sitemap.xml
