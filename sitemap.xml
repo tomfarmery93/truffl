@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+  <url><loc>https://trufflpets.com/</loc><changefreq>weekly</changefreq><priority>1.0</priority></url>
+  <url><loc>https://trufflpets.com/about-us/</loc><changefreq>monthly</changefreq><priority>0.7</priority></url>
+  <url><loc>https://trufflpets.com/register/</loc><changefreq>monthly</changefreq><priority>0.8</priority></url>
+  <url><loc>https://trufflpets.com/search/</loc><changefreq>weekly</changefreq><priority>0.6</priority></url>
+  <url><loc>https://trufflpets.com/privacy/</loc><changefreq>yearly</changefreq><priority>0.3</priority></url>
+
+  <url><loc>https://trufflpets.com/trust-and-safety/</loc><changefreq>monthly</changefreq><priority>0.7</priority></url>
+  <url><loc>https://trufflpets.com/trust-and-safety/choosing-your-carer/</loc><changefreq>monthly</changefreq><priority>0.5</priority></url>
+  <url><loc>https://trufflpets.com/trust-and-safety/getting-ready/</loc><changefreq>monthly</changefreq><priority>0.5</priority></url>
+  <url><loc>https://trufflpets.com/trust-and-safety/following-along-with-gps/</loc><changefreq>monthly</changefreq><priority>0.5</priority></url>
+  <url><loc>https://trufflpets.com/trust-and-safety/if-something-goes-wrong/</loc><changefreq>monthly</changefreq><priority>0.5</priority></url>
+  <url><loc>https://trufflpets.com/trust-and-safety/keeping-it-on-truffl/</loc><changefreq>monthly</changefreq><priority>0.5</priority></url>
+  <url><loc>https://trufflpets.com/trust-and-safety/reporting-a-concern/</loc><changefreq>monthly</changefreq><priority>0.5</priority></url>
+
+  <url><loc>https://trufflpets.com/carer-guidelines/</loc><changefreq>monthly</changefreq><priority>0.5</priority></url>
+  <url><loc>https://trufflpets.com/carer-guidelines/your-commitments/</loc><changefreq>monthly</changefreq><priority>0.4</priority></url>
+  <url><loc>https://trufflpets.com/carer-guidelines/meet-and-greets/</loc><changefreq>monthly</changefreq><priority>0.4</priority></url>
+  <url><loc>https://trufflpets.com/carer-guidelines/keeping-owners-in-the-loop/</loc><changefreq>monthly</changefreq><priority>0.4</priority></url>
+  <url><loc>https://trufflpets.com/carer-guidelines/emergencies-and-safety/</loc><changefreq>monthly</changefreq><priority>0.4</priority></url>
+  <url><loc>https://trufflpets.com/carer-guidelines/vetting-and-cover/</loc><changefreq>monthly</changefreq><priority>0.4</priority></url>
+  <url><loc>https://trufflpets.com/carer-guidelines/reporting-a-concern/</loc><changefreq>monthly</changefreq><priority>0.4</priority></url>
+</urlset>
