@@ -8,7 +8,8 @@
 // Actions:
 //   connect_onboard - get/create the carer's Express account, return a Stripe onboarding URL
 //   connect_status  - retrieve the account, persist payouts/charges readiness, return it
-//   setup_intent    - (Phase 2) save a customer card off-session
+//   setup_intent    - get/create the customer's Stripe Customer, return a SetupIntent secret
+//   set_default_pm  - set the just-saved card as the customer's default payment method
 //
 // Required function secrets (Supabase → Edge Functions → Secrets):
 //   STRIPE_SECRET_KEY   - sk_test_… (platform secret key)
@@ -63,6 +64,15 @@ async function getProvider(userId: string) {
   const { data } = await sb
     .from('provider_profiles')
     .select('id,user_id,stripe_account_id,payouts_enabled,charges_enabled')
+    .eq('user_id', userId)
+    .single();
+  return data;
+}
+
+async function getCustomer(userId: string) {
+  const { data } = await sb
+    .from('customer_profiles')
+    .select('id,user_id,stripe_customer_id')
     .eq('user_id', userId)
     .single();
   return data;
@@ -131,6 +141,39 @@ Deno.serve(async (req) => {
         details_submitted: !!acct.details_submitted,
         stripe_account_id: provider.stripe_account_id,
       });
+    }
+
+    if (action === 'setup_intent') {
+      // Save a customer's card off-session at the M&G proceed step (no charge here).
+      const customer = await getCustomer(user.id);
+      if (!customer) return json({ error: 'Not a customer account' }, 403);
+      let custId = customer.stripe_customer_id as string | null;
+      if (!custId) {
+        const c = await stripe('customers', 'POST', {
+          email: user.email,
+          metadata: { customer_profile_id: customer.id, user_id: user.id },
+        });
+        custId = c.id as string;
+        await sb.from('customer_profiles').update({ stripe_customer_id: custId }).eq('id', customer.id);
+      }
+      const si = await stripe('setup_intents', 'POST', {
+        customer: custId,
+        usage: 'off_session',
+        'payment_method_types[]': 'card',
+      });
+      return json({ client_secret: si.client_secret, customer_id: custId });
+    }
+
+    if (action === 'set_default_pm') {
+      // Make the just-saved card the customer's default so Phase 3 can charge it off-session.
+      const customer = await getCustomer(user.id);
+      if (!customer?.stripe_customer_id) return json({ error: 'No Stripe customer on file' }, 400);
+      const pm = String(payload.payment_method || '');
+      if (!pm) return json({ error: 'Missing payment_method' }, 400);
+      await stripe(`customers/${customer.stripe_customer_id}`, 'POST', {
+        'invoice_settings[default_payment_method]': pm,
+      });
+      return json({ ok: true });
     }
 
     return json({ error: `Unknown action: ${action}` }, 400);
