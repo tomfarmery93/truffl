@@ -1039,8 +1039,12 @@ function mgOverlay(html) {
   closeMgOverlay();
   const o = document.createElement('div');
   o.id = 'mgOverlay';
-  o.style.cssText = 'position:fixed;inset:0;background:rgba(40,30,25,.55);display:flex;align-items:center;justify-content:center;padding:1rem;z-index:1000;';
-  o.innerHTML = `<div class="form-card fade-in" style="max-width:460px;width:100%;margin:0;background:#fff;border-radius:14px;padding:1.5rem;">${html}</div>`;
+  // display:flex + child margin:auto centres the card when it fits; overflow-y:auto lets a
+  // tall modal (e.g. the Stripe Payment Element) scroll so its buttons stay reachable on
+  // short screens / the app WebView (TRU-147). Don't use align/justify centre here — that
+  // clips an overflowing card at top and bottom with no way to scroll to it.
+  o.style.cssText = 'position:fixed;inset:0;background:rgba(40,30,25,.55);display:flex;padding:1rem;z-index:1000;overflow-y:auto;';
+  o.innerHTML = `<div class="form-card fade-in" style="max-width:460px;width:100%;margin:auto;background:#fff;border-radius:14px;padding:1.5rem;">${html}</div>`;
   document.body.appendChild(o);
 }
 function closeMgOverlay() { const o = document.getElementById('mgOverlay'); if (o) o.remove(); }
