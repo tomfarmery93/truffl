@@ -146,6 +146,22 @@ async function buildMessages(type: string, payload: Record<string, unknown>) {
         footnote: "You're receiving this because you have a booking with Truffl Pets.",
       }),
     });
+  } else if (type === 'payment_failed') {
+    const d = await loadBooking(payload.booking_id as string);
+    if (!d.customer?.email) return out;
+    const amount = d.booking.total_cents ? `$${(d.booking.total_cents / 100).toFixed(2)}` : 'the amount due';
+    out.push({
+      to: d.customer.email,
+      subject: `Payment didn't go through for ${d.petName}'s ${d.serviceLabel.toLowerCase()}`,
+      html: layout({
+        preview: "We couldn't process your payment",
+        heading: "We couldn't process your payment",
+        body: p(`Hi ${esc(d.customer.first_name || 'there')}, we tried to charge ${amount} for ${esc(d.petName)}'s ${esc(d.serviceLabel.toLowerCase())} with ${esc(d.provider?.first_name || 'your carer')}, but it didn't go through — usually a small card issue.`) +
+          p('Pop back in and retry whenever you’re ready — it only takes a moment.'),
+        cta: { label: 'Retry payment', href: `${SITE}/profile/` },
+        footnote: 'Your carer has already provided the service, so please retry soon.',
+      }),
+    });
   } else if (type === 'walk_started') {
     const { data: ws } = await sb.from('walk_sessions').select('booking_id').eq('id', payload.walk_session_id as string).single();
     if (!ws) return out;
