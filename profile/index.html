@@ -10,6 +10,8 @@
 
   gtag('config', 'G-T2CPSDBJ1L');
 </script>
+<!-- Stripe.js for the meet & greet card form (TRU-144) -->
+<script src="https://js.stripe.com/v3/"></script>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta name="robots" content="noindex,nofollow">
@@ -225,6 +227,9 @@
 const SUPABASE_URL = 'https://gadflsntbnbnnxbpiral.supabase.co';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImdhZGZsc250Ym5ibm54YnBpcmFsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzUwNjcwNTcsImV4cCI6MjA5MDY0MzA1N30.g5ZrqeAX9U5l7oDZEbQFrU5j10828dUF0QuJ0ZlHXK8';
 
+// Stripe publishable (test) key — public by design, safe to ship client-side (TRU-144).
+const STRIPE_PK = 'pk_test_51TlHff1Sh4qkQvUZOXzfEFJzZcGilXp5JjaDQc3ksDFiF7iJSYSmanteWT9nDpVFiLtshU92hFucVAZzNyFvXgPX00z34gWOQA';
+
 const SERVICE_LABELS = {
   dog_walking:'Dog walking', dog_sitting:'Dog sitting', dog_boarding:'Dog boarding',
   pet_sitting:'Other pet sitting'
@@ -286,6 +291,13 @@ async function sbInsert(t, row) {
   const r = await fetch(`${SUPABASE_URL}/rest/v1/${t}`, { method: 'POST', headers: { ...h(authToken), 'Prefer': 'return=representation' }, body: JSON.stringify(row) });
   if (!r.ok) { const e = await r.json(); throw new Error(e.message); }
   return await r.json();
+}
+// Call a Supabase Edge Function (Stripe actions) as the logged-in user.
+async function sbFn(name, body) {
+  const r = await fetch(`${SUPABASE_URL}/functions/v1/${name}`, { method: 'POST', headers: h(authToken), body: JSON.stringify(body || {}) });
+  const data = await r.json().catch(() => ({}));
+  if (!r.ok) throw new Error(data.error || `Request failed (${r.status})`);
+  return data;
 }
 
 function esc(s) {
@@ -1033,23 +1045,50 @@ function mgOverlay(html) {
 }
 function closeMgOverlay() { const o = document.getElementById('mgOverlay'); if (o) o.remove(); }
 
-// Proceed: stubbed payment-method step (no card stored — Stripe Connect lands later),
-// then activate the series. The DB gate requires a completed M&G to allow this.
-function proceedMg(seriesId) {
+// Proceed: collect & save the customer's card via a Stripe SetupIntent (off-session, no
+// charge), then activate the series. The DB gate requires a completed M&G to allow this.
+// Each booking is charged on completion (Phase 3), off the saved card.
+let mgStripe = null, mgElements = null;
+async function proceedMg(seriesId) {
   mgOverlay(`
     <h2 style="margin-top:0;">Add a payment method</h2>
     <p style="font-size:0.9rem;">You're only ever charged after a service is finished — never before, and never for the meet &amp; greet.</p>
-    <div style="background:var(--cream,#fbf6ef);border:1px dashed var(--border);border-radius:10px;padding:1rem;margin:1rem 0;font-size:0.84rem;color:var(--text-muted);">Card payments are coming soon. During launch there's nothing to add — just confirm to go ahead.</div>
-    <div id="mgOverlayMsg" class="msg"></div>
+    <div id="mgPaymentElement" style="margin:1rem 0;min-height:40px;"></div>
+    <div id="mgOverlayMsg" class="msg" style="font-size:0.84rem;color:var(--text-muted);">Loading secure card form…</div>
     <div style="display:flex;gap:10px;justify-content:flex-end;flex-wrap:wrap;">
       <button class="btn-ghost" onclick="closeMgOverlay()">Not now</button>
-      <button class="btn-track" id="mgProceedConfirm" onclick="confirmProceedMg('${seriesId}')">Confirm and go ahead</button>
+      <button class="btn-track" id="mgProceedConfirm" onclick="confirmProceedMg('${seriesId}')" disabled>Save card &amp; go ahead</button>
     </div>`);
+  try {
+    if (!window.Stripe) throw new Error('Could not load the secure card form. Please refresh and try again.');
+    const { client_secret } = await sbFn('stripe-api', { action: 'setup_intent' });
+    mgStripe = mgStripe || Stripe(STRIPE_PK);
+    mgElements = mgStripe.elements({ clientSecret: client_secret, appearance: { theme: 'flat', variables: { colorPrimary: '#C4866A' } } });
+    const pe = mgElements.create('payment');
+    pe.mount('#mgPaymentElement');
+    pe.on('ready', () => {
+      const b = document.getElementById('mgProceedConfirm'); if (b) b.disabled = false;
+      const m = document.getElementById('mgOverlayMsg'); if (m) { m.textContent = ''; m.className = 'msg'; }
+    });
+  } catch (e) {
+    const m = document.getElementById('mgOverlayMsg'); if (m) { m.textContent = e.message; m.className = 'msg error'; }
+  }
 }
 async function confirmProceedMg(seriesId) {
   const btn = document.getElementById('mgProceedConfirm');
-  if (btn) { btn.disabled = true; btn.textContent = 'Confirming…'; }
+  const m = document.getElementById('mgOverlayMsg');
+  if (btn) { btn.disabled = true; btn.textContent = 'Saving…'; }
+  if (m) { m.textContent = ''; m.className = 'msg'; }
   try {
+    if (!mgStripe || !mgElements) throw new Error('Card form not ready — please try again.');
+    // Save the card, no charge. redirect:'if_required' keeps card flows in-page.
+    const { error, setupIntent } = await mgStripe.confirmSetup({ elements: mgElements, redirect: 'if_required' });
+    if (error) throw new Error(error.message || 'Could not save your card.');
+    // Make it the default so the per-booking charge on completion can use it off-session.
+    if (setupIntent && setupIntent.payment_method) {
+      try { await sbFn('stripe-api', { action: 'set_default_pm', payment_method: setupIntent.payment_method }); } catch (e) { /* non-fatal */ }
+    }
+    // Activate the series — the server-side M&G gate is still enforced.
     await sbPatch('booking_series', 'id', seriesId, { status: 'active' });
     const s = seriesById[seriesId];
     if (s) s.status = 'active';
@@ -1062,9 +1101,8 @@ async function confirmProceedMg(seriesId) {
       <p>Wonderful. ${carer} can't wait to spend time with ${dog}. Your ${esc(svcNat)} starts ${startTxt}, and you're only ever charged once a service is done, never a moment before.</p>
       <div style="display:flex;justify-content:flex-end;"><button class="btn-track" onclick="closeMgOverlay();reloadBookings()">Done</button></div>`);
   } catch(e) {
-    const m = document.getElementById('mgOverlayMsg');
     if (m) { m.textContent = e.message; m.className = 'msg error'; }
-    if (btn) { btn.disabled = false; btn.textContent = 'Confirm and go ahead'; }
+    if (btn) { btn.disabled = false; btn.textContent = 'Save card & go ahead'; }
   }
 }
 
