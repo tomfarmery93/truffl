@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Admin · Refunds — Truffl Pets</title>
+<meta name="robots" content="noindex,nofollow">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@500;600&display=swap" rel="stylesheet">
+<style>
+  :root{--cream:#F7F3EE;--brown:#5C4033;--terracotta:#C4866A;--border:#E7DFD6;--text:#3A2E28;--muted:#7A6860;--success:#5B8C5A;--error:#b3261e;}
+  *{box-sizing:border-box;}
+  body{margin:0;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;background:var(--cream);color:var(--text);}
+  .wrap{max-width:820px;margin:0 auto;padding:24px 16px 64px;}
+  h1{font-family:'Cormorant Garamond',Georgia,serif;font-weight:500;color:var(--brown);font-size:1.9rem;margin:0 0 4px;}
+  .sub{color:var(--muted);font-size:0.9rem;margin:0 0 24px;line-height:1.5;}
+  .card{background:#fff;border:1px solid var(--border);border-radius:12px;padding:14px 16px;margin-bottom:10px;}
+  .row-top{display:flex;justify-content:space-between;gap:12px;align-items:baseline;flex-wrap:wrap;}
+  .amount{font-weight:600;color:var(--brown);}
+  .meta{font-size:0.84rem;color:var(--muted);margin-top:2px;}
+  .badge{display:inline-block;font-size:0.68rem;font-weight:700;text-transform:uppercase;letter-spacing:.04em;padding:2px 8px;border-radius:20px;vertical-align:middle;margin-left:6px;}
+  .b-paid{background:#e7f1e6;color:var(--success);}
+  .b-failed{background:#fdeeee;color:#9a3b3b;}
+  .b-refunded{background:#f0ebe4;color:var(--muted);}
+  button{font:inherit;cursor:pointer;border-radius:8px;padding:8px 14px;border:1px solid var(--terracotta);background:var(--terracotta);color:#fff;font-size:0.86rem;}
+  button:disabled{opacity:.55;cursor:default;}
+  .actions{margin-top:10px;display:flex;gap:8px;align-items:center;flex-wrap:wrap;}
+  input.reason{font:inherit;padding:7px 10px;border:1px solid var(--border);border-radius:8px;flex:1;min-width:160px;}
+  .msg{font-size:0.85rem;margin:8px 0;min-height:1em;}
+  .msg.error{color:var(--error);}
+  .msg.ok{color:var(--success);}
+  .empty{color:var(--muted);text-align:center;padding:40px 0;}
+  .empty a{color:var(--terracotta);}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>Refunds</h1>
+  <p class="sub">Recent charges. Refunding returns the full amount to the customer and reverses the carer's payout (including the platform fee).</p>
+  <div id="msg" class="msg"></div>
+  <div id="list"><p class="empty">Loading…</p></div>
+</div>
+<script>
+const SUPABASE_URL = 'https://gadflsntbnbnnxbpiral.supabase.co';
+const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImdhZGZsc250Ym5ibm54YnBpcmFsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzUwNjcwNTcsImV4cCI6MjA5MDY0MzA1N30.g5ZrqeAX9U5l7oDZEbQFrU5j10828dUF0QuJ0ZlHXK8';
+let authToken = null;
+try { const s = JSON.parse(localStorage.getItem('truffl_session') || 'null'); if (s) authToken = s.access_token; } catch (e) {}
+
+function h(t) { const o = { 'Content-Type':'application/json', 'apikey':SUPABASE_ANON_KEY, 'Authorization':'Bearer ' + SUPABASE_ANON_KEY }; if (t) o['Authorization'] = 'Bearer ' + t; return o; }
+async function sbFn(name, body) {
+  const r = await fetch(`${SUPABASE_URL}/functions/v1/${name}`, { method:'POST', headers:h(authToken), body:JSON.stringify(body || {}) });
+  const d = await r.json().catch(() => ({}));
+  if (!r.ok) throw new Error(d.error || ('Request failed (' + r.status + ')'));
+  return d;
+}
+function esc(s) { return (s || '').toString().replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+function money(c) { return '$' + ((c || 0) / 100).toFixed(2); }
+function when(iso) { if (!iso) return ''; try { return new Date(iso).toLocaleDateString('en-AU', { day:'numeric', month:'short', year:'numeric' }); } catch (e) { return ''; } }
+function showMsg(t, type) { const m = document.getElementById('msg'); m.textContent = t || ''; m.className = 'msg' + (type ? ' ' + type : ''); }
+
+function cardHtml(c) {
+  const cls = c.payment_status === 'paid' ? 'b-paid' : c.payment_status === 'failed' ? 'b-failed' : 'b-refunded';
+  const dateStr = c.charged_at ? when(c.charged_at) : when(c.scheduled_at);
+  const ctl = c.payment_status === 'paid'
+    ? `<div class="actions"><input class="reason" id="reason-${c.id}" placeholder="Reason (optional)"><button onclick="refund('${c.id}')">Refund ${money(c.total_cents)}</button></div>`
+    : c.payment_status === 'refunded'
+      ? `<div class="meta">Refunded${c.refunded_at ? ' · ' + when(c.refunded_at) : ''}</div>`
+      : `<div class="meta">Charge failed — awaiting customer retry</div>`;
+  return `<div class="card" id="card-${c.id}">
+    <div class="row-top"><div><span class="amount">${money(c.total_cents)}</span><span class="badge ${cls}">${c.payment_status}</span></div><div class="meta">${dateStr}</div></div>
+    <div class="meta">${esc(c.customer)} &rarr; ${esc(c.carer)}</div>
+    ${ctl}
+  </div>`;
+}
+
+async function load() {
+  const list = document.getElementById('list');
+  if (!authToken) { list.innerHTML = '<p class="empty">Please <a href="/login/?redirect=/admin/">sign in</a> as an admin.</p>'; return; }
+  try {
+    const { charges } = await sbFn('stripe-api', { action:'list_recent_charges' });
+    list.innerHTML = (charges && charges.length) ? charges.map(cardHtml).join('') : '<p class="empty">No charges yet.</p>';
+  } catch (e) {
+    list.innerHTML = `<p class="empty">${e.message === 'Not authorised' ? "You don't have access to this page." : esc(e.message)}</p>`;
+  }
+}
+
+async function refund(id) {
+  if (!confirm("Refund this booking in full? This returns the money to the customer and reverses the carer's payout.")) return;
+  const reasonEl = document.getElementById('reason-' + id);
+  const reason = reasonEl ? reasonEl.value : '';
+  const card = document.getElementById('card-' + id);
+  const btn = card ? card.querySelector('button') : null;
+  if (btn) { btn.disabled = true; btn.textContent = 'Refunding…'; }
+  showMsg('');
+  try {
+    await sbFn('stripe-api', { action:'refund_booking', booking_id:id, reason });
+    showMsg('Refunded ✓', 'ok');
+    await load();
+  } catch (e) {
+    showMsg(e.message, 'error');
+    if (btn) { btn.disabled = false; btn.textContent = 'Refund'; }
+  }
+}
+load();
+</script>
+</body>
+</html>

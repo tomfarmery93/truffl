@@ -12,6 +12,8 @@
 //   set_default_pm  - set the just-saved card as the customer's default payment method
 //   retry_charge    - recover a failed charge on-session (returns a PaymentIntent secret)
 //   sync_payment    - reconcile a booking's payment_status from its PaymentIntent
+//   list_recent_charges - (admin) recent paid/failed/refunded bookings for the admin page
+//   refund_booking  - (admin) refund a paid booking + reverse the carer's transfer
 //
 // Required function secrets (Supabase → Edge Functions → Secrets):
 //   STRIPE_SECRET_KEY   - sk_test_… (platform secret key)
@@ -80,6 +82,11 @@ async function getCustomer(userId: string) {
     .eq('user_id', userId)
     .single();
   return data;
+}
+
+async function isAdmin(userId: string) {
+  const { data } = await sb.from('users').select('is_admin').eq('id', userId).single();
+  return !!data?.is_admin;
 }
 
 Deno.serve(async (req) => {
@@ -239,6 +246,64 @@ Deno.serve(async (req) => {
         return json({ payment_status: 'failed' });
       }
       return json({ payment_status: b.payment_status, pi_status: pi.status });
+    }
+
+    if (action === 'list_recent_charges') {
+      if (!(await isAdmin(user.id))) return json({ error: 'Not authorised' }, 403);
+      const { data } = await sb.from('bookings')
+        .select('id,total_cents,payment_status,charged_at,refunded_at,scheduled_at,customer_id,provider_id')
+        .in('payment_status', ['paid', 'failed', 'refunded'])
+        .order('updated_at', { ascending: false })
+        .limit(50);
+      const rows = data || [];
+      const NONE = ['00000000-0000-0000-0000-000000000000'];
+      const custIds = [...new Set(rows.map((r) => r.customer_id))];
+      const provIds = [...new Set(rows.map((r) => r.provider_id))];
+      const [{ data: cps }, { data: pps }] = await Promise.all([
+        sb.from('customer_profiles').select('id,user_id').in('id', custIds.length ? custIds : NONE),
+        sb.from('provider_profiles').select('id,user_id').in('id', provIds.length ? provIds : NONE),
+      ]);
+      const custUser = Object.fromEntries((cps || []).map((c) => [c.id, c.user_id]));
+      const provUser = Object.fromEntries((pps || []).map((p) => [p.id, p.user_id]));
+      const userIds = [...new Set([...Object.values(custUser), ...Object.values(provUser)])] as string[];
+      const { data: us } = await sb.from('users').select('id,first_name,last_name').in('id', userIds.length ? userIds : NONE);
+      const nameBy = Object.fromEntries((us || []).map((u) => [u.id, `${u.first_name || ''} ${u.last_name || ''}`.trim()]));
+      const charges = rows.map((r) => ({
+        id: r.id,
+        total_cents: r.total_cents,
+        payment_status: r.payment_status,
+        charged_at: r.charged_at,
+        refunded_at: r.refunded_at,
+        scheduled_at: r.scheduled_at,
+        customer: nameBy[custUser[r.customer_id]] || 'Customer',
+        carer: nameBy[provUser[r.provider_id]] || 'Carer',
+      }));
+      return json({ charges });
+    }
+
+    if (action === 'refund_booking') {
+      if (!(await isAdmin(user.id))) return json({ error: 'Not authorised' }, 403);
+      const bookingId = String(payload.booking_id || '');
+      const { data: b } = await sb.from('bookings')
+        .select('id,payment_status,stripe_payment_intent_id')
+        .eq('id', bookingId).single();
+      if (!b) return json({ error: 'Booking not found' }, 404);
+      if (b.payment_status !== 'paid' || !b.stripe_payment_intent_id) {
+        return json({ error: 'Only a paid booking can be refunded' }, 400);
+      }
+      // Full refund: customer gets 100% back, the carer's transfer is reversed, and the
+      // platform application fee is returned too.
+      const refundBody: Record<string, unknown> = {
+        payment_intent: b.stripe_payment_intent_id,
+        reverse_transfer: true,
+        refund_application_fee: true,
+      };
+      if (payload.reason) refundBody['metadata[reason]'] = String(payload.reason);
+      const refund = await stripe('refunds', 'POST', refundBody);
+      await sb.from('bookings')
+        .update({ payment_status: 'refunded', refunded_at: new Date().toISOString(), stripe_refund_id: refund.id })
+        .eq('id', bookingId);
+      return json({ ok: true, refund_id: refund.id });
     }
 
     return json({ error: `Unknown action: ${action}` }, 400);
