@@ -824,6 +824,13 @@ function bookingDetailsHtml(b) {
   return rows.length ? `<div class="bc-detail">${rows.join('')}</div>` : '';
 }
 
+// Payment state shown to the carer on completed bookings (TRU-150).
+function carerPayLine(b) {
+  if (b.payment_status === 'paid') return `<div class="bc-time" style="color:var(--success);">Paid ✓</div>`;
+  if (b.payment_status === 'refunded') return `<div class="bc-time" style="color:var(--text-muted);">Refunded</div>`;
+  if (b.payment_status === 'failed') return `<div class="bc-time" style="color:#9a3b3b;">Awaiting payment</div>`;
+  return '';
+}
 function renderBookingsTab() {
   const pending = bookings.filter(b => b.status === 'pending' && !b.is_meet_and_greet);
   const confirmed = bookings.filter(b => b.status === 'confirmed' && !b.is_meet_and_greet);
@@ -924,6 +931,7 @@ function renderBookingsTab() {
           <div class="bc-pet">${b._pet_label || 'Pet'}</div>
           <span class="bc-service">${SERVICE_LABELS[b._service_type] || b._service_type || 'Service'}</span>
           <div class="bc-time">${bookingTimeLine(b)}</div>
+          ${carerPayLine(b)}
         </div>
         <div class="bc-actions">
           <button class="bc-btn message" onclick="window.location.href='/walk/?booking=${b.id}'">View summary</button>
