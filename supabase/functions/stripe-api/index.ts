@@ -10,6 +10,8 @@
 //   connect_status  - retrieve the account, persist payouts/charges readiness, return it
 //   setup_intent    - get/create the customer's Stripe Customer, return a SetupIntent secret
 //   set_default_pm  - set the just-saved card as the customer's default payment method
+//   retry_charge    - recover a failed charge on-session (returns a PaymentIntent secret)
+//   sync_payment    - reconcile a booking's payment_status from its PaymentIntent
 //
 // Required function secrets (Supabase → Edge Functions → Secrets):
 //   STRIPE_SECRET_KEY   - sk_test_… (platform secret key)
@@ -21,6 +23,8 @@ const STRIPE_SECRET_KEY = Deno.env.get('STRIPE_SECRET_KEY')!;
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!;
 const SERVICE_ROLE = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
 const SITE = 'https://trufflpets.com';
+// Platform take rate in basis points (matches charge-booking). 1500 = 15%; set 0 at launch.
+const PLATFORM_FEE_BPS = 1500;
 
 const sb = createClient(SUPABASE_URL, SERVICE_ROLE);
 
@@ -174,6 +178,67 @@ Deno.serve(async (req) => {
         'invoice_settings[default_payment_method]': pm,
       });
       return json({ ok: true });
+    }
+
+    if (action === 'retry_charge') {
+      // Customer recovers a failed off-session charge on-session (can fix/replace the card).
+      const customer = await getCustomer(user.id);
+      if (!customer) return json({ error: 'Not a customer account' }, 403);
+      const bookingId = String(payload.booking_id || '');
+      const { data: b } = await sb.from('bookings')
+        .select('id,total_cents,provider_id,is_meet_and_greet,payment_status')
+        .eq('id', bookingId).eq('customer_id', customer.id).single();
+      if (!b) return json({ error: 'Booking not found' }, 404);
+      if (b.is_meet_and_greet || (b.total_cents || 0) <= 0) return json({ error: 'Nothing to pay' }, 400);
+      if (b.payment_status !== 'failed') return json({ error: 'This booking is not awaiting payment' }, 400);
+      if (!customer.stripe_customer_id) return json({ error: 'No payment profile on file' }, 400);
+      const { data: pp } = await sb.from('provider_profiles').select('stripe_account_id').eq('id', b.provider_id).single();
+      if (!pp?.stripe_account_id) return json({ error: 'Carer has no payout account' }, 400);
+
+      const fee = Math.round((b.total_cents * PLATFORM_FEE_BPS) / 10000);
+      const piBody: Record<string, unknown> = {
+        amount: b.total_cents,
+        currency: 'aud',
+        customer: customer.stripe_customer_id,
+        'transfer_data[destination]': pp.stripe_account_id,
+        'payment_method_types[]': 'card',
+        setup_future_usage: 'off_session', // save the working card for future charges
+        'metadata[booking_id]': bookingId,
+      };
+      if (fee > 0) piBody['application_fee_amount'] = fee;
+      // No confirm — the client confirms with the Payment Element so a new card / 3DS works.
+      const pi = await stripe('payment_intents', 'POST', piBody);
+      await sb.from('bookings').update({ stripe_payment_intent_id: pi.id, application_fee_cents: fee }).eq('id', bookingId);
+      return json({ client_secret: pi.client_secret });
+    }
+
+    if (action === 'sync_payment') {
+      // Reconcile a booking's payment from its PaymentIntent after the client confirms
+      // (webhook-independent). Used by the retry flow.
+      const customer = await getCustomer(user.id);
+      if (!customer) return json({ error: 'Not a customer account' }, 403);
+      const bookingId = String(payload.booking_id || '');
+      const { data: b } = await sb.from('bookings')
+        .select('id,stripe_payment_intent_id,payment_status')
+        .eq('id', bookingId).eq('customer_id', customer.id).single();
+      if (!b) return json({ error: 'Booking not found' }, 404);
+      if (!b.stripe_payment_intent_id) return json({ payment_status: b.payment_status });
+      const pi = await stripe(`payment_intents/${b.stripe_payment_intent_id}`, 'GET');
+      if (pi.status === 'succeeded') {
+        await sb.from('bookings')
+          .update({ payment_status: 'paid', charged_at: new Date().toISOString() })
+          .eq('id', bookingId).neq('payment_status', 'paid');
+        // Make the card that worked the customer's default for future off-session charges.
+        if (pi.payment_method && customer.stripe_customer_id) {
+          try { await stripe(`customers/${customer.stripe_customer_id}`, 'POST', { 'invoice_settings[default_payment_method]': pi.payment_method }); } catch (_e) { /* non-fatal */ }
+        }
+        return json({ payment_status: 'paid' });
+      }
+      if (pi.status === 'requires_payment_method' || pi.status === 'canceled') {
+        await sb.from('bookings').update({ payment_status: 'failed' }).eq('id', bookingId).neq('payment_status', 'paid');
+        return json({ payment_status: 'failed' });
+      }
+      return json({ payment_status: b.payment_status, pi_status: pi.status });
     }
 
     return json({ error: `Unknown action: ${action}` }, 400);

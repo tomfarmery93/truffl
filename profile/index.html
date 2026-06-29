@@ -427,13 +427,25 @@ function actionButtons(b) {
     return `<button class="btn-ghost danger" onclick="showCancelConfirm('${b.id}')">Cancel</button>`;
   }
   if (b.status === 'completed') {
+    const retryBtn = b.payment_status === 'failed'
+      ? `<button class="btn-track" onclick="retryPayment('${b.id}')">Retry payment</button>` : '';
     const reviewBtn = b._has_review
       ? `<a href="/review/?booking=${b.id}" class="btn-ghost">Edit review</a>`
-      : `<a href="/review/?booking=${b.id}" class="btn-track">Leave a review</a>`;
+      : `<a href="/review/?booking=${b.id}" class="${retryBtn ? 'btn-ghost' : 'btn-track'}">Leave a review</a>`;
     const viewWalk = `<a href="/track/?booking=${b.id}" class="btn-ghost">View walk</a>`;
     const bookAgain = b._provider_user_id ? `<a href="/book/?provider=${b._provider_user_id}" class="btn-ghost">Book again</a>` : '';
-    return [reviewBtn, viewWalk, bookAgain].filter(Boolean).join('');
+    return [retryBtn, reviewBtn, viewWalk, bookAgain].filter(Boolean).join('');
   }
+  return '';
+}
+// Per-booking payment state shown on completed bookings (TRU-149).
+function paymentNotice(b) {
+  if (b.status !== 'completed' || !b.payment_status) return '';
+  if (b.payment_status === 'failed') {
+    return `<div style="margin-bottom:10px;background:#fdeeee;border:1px solid #f3c9c9;border-radius:8px;padding:8px 12px;font-size:0.82rem;color:#9a3b3b;">Payment didn't go through — retry below to complete it.</div>`;
+  }
+  if (b.payment_status === 'refunded') return `<div style="margin-bottom:10px;font-size:0.8rem;color:var(--text-muted);">Refunded</div>`;
+  if (b.payment_status === 'paid') return `<div style="margin-bottom:10px;font-size:0.8rem;color:var(--success,#5B8C5A);">Paid ✓</div>`;
   return '';
 }
 function cancelConfirmHtml(b) {
@@ -569,6 +581,7 @@ function bookingCardHtml(b) {
       <div class="bc-meta">${serviceLabel} · ${provLabel}</div>
       <div class="bc-time">${esc(dateStr)}</div>
       ${statusBadge(b.status)}
+      ${paymentNotice(b)}
       <div class="bc-actions">${actions}${msgLink}</div>
     </div>
   `;
@@ -1107,6 +1120,56 @@ async function confirmProceedMg(seriesId) {
   } catch(e) {
     if (m) { m.textContent = e.message; m.className = 'msg error'; }
     if (btn) { btn.disabled = false; btn.textContent = 'Save card & go ahead'; }
+  }
+}
+
+// Retry a failed charge on-session (TRU-149) — reuses the Stripe Payment Element plumbing.
+async function retryPayment(bookingId) {
+  mgOverlay(`
+    <h2 style="margin-top:0;">Retry payment</h2>
+    <p style="font-size:0.9rem;">Your last payment didn't go through. Pop your card in to complete it — your carer's already done the work.</p>
+    <div id="mgPaymentElement" style="margin:1rem 0;min-height:40px;"></div>
+    <div id="mgOverlayMsg" class="msg" style="font-size:0.84rem;color:var(--text-muted);">Loading secure card form…</div>
+    <div style="display:flex;gap:10px;justify-content:flex-end;flex-wrap:wrap;">
+      <button class="btn-ghost" onclick="closeMgOverlay()">Not now</button>
+      <button class="btn-track" id="mgPayConfirm" onclick="confirmRetryPayment('${bookingId}')" disabled>Pay now</button>
+    </div>`);
+  try {
+    if (!window.Stripe) throw new Error('Could not load the secure card form. Please refresh and try again.');
+    const { client_secret } = await sbFn('stripe-api', { action: 'retry_charge', booking_id: bookingId });
+    mgStripe = mgStripe || Stripe(STRIPE_PK);
+    mgElements = mgStripe.elements({ clientSecret: client_secret, appearance: { theme: 'flat', variables: { colorPrimary: '#C4866A' } } });
+    const pe = mgElements.create('payment');
+    pe.mount('#mgPaymentElement');
+    pe.on('ready', () => {
+      const b = document.getElementById('mgPayConfirm'); if (b) b.disabled = false;
+      const m = document.getElementById('mgOverlayMsg'); if (m) { m.textContent = ''; m.className = 'msg'; }
+    });
+  } catch (e) {
+    const m = document.getElementById('mgOverlayMsg'); if (m) { m.textContent = e.message; m.className = 'msg error'; }
+  }
+}
+async function confirmRetryPayment(bookingId) {
+  const btn = document.getElementById('mgPayConfirm');
+  const m = document.getElementById('mgOverlayMsg');
+  if (btn) { btn.disabled = true; btn.textContent = 'Paying…'; }
+  if (m) { m.textContent = ''; m.className = 'msg'; }
+  try {
+    if (!mgStripe || !mgElements) throw new Error('Card form not ready — please try again.');
+    const { error } = await mgStripe.confirmPayment({ elements: mgElements, redirect: 'if_required' });
+    if (error) throw new Error(error.message || 'Payment failed.');
+    const res = await sbFn('stripe-api', { action: 'sync_payment', booking_id: bookingId });
+    if (res.payment_status === 'paid') {
+      mgOverlay(`
+        <h2 style="margin-top:0;">Payment complete</h2>
+        <p>Thank you — that's all sorted, and your carer has been paid.</p>
+        <div style="display:flex;justify-content:flex-end;"><button class="btn-track" onclick="closeMgOverlay();reloadBookings()">Done</button></div>`);
+    } else {
+      throw new Error("That payment didn't go through either — try a different card.");
+    }
+  } catch (e) {
+    if (m) { m.textContent = e.message; m.className = 'msg error'; }
+    if (btn) { btn.disabled = false; btn.textContent = 'Pay now'; }
   }
 }
 
