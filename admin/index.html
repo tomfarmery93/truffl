@@ -48,6 +48,7 @@
   .login label{display:block;font-size:0.82rem;color:var(--muted);margin-bottom:5px;}
   .login button{width:100%;margin-top:6px;}
 </style>
+  <script src="/session.js"></script>
 </head>
 <body>
 <div id="app"><p class="empty" style="padding-top:12vh;">Loading…</p></div>
@@ -120,7 +121,7 @@ async function onLogin(e) {
     const ur = await fetch(`${SUPABASE_URL}/rest/v1/users?id=eq.${authUid}&select=role,is_admin`, { headers:h(authToken) });
     const us = await ur.json().catch(() => []);
     if (!us[0] || !us[0].is_admin) { authToken = null; authUid = null; throw new Error("This account doesn't have admin access."); }
-    localStorage.setItem('truffl_session', JSON.stringify({ access_token:authToken, user_id:authUid, role:us[0].role }));
+    localStorage.setItem('truffl_session', JSON.stringify({ access_token:authToken, refresh_token:d.refresh_token, user_id:authUid, role:us[0].role }));
     showConsole();
   } catch (err) {
     msg.textContent = err.message; msg.className = 'msg error';
