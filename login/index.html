@@ -249,6 +249,7 @@
     .page-header h1 { font-size: 1.8rem; }
   }
 </style>
+  <script src="/session.js"></script>
 </head>
 <body>
 
@@ -514,13 +515,13 @@ const sb = {
     const r = await fetch(`${SUPABASE_URL}/auth/v1/signup`, { method: 'POST', headers: { 'Content-Type': 'application/json', 'apikey': SUPABASE_ANON_KEY }, body: JSON.stringify({ email, password: pw, data: meta }) });
     const d = await r.json();
     if (d.error || d.msg) throw new Error(d.error?.message || d.msg || 'Signup failed');
-    this._token = d.access_token; this._uid = d.user?.id; return d;
+    this._token = d.access_token; this._refresh = d.refresh_token; this._uid = d.user?.id; return d;
   },
   async signIn(email, pw) {
     const r = await fetch(`${SUPABASE_URL}/auth/v1/token?grant_type=password`, { method: 'POST', headers: { 'Content-Type': 'application/json', 'apikey': SUPABASE_ANON_KEY }, body: JSON.stringify({ email, password: pw }) });
     const d = await r.json();
     if (d.error || d.msg) throw new Error(d.error_description || d.error?.message || d.msg || 'Login failed');
-    this._token = d.access_token; this._uid = d.user?.id; return d;
+    this._token = d.access_token; this._refresh = d.refresh_token; this._uid = d.user?.id; return d;
   },
   async insert(table, row) {
     const r = await fetch(`${SUPABASE_URL}/rest/v1/${table}`, { method: 'POST', headers: { ...this.headers(), 'Prefer': 'return=representation' }, body: JSON.stringify(row) });
@@ -606,7 +607,7 @@ async function doLogin() {
     await sb.signIn(email, pw);
     const users = await sb.get('users', `id=eq.${sb._uid}&select=role`);
     const role = users[0]?.role || 'customer';
-    localStorage.setItem('truffl_session', JSON.stringify({ access_token: sb._token, user_id: sb._uid, role: role }));
+    localStorage.setItem('truffl_session', JSON.stringify({ access_token: sb._token, refresh_token: sb._refresh, user_id: sb._uid, role: role }));
     const redirectTo = new URLSearchParams(window.location.search).get('redirect');
     if (redirectTo) window.location.href = redirectTo;
     else if (role === 'provider') window.location.href = '/dashboard/';
@@ -629,7 +630,7 @@ async function custStep1() {
   const btn = document.querySelector('#cStep1 .btn-primary'); setLoading(btn, true);
   try {
     await sb.signUp(email, pw, { first_name: fn, last_name: ln, phone, role: 'customer' });
-    localStorage.setItem('truffl_session', JSON.stringify({ access_token: sb._token, user_id: sb._uid }));
+    localStorage.setItem('truffl_session', JSON.stringify({ access_token: sb._token, refresh_token: sb._refresh, user_id: sb._uid }));
     if (sb._uid) { try { await sb.patch('users', 'id', sb._uid, { first_name: fn, last_name: ln, phone, role: 'customer' }); } catch(e){} }
     showStep('c', 2); updateSteps('c', 2, 3);
   } catch(e) { showMsg(e.message, 'error'); } finally { setLoading(btn, false); }
