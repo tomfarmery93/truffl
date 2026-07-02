@@ -107,6 +107,9 @@
   .cover-check{display:flex;gap:9px;align-items:flex-start;font-size:0.85rem;line-height:1.55;color:var(--text);margin:12px 0;}
   .cover-check input{margin-top:3px;flex-shrink:0;}
   .cover-meta{font-size:0.82rem;color:var(--text-muted);margin:4px 0 10px;}
+  /* TRU-139: fall-through note + manual credit banner */
+  .cover-note{margin-bottom:10px;background:#fdf3ec;border:1px solid #f0d9c8;border-radius:8px;padding:8px 12px;font-size:0.82rem;color:#8a5a3b;line-height:1.5;}
+  .credit-banner{background:var(--success-bg);border:1px solid #d3e3d2;border-radius:10px;padding:10px 14px;font-size:0.86rem;color:var(--sage-dark);margin-bottom:14px;}
   .btn-cancel-yes{padding:8px 14px;background:var(--error);color:white;border:none;border-radius:8px;font-size:0.82rem;font-weight:500;cursor:pointer;font-family:'DM Sans',sans-serif;}
   .btn-cancel-yes:hover{opacity:0.9;}
   .btn-cancel-keep{padding:8px 14px;background:transparent;border:1px solid var(--border);color:var(--text-muted);border-radius:8px;font-size:0.82rem;cursor:pointer;font-family:'DM Sans',sans-serif;}
@@ -272,6 +275,7 @@ const COVER_CONSENT_VERSION = 'v1-2026-07-03';
 const COVERED_SERVICES = ['dog_walking', 'drop_in'];
 let editingCover = false;     // opt-in/edit form open in the account tab
 let coverPrefill = null;      // row from get_backup_access() when editing
+let myCredits = [];           // outstanding manual credits (TRU-139)
 
 const ALLOWED_PHOTO_TYPES = ['image/png', 'image/jpeg', 'image/webp'];
 const MAX_PHOTO_BYTES = 5 * 1024 * 1024;
@@ -607,6 +611,7 @@ function bookingCardHtml(b) {
       <div class="bc-time">${esc(dateStr)}</div>
       ${statusBadge(b.status)}
       ${paymentNotice(b)}
+      ${b.cover_status === 'fell_through' ? `<div class="cover-note">We're really sorry — we weren't able to cover this walk. You haven't been charged for it, and we've added a credit to your account for next time.</div>` : ''}
       <div class="bc-actions">${actions}${msgLink}</div>
     </div>
   `;
@@ -915,6 +920,10 @@ function renderBookingsTab() {
   }
 
   let html = '';
+  const creditTotal = (myCredits || []).reduce((s, c) => s + (c.amount_cents || 0), 0);
+  if (creditTotal > 0) {
+    html += `<div class="credit-banner">You have a $${(creditTotal / 100).toFixed(0)} credit — we'll apply it to an upcoming walk.</div>`;
+  }
   if (active.length > 0) {
     html += `<div class="section-heading">Active &amp; upcoming</div>`;
     html += active.map(bookingCardHtml).join('');
@@ -1471,6 +1480,9 @@ async function init() {
     }
     customerProfile = profiles[0];
     profileRow = profiles[0];
+
+    // TRU-139: outstanding manual credits (RLS scopes to own rows).
+    try { myCredits = await sbGet('customer_credits', 'select=amount_cents&redeemed_at=is.null'); } catch (e) { myCredits = []; }
 
     const rawBookings = await sbGet('bookings', `customer_id=eq.${customerProfile.id}&select=*&order=scheduled_at.desc`);
 

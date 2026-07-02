@@ -14,6 +14,10 @@
 //   sync_payment    - reconcile a booking's payment_status from its PaymentIntent
 //   list_recent_charges - (admin) recent paid/failed/refunded bookings for the admin page
 //   refund_booking  - (admin) refund a paid booking + reverse the carer's transfer
+//   cover_list      - (admin) covered bookings (triggered/reassigned/fell_through) + credits
+//   cover_reassign  - (admin) take over a covered cancelled booking (TRU-139)
+//   cover_fell_through - (admin) mark cover as failed; issue a manual credit + owner message
+//   credit_redeem   - (admin) mark a manual credit as applied
 //
 // Required function secrets (Supabase → Edge Functions → Secrets):
 //   STRIPE_SECRET_KEY   - sk_test_… (platform secret key)
@@ -193,26 +197,31 @@ Deno.serve(async (req) => {
       if (!customer) return json({ error: 'Not a customer account' }, 403);
       const bookingId = String(payload.booking_id || '');
       const { data: b } = await sb.from('bookings')
-        .select('id,total_cents,provider_id,is_meet_and_greet,payment_status')
+        .select('id,total_cents,provider_id,is_meet_and_greet,payment_status,cover_status')
         .eq('id', bookingId).eq('customer_id', customer.id).single();
       if (!b) return json({ error: 'Booking not found' }, 404);
       if (b.is_meet_and_greet || (b.total_cents || 0) <= 0) return json({ error: 'Nothing to pay' }, 400);
       if (b.payment_status !== 'failed') return json({ error: 'This booking is not awaiting payment' }, 400);
       if (!customer.stripe_customer_id) return json({ error: 'No payment profile on file' }, 400);
-      const { data: pp } = await sb.from('provider_profiles').select('stripe_account_id').eq('id', b.provider_id).single();
-      if (!pp?.stripe_account_id) return json({ error: 'Carer has no payout account' }, 400);
-
-      const fee = Math.round((b.total_cents * PLATFORM_FEE_BPS) / 10000);
+      // A covered walk completed by the Truffl backup is retained in full (TRU-139):
+      // no destination transfer, no application fee — mirrors charge-booking.
+      const covered = b.cover_status === 'reassigned';
       const piBody: Record<string, unknown> = {
         amount: b.total_cents,
         currency: 'aud',
         customer: customer.stripe_customer_id,
-        'transfer_data[destination]': pp.stripe_account_id,
         'payment_method_types[]': 'card',
         setup_future_usage: 'off_session', // save the working card for future charges
         'metadata[booking_id]': bookingId,
       };
-      if (fee > 0) piBody['application_fee_amount'] = fee;
+      let fee = 0;
+      if (!covered) {
+        const { data: pp } = await sb.from('provider_profiles').select('stripe_account_id').eq('id', b.provider_id).single();
+        if (!pp?.stripe_account_id) return json({ error: 'Carer has no payout account' }, 400);
+        piBody['transfer_data[destination]'] = pp.stripe_account_id;
+        fee = Math.round((b.total_cents * PLATFORM_FEE_BPS) / 10000);
+        if (fee > 0) piBody['application_fee_amount'] = fee;
+      }
       // No confirm — the client confirms with the Payment Element so a new card / 3DS works.
       const pi = await stripe('payment_intents', 'POST', piBody);
       await sb.from('bookings').update({ stripe_payment_intent_id: pi.id, application_fee_cents: fee }).eq('id', bookingId);
@@ -304,6 +313,140 @@ Deno.serve(async (req) => {
         .update({ payment_status: 'refunded', refunded_at: new Date().toISOString(), stripe_refund_id: refund.id })
         .eq('id', bookingId);
       return json({ ok: true, refund_id: refund.id });
+    }
+
+    // ── Backup cover (TRU-139) — admin actions ──
+
+    if (action === 'cover_list') {
+      if (!(await isAdmin(user.id))) return json({ error: 'Not authorised' }, 403);
+      const { data } = await sb.from('bookings')
+        .select('id,scheduled_at,window_end_at,duration_mins,total_cents,status,payment_status,cover_status,cancel_reason,cancelled_at,late_cancellation,customer_id,provider_id,original_provider_id,pet_id')
+        .neq('cover_status', 'none')
+        .order('scheduled_at', { ascending: false })
+        .limit(30);
+      const rows = data || [];
+      const NONE = ['00000000-0000-0000-0000-000000000000'];
+      const custIds = [...new Set(rows.map((r) => r.customer_id))];
+      const provIds = [...new Set(rows.flatMap((r) => [r.provider_id, r.original_provider_id]).filter(Boolean))] as string[];
+      const petIds = [...new Set(rows.map((r) => r.pet_id).filter(Boolean))] as string[];
+      const [{ data: cps }, { data: pps }, { data: petsData }, { data: credits }] = await Promise.all([
+        sb.from('customer_profiles').select('id,user_id').in('id', custIds.length ? custIds : NONE),
+        sb.from('provider_profiles').select('id,user_id').in('id', provIds.length ? provIds : NONE),
+        sb.from('pets').select('id,name').in('id', petIds.length ? petIds : NONE),
+        sb.from('customer_credits').select('id,customer_id,amount_cents,reason,created_at,redeemed_at,redeemed_note,booking_id')
+          .order('created_at', { ascending: false }).limit(30),
+      ]);
+      const custUser = Object.fromEntries((cps || []).map((c) => [c.id, c.user_id]));
+      const provUser = Object.fromEntries((pps || []).map((p) => [p.id, p.user_id]));
+      const petName = Object.fromEntries((petsData || []).map((p) => [p.id, p.name]));
+      const creditCustIds = [...new Set((credits || []).map((c) => c.customer_id))];
+      const { data: creditCps } = await sb.from('customer_profiles').select('id,user_id').in('id', creditCustIds.length ? creditCustIds : NONE);
+      (creditCps || []).forEach((c) => { custUser[c.id] = c.user_id; });
+      const userIds = [...new Set([...Object.values(custUser), ...Object.values(provUser)])] as string[];
+      const { data: us } = await sb.from('users').select('id,first_name,last_name').in('id', userIds.length ? userIds : NONE);
+      const nameBy = Object.fromEntries((us || []).map((u) => [u.id, `${u.first_name || ''} ${u.last_name || ''}`.trim()]));
+      return json({
+        cover: rows.map((r) => ({
+          ...r,
+          customer: nameBy[custUser[r.customer_id]] || 'Customer',
+          walker: nameBy[provUser[r.original_provider_id || r.provider_id]] || 'Walker',
+          pet: petName[r.pet_id] || 'Dog',
+        })),
+        credits: (credits || []).map((c) => ({ ...c, customer: nameBy[custUser[c.customer_id]] || 'Customer' })),
+      });
+    }
+
+    if (action === 'cover_reassign') {
+      if (!(await isAdmin(user.id))) return json({ error: 'Not authorised' }, 403);
+      const bookingId = String(payload.booking_id || '');
+      const { data: b } = await sb.from('bookings')
+        .select('id,status,cover_status,provider_id,original_provider_id,customer_id,pet_id')
+        .eq('id', bookingId).maybeSingle();
+      if (!b) return json({ error: 'Booking not found' }, 404);
+      if (b.cover_status !== 'triggered' || b.status !== 'cancelled') {
+        return json({ error: 'This booking is not awaiting cover' }, 400);
+      }
+      // The admin doing the reassign becomes the backup walker. Ensure they have a
+      // provider profile — created inactive + unverified so it is never searchable;
+      // it's just the identity the walk hangs off so tracking/completion work
+      // unchanged (records: original_provider_id = booked, provider_id = actual).
+      let { data: mypp } = await sb.from('provider_profiles').select('id').eq('user_id', user.id).maybeSingle();
+      if (!mypp) {
+        const ins = await sb.from('provider_profiles')
+          .insert({ user_id: user.id, is_active: false, is_verified: false, bio: 'Truffl backup' })
+          .select('id').single();
+        if (ins.error || !ins.data) return json({ error: 'Could not create backup profile' }, 500);
+        mypp = ins.data;
+      }
+      if (mypp.id === b.provider_id) return json({ error: 'Booking is already assigned to you' }, 400);
+      const upd = await sb.from('bookings').update({
+        original_provider_id: b.original_provider_id || b.provider_id,
+        provider_id: mypp.id,
+        status: 'confirmed',
+        cover_status: 'reassigned',
+      }).eq('id', bookingId).eq('cover_status', 'triggered').select('id');
+      if (upd.error || !upd.data?.length) return json({ error: 'Reassign failed — booking may already be handled' }, 409);
+      // Tell the owner in-app (one-way Truffl channel; service role writes directly).
+      const { data: cp } = await sb.from('customer_profiles').select('user_id').eq('id', b.customer_id).single();
+      const { data: pet } = b.pet_id ? await sb.from('pets').select('name').eq('id', b.pet_id).single() : { data: null };
+      if (cp?.user_id) {
+        await sb.from('system_messages').insert({
+          recipient_user_id: cp.user_id,
+          body: `Good news — your walker had to cancel, but backup cover kicked in. A Truffl backup will walk ${pet?.name || 'your dog'} as planned.`,
+          link_url: `/track/?booking=${bookingId}`,
+          link_label: 'View booking',
+        });
+      }
+      return json({ ok: true });
+    }
+
+    if (action === 'cover_fell_through') {
+      if (!(await isAdmin(user.id))) return json({ error: 'Not authorised' }, 403);
+      const bookingId = String(payload.booking_id || '');
+      const creditCents = Math.max(0, Math.round(Number(payload.credit_cents ?? 1000)) || 0);
+      const { data: b } = await sb.from('bookings')
+        .select('id,status,cover_status,customer_id,pet_id')
+        .eq('id', bookingId).maybeSingle();
+      if (!b) return json({ error: 'Booking not found' }, 404);
+      if (b.cover_status !== 'triggered' || b.status !== 'cancelled') {
+        return json({ error: 'This booking is not awaiting cover' }, 400);
+      }
+      const upd = await sb.from('bookings').update({ cover_status: 'fell_through' })
+        .eq('id', bookingId).eq('cover_status', 'triggered').select('id');
+      if (upd.error || !upd.data?.length) return json({ error: 'Update failed — booking may already be handled' }, 409);
+      // The walk was never charged (charging happens on completion), so "full
+      // refund" needs no money movement — the credit is the goodwill on top.
+      if (creditCents > 0) {
+        await sb.from('customer_credits').insert({
+          customer_id: b.customer_id,
+          amount_cents: creditCents,
+          reason: 'Backup cover fell through',
+          booking_id: bookingId,
+        });
+      }
+      const { data: cp } = await sb.from('customer_profiles').select('user_id').eq('id', b.customer_id).single();
+      const { data: pet } = b.pet_id ? await sb.from('pets').select('name').eq('id', b.pet_id).single() : { data: null };
+      if (cp?.user_id) {
+        const creditLine = creditCents > 0 ? ` and we've added a $${(creditCents / 100).toFixed(0)} credit to your account for next time` : '';
+        await sb.from('system_messages').insert({
+          recipient_user_id: cp.user_id,
+          body: `We're really sorry — we weren't able to cover ${pet?.name || 'your dog'}'s walk. You haven't been charged for it${creditLine}. No questions asked.`,
+          link_url: '/profile/',
+          link_label: 'View your bookings',
+        });
+      }
+      return json({ ok: true, credit_cents: creditCents });
+    }
+
+    if (action === 'credit_redeem') {
+      if (!(await isAdmin(user.id))) return json({ error: 'Not authorised' }, 403);
+      const creditId = String(payload.credit_id || '');
+      const note = String(payload.note || '').slice(0, 300);
+      const upd = await sb.from('customer_credits')
+        .update({ redeemed_at: new Date().toISOString(), redeemed_note: note || null })
+        .eq('id', creditId).is('redeemed_at', null).select('id');
+      if (upd.error || !upd.data?.length) return json({ error: 'Credit not found or already applied' }, 409);
+      return json({ ok: true });
     }
 
     return json({ error: `Unknown action: ${action}` }, 400);
