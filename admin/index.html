@@ -130,7 +130,7 @@ async function onLogin(e) {
 }
 
 // ── Console shell ──
-const SECTIONS = [ { id:'refunds', label:'Refunds' } ];
+const SECTIONS = [ { id:'refunds', label:'Refunds' }, { id:'cover', label:'Cover' } ];
 function showConsole() {
   currentSection = SECTIONS.some(s => s.id === currentSection) ? currentSection : 'refunds';
   app().innerHTML = `
@@ -152,7 +152,95 @@ function switchSection(name) {
 function renderSection(name) {
   const c = document.getElementById('adm-content');
   if (name === 'refunds') return renderRefunds(c);
+  if (name === 'cover') return renderCover(c);
   c.innerHTML = '<p class="empty">Coming soon.</p>';
+}
+
+// ── Cover section (TRU-139) ──
+function coverWhen(iso) {
+  if (!iso) return '';
+  try { return new Date(iso).toLocaleString('en-AU', { weekday:'short', day:'numeric', month:'short', hour:'numeric', minute:'2-digit' }); } catch (e) { return ''; }
+}
+function coverCard(cv) {
+  const badge = cv.cover_status === 'triggered' ? '<span class="badge b-failed">needs cover</span>'
+    : cv.cover_status === 'reassigned' ? '<span class="badge b-paid">covered</span>'
+    : '<span class="badge b-refunded">fell through</span>';
+  const late = cv.late_cancellation ? ' · <b>late (&lt;3h)</b>' : '';
+  let actions = '';
+  if (cv.cover_status === 'triggered') {
+    actions = `<div class="actions">
+      <button class="btn" onclick="coverReassign('${cv.id}')">I'll cover it</button>
+      <span style="font-size:0.84rem;color:var(--muted);">or credit $</span>
+      <input class="reason" id="cred-${cv.id}" type="number" value="10" min="0" step="1" style="max-width:80px;flex:0 1 auto;">
+      <button class="btn" style="background:#fff;color:var(--terracottaDark);" onclick="coverFellThrough('${cv.id}')">Couldn't cover</button>
+    </div>`;
+  } else if (cv.cover_status === 'reassigned') {
+    actions = `<div class="meta">Assigned to you — run it from the <a href="/dashboard/">dashboard</a> like any walk. Completing it charges the owner in full; Truffl retains the walker share.</div>`;
+  }
+  return `<div class="card">
+    <div class="row-top"><div><b>${esc(cv.pet)}</b> · ${esc(cv.customer)}${badge}</div><div class="meta">${coverWhen(cv.scheduled_at)}</div></div>
+    <div class="meta">Walker: ${esc(cv.walker)} · ${esc(cv.cancel_reason || 'no reason recorded')}${late}</div>
+    <div class="meta">${money(cv.total_cents)} · cancelled ${coverWhen(cv.cancelled_at)}</div>
+    ${actions}
+  </div>`;
+}
+function creditCard(cr) {
+  const state = cr.redeemed_at
+    ? `<div class="meta">Applied ${when(cr.redeemed_at)}${cr.redeemed_note ? ' · ' + esc(cr.redeemed_note) : ''}</div>`
+    : `<div class="actions"><input class="reason" id="crednote-${cr.id}" placeholder="How it was applied (optional)"><button class="btn" onclick="creditRedeem('${cr.id}')">Mark applied</button></div>`;
+  return `<div class="card">
+    <div class="row-top"><div><span class="amount">${money(cr.amount_cents)}</span><span class="badge ${cr.redeemed_at ? 'b-refunded' : 'b-paid'}">${cr.redeemed_at ? 'applied' : 'outstanding'}</span></div><div class="meta">${when(cr.created_at)}</div></div>
+    <div class="meta">${esc(cr.customer)} · ${esc(cr.reason || '')}</div>
+    ${state}
+  </div>`;
+}
+async function renderCover(c) {
+  c.innerHTML = '<div id="adm-msg" class="msg"></div><p class="empty">Loading…</p>';
+  try {
+    const { cover, credits } = await sbFn('stripe-api', { action:'cover_list' });
+    const coverHtml = (cover && cover.length) ? cover.map(coverCard).join('') : '<p class="empty">No covered cancellations yet.</p>';
+    const outstanding = (credits || []).filter(cr => !cr.redeemed_at);
+    const applied = (credits || []).filter(cr => cr.redeemed_at);
+    const creditsHtml = (outstanding.length + applied.length)
+      ? outstanding.map(creditCard).join('') + applied.map(creditCard).join('')
+      : '<p class="empty">No credits issued.</p>';
+    c.innerHTML = `
+      <p class="sub" style="margin-bottom:14px;">Covered cancellations. "I'll cover it" reassigns the walk to you (owner keeps the original price; the walker share is retained). "Couldn't cover" applies the fall-through promise: no charge + a manual credit.</p>
+      <div id="adm-msg" class="msg"></div>
+      ${coverHtml}
+      <h1 style="font-size:1.2rem;margin:22px 0 10px;">Credits (manual)</h1>
+      ${creditsHtml}`;
+  } catch (e) {
+    if (e.message === 'Not authenticated') return signOut();
+    c.innerHTML = `<p class="empty">${esc(e.message)}</p>`;
+  }
+}
+async function coverReassign(id) {
+  if (!confirm('Take this walk? It will be reassigned to you and confirmed for the owner.')) return;
+  admMsg('');
+  try {
+    await sbFn('stripe-api', { action:'cover_reassign', booking_id:id });
+    admMsg('Reassigned to you ✓ — it now shows in your dashboard.', 'ok');
+    renderCover(document.getElementById('adm-content'));
+  } catch (e) { admMsg(e.message, 'error'); }
+}
+async function coverFellThrough(id) {
+  const dollars = parseFloat((document.getElementById('cred-' + id) || {}).value || '10') || 0;
+  if (!confirm(`Mark as couldn't cover? The owner is not charged and gets a $${dollars} credit.`)) return;
+  admMsg('');
+  try {
+    await sbFn('stripe-api', { action:'cover_fell_through', booking_id:id, credit_cents: Math.round(dollars * 100) });
+    admMsg('Recorded — owner messaged and credit issued.', 'ok');
+    renderCover(document.getElementById('adm-content'));
+  } catch (e) { admMsg(e.message, 'error'); }
+}
+async function creditRedeem(id) {
+  const note = (document.getElementById('crednote-' + id) || {}).value || '';
+  try {
+    await sbFn('stripe-api', { action:'credit_redeem', credit_id:id, note });
+    admMsg('Credit marked applied ✓', 'ok');
+    renderCover(document.getElementById('adm-content'));
+  } catch (e) { admMsg(e.message, 'error'); }
 }
 
 // ── Refunds section ──

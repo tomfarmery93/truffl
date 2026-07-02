@@ -67,10 +67,15 @@ Deno.serve(async (req) => {
 
   try {
     const { data: b } = await sb.from('bookings')
-      .select('id,total_cents,customer_id,provider_id,is_meet_and_greet,payment_status')
+      .select('id,total_cents,customer_id,provider_id,is_meet_and_greet,payment_status,cover_status')
       .eq('id', bookingId).single();
     if (!b) return json({ error: 'booking not found' }, 404);
     if (b.is_meet_and_greet || (b.total_cents || 0) <= 0) return json({ skipped: 'not chargeable' });
+    // TRU-139: a covered walk completed by the Truffl backup. Owner pays the full
+    // original price; NO destination transfer and NO application fee — the share
+    // that would have gone to the original walker is retained by the platform
+    // (they cancelled; they are not paid for this booking).
+    const covered = b.cover_status === 'reassigned';
 
     // Atomic claim: only one invocation may move unpaid/failed -> processing.
     const { data: claimed } = await sb.from('bookings')
@@ -86,10 +91,6 @@ Deno.serve(async (req) => {
     const pm = cust?.invoice_settings?.default_payment_method;
     if (!pm) { await markFailed(bookingId); return json({ error: 'no saved card on file' }, 400); }
 
-    const { data: pp } = await sb.from('provider_profiles').select('stripe_account_id').eq('id', b.provider_id).single();
-    if (!pp?.stripe_account_id) { await markFailed(bookingId); return json({ error: 'carer has no payout account' }, 400); }
-
-    const fee = Math.round((b.total_cents * PLATFORM_FEE_BPS) / 10000);
     const piBody: Record<string, unknown> = {
       amount: b.total_cents,
       currency: CURRENCY,
@@ -97,10 +98,16 @@ Deno.serve(async (req) => {
       payment_method: pm,
       off_session: true,
       confirm: true,
-      'transfer_data[destination]': pp.stripe_account_id,
       'metadata[booking_id]': bookingId,
     };
-    if (fee > 0) piBody['application_fee_amount'] = fee; // omitted at 0% — Stripe requires it positive
+    let fee = 0;
+    if (!covered) {
+      const { data: pp } = await sb.from('provider_profiles').select('stripe_account_id').eq('id', b.provider_id).single();
+      if (!pp?.stripe_account_id) { await markFailed(bookingId); return json({ error: 'carer has no payout account' }, 400); }
+      piBody['transfer_data[destination]'] = pp.stripe_account_id;
+      fee = Math.round((b.total_cents * PLATFORM_FEE_BPS) / 10000);
+      if (fee > 0) piBody['application_fee_amount'] = fee; // omitted at 0% — Stripe requires it positive
+    }
 
     let pi;
     try {
@@ -118,7 +125,7 @@ Deno.serve(async (req) => {
         application_fee_cents: fee,
         charged_at: new Date().toISOString(),
       }).eq('id', bookingId);
-      return json({ ok: true, payment_intent: pi.id, amount: b.total_cents, application_fee_cents: fee });
+      return json({ ok: true, payment_intent: pi.id, amount: b.total_cents, application_fee_cents: fee, covered });
     }
 
     // requires_action etc. — an off-session charge can't complete; flag for follow-up.
