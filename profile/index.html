@@ -94,6 +94,19 @@
   .cancel-confirm.series{flex-direction:column;align-items:flex-start;}
   .cancel-confirm-btns{display:flex;gap:8px;flex-wrap:wrap;}
   .recurring-tag{display:inline-block;font-size:0.6rem;font-weight:600;letter-spacing:0.04em;text-transform:uppercase;color:var(--sage-dark);background:var(--success-bg);padding:2px 8px;border-radius:20px;vertical-align:middle;}
+  /* TRU-136: owner-facing "Covered" badge */
+  .covered-tag{display:inline-block;font-size:0.6rem;font-weight:600;letter-spacing:0.04em;text-transform:uppercase;color:#7a5c3d;background:#f3e8d9;padding:2px 8px;border-radius:20px;vertical-align:middle;cursor:help;}
+  /* TRU-135/136: backup cover card */
+  .cover-card{background:var(--warm-white,#fff);border:1px solid var(--border);border-radius:14px;padding:1.1rem 1.25rem;}
+  .cover-card p{font-size:0.88rem;line-height:1.6;color:var(--text-muted);margin:0 0 10px;}
+  .cover-card p b{color:var(--brown);}
+  .cover-on{display:inline-flex;align-items:center;gap:6px;font-size:0.8rem;font-weight:600;color:var(--sage-dark);background:var(--success-bg);padding:4px 12px;border-radius:20px;margin-bottom:10px;}
+  .cover-field{margin:10px 0;}
+  .cover-field label{display:block;font-size:0.8rem;color:var(--text-muted);margin-bottom:4px;}
+  .cover-field input[type=text],.cover-field textarea{width:100%;font:inherit;font-size:0.9rem;padding:9px 11px;border:1px solid var(--border);border-radius:8px;box-sizing:border-box;}
+  .cover-check{display:flex;gap:9px;align-items:flex-start;font-size:0.85rem;line-height:1.55;color:var(--text);margin:12px 0;}
+  .cover-check input{margin-top:3px;flex-shrink:0;}
+  .cover-meta{font-size:0.82rem;color:var(--text-muted);margin:4px 0 10px;}
   .btn-cancel-yes{padding:8px 14px;background:var(--error);color:white;border:none;border-radius:8px;font-size:0.82rem;font-weight:500;cursor:pointer;font-family:'DM Sans',sans-serif;}
   .btn-cancel-yes:hover{opacity:0.9;}
   .btn-cancel-keep{padding:8px 14px;background:transparent;border:1px solid var(--border);color:var(--text-muted);border-radius:8px;font-size:0.82rem;cursor:pointer;font-family:'DM Sans',sans-serif;}
@@ -254,6 +267,11 @@ let profileTable = null;      // 'customer_profiles' | 'provider_profiles'
 let bookings = [], pets = [];
 let pendingCancelId = null, editingPetId = null, addingPet = false;
 let addPetPhotoUrl = null;
+/* TRU-135/136: backup cover */
+const COVER_CONSENT_VERSION = 'v1-2026-07-03';
+const COVERED_SERVICES = ['dog_walking', 'drop_in'];
+let editingCover = false;     // opt-in/edit form open in the account tab
+let coverPrefill = null;      // row from get_backup_access() when editing
 
 const ALLOWED_PHOTO_TYPES = ['image/png', 'image/jpeg', 'image/webp'];
 const MAX_PHOTO_BYTES = 5 * 1024 * 1024;
@@ -576,9 +594,15 @@ function bookingCardHtml(b) {
   const actions = actionButtons(b);
   const msgLink = `<a href="/messages/?booking=${b.id}" class="btn-ghost bc-msg-link">Message <span class="bc-msg-badge" id="cardbadge-${b.id}" style="display:none;">0</span></a>`;
   const recurringTag = b.series_id ? ' <span class="recurring-tag">Recurring</span>' : '';
+  // TRU-136: "Covered" badge — cover is on for this owner and this booking is an
+  // eligible upcoming walk/drop-in (cover applies to walks and drop-ins only).
+  const coveredTag = (profileRow && profileRow.backup_cover_enabled
+      && COVERED_SERVICES.includes(b._service_type)
+      && ['pending', 'confirmed', 'in_progress'].includes(b.status))
+    ? ` <span class="covered-tag" title="Backup cover is on. If your walker cancels, we'll step in or refund and credit you.">Covered</span>` : '';
   return `
     <div class="booking-card">
-      <div class="bc-pet-name">${petLabel}${recurringTag}</div>
+      <div class="bc-pet-name">${petLabel}${recurringTag}${coveredTag}</div>
       <div class="bc-meta">${serviceLabel} · ${provLabel}</div>
       <div class="bc-time">${esc(dateStr)}</div>
       ${statusBadge(b.status)}
@@ -989,9 +1013,104 @@ function renderAccountTab() {
     <hr class="section-divider">
     <div class="section-heading">My details</div>
     ${detailsFormHtml()}
+    <hr class="section-divider">
+    <div class="section-heading">Backup cover</div>
+    ${backupCoverHtml()}
     <button class="sign-out-btn" onclick="signOut()">Sign out</button>
   `;
   renderAvatar();
+}
+
+/* ── Backup cover (TRU-135 opt-in + access capture; TRU-136 copy) ── */
+function backupCoverHtml() {
+  if (!profileRow) return '';
+  if (!profileRow.backup_cover_eligible) {
+    return `<div class="cover-card"><p>Backup cover isn't available in your area just yet — we'll let you know when it is.</p></div>`;
+  }
+  if (editingCover) return coverFormHtml();
+  if (profileRow.backup_cover_enabled) {
+    return `<div class="cover-card">
+      <div class="cover-on">✓ Backup cover is on</div>
+      <p>If your walker cancels, we'll do everything we can to step in and walk your dog ourselves. Your access details are stored securely and only ever used if that happens.</p>
+      <div class="bc-actions">
+        <button class="btn-ghost" onclick="openCoverForm()">Update access details</button>
+        <button class="btn-ghost danger" onclick="turnOffCover()">Turn off</button>
+      </div>
+    </div>`;
+  }
+  return `<div class="cover-card">
+    <p>Walkers are reliable, but life happens. If your walker has to cancel, we'll do everything we can to step in and walk your dog ourselves so your day isn't derailed.</p>
+    <p>Backup cover works because we keep things local. If we genuinely can't reach you in time, you get a full refund for that walk plus a credit toward your next one, no questions asked.</p>
+    <p>To use backup cover, your keys need to be in a lockbox or similar so a Truffl backup can let themselves in. We'll only ever use this if your walker cancels.</p>
+    <div class="bc-actions"><button class="btn-primary" onclick="openCoverForm()">Set up backup cover</button></div>
+  </div>`;
+}
+function coverFormHtml() {
+  const p = coverPrefill || {};
+  const on = profileRow.backup_cover_enabled;
+  return `<div class="cover-card">
+    <p><b>${on ? 'Update your access details' : 'Set up backup cover'}</b></p>
+    <p>These details are stored securely and only used if your walker cancels and a Truffl backup steps in.</p>
+    <div class="cover-field"><label for="cov-loc">Where is the lockbox (or key access point)?</label>
+      <input type="text" id="cov-loc" placeholder="e.g. Lockbox on the front porch railing" value="${esc(p.access_location || '')}"></div>
+    <div class="cover-field"><label for="cov-code">Code / combination</label>
+      <input type="text" id="cov-code" placeholder="e.g. 4482" value="${esc(p.access_code || '')}"></div>
+    <div class="cover-field"><label for="cov-notes">Access steps or anything else a backup should know (optional)</label>
+      <textarea id="cov-notes" rows="2" placeholder="e.g. Gate sticks — lift while pushing.">${esc(p.access_notes || '')}</textarea></div>
+    <label class="cover-check"><input type="checkbox" id="cov-consent">
+      <span>I store my keys externally (lockbox or similar) and I'm happy for a Truffl backup, including the founder, to use the access details I've provided to walk my dog if my booked walker cancels.</span></label>
+    <div id="cov-msg" class="msg"></div>
+    <div class="bc-actions">
+      <button class="btn-primary" id="cov-save" onclick="saveCover()">${on ? 'Save changes' : 'Turn on backup cover'}</button>
+      <button class="btn-ghost" onclick="closeCoverForm()">Cancel</button>
+    </div>
+  </div>`;
+}
+async function openCoverForm() {
+  clearMsg(); coverPrefill = null;
+  if (profileRow.backup_cover_enabled) {
+    try { const rows = await sbRpc('get_backup_access', {}); coverPrefill = rows && rows[0] ? rows[0] : null; } catch (e) { /* prefill is best-effort */ }
+  }
+  editingCover = true; renderAccountTab();
+}
+function closeCoverForm() { editingCover = false; coverPrefill = null; renderAccountTab(); }
+async function saveCover() {
+  const wasOn = profileRow.backup_cover_enabled;
+  const loc = document.getElementById('cov-loc').value.trim();
+  const code = document.getElementById('cov-code').value.trim();
+  const notes = document.getElementById('cov-notes').value.trim();
+  const consent = document.getElementById('cov-consent').checked;
+  const msg = document.getElementById('cov-msg');
+  msg.textContent = ''; msg.className = 'msg';
+  if (!loc || !code || !consent) {
+    msg.textContent = !consent ? "Please tick the consent box — cover can't be active without it." : 'Please fill in the lockbox location and code.';
+    msg.className = 'msg error'; return;
+  }
+  const btn = document.getElementById('cov-save'); btn.disabled = true; btn.textContent = 'Saving…';
+  try {
+    await sbRpc('set_backup_cover', {
+      p_enable: true, p_external_storage_confirmed: true,
+      p_access_location: loc, p_access_code: code, p_access_notes: notes || null,
+      p_consent: true, p_consent_version: COVER_CONSENT_VERSION
+    });
+    profileRow.backup_cover_enabled = true;
+    editingCover = false; coverPrefill = null;
+    renderAccountTab(); renderBookingsTab();
+    showMsg('Backup cover is on — your upcoming walks now show a Covered badge.', 'success');
+  } catch (e) {
+    msg.textContent = e.message; msg.className = 'msg error';
+    btn.disabled = false; btn.textContent = wasOn ? 'Save changes' : 'Turn on backup cover';
+  }
+}
+async function turnOffCover() {
+  if (!confirm('Turn off backup cover? Your stored access details will be deleted.')) return;
+  try {
+    await sbRpc('set_backup_cover', { p_enable: false });
+    profileRow.backup_cover_enabled = false;
+    editingCover = false; coverPrefill = null;
+    renderAccountTab(); renderBookingsTab();
+    showMsg('Backup cover is off and your access details have been deleted.', 'success');
+  } catch (e) { showMsg(e.message, 'error'); }
 }
 
 /* ── Provider profile render ── */
@@ -1345,7 +1464,7 @@ async function init() {
 
     // Customer
     profileTable = 'customer_profiles';
-    const profiles = await sbGet('customer_profiles', `user_id=eq.${authUid}&select=id,suburb,address,postcode`);
+    const profiles = await sbGet('customer_profiles', `user_id=eq.${authUid}&select=id,suburb,address,postcode,backup_cover_enabled,backup_cover_eligible`);
     if (!profiles.length) {
       area.innerHTML = `<div class="login-prompt"><h2>Profile not set up</h2><p>Your customer profile isn't set up yet.</p><a href="/login/">Complete registration</a></div>`;
       return;
