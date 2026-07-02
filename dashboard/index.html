@@ -49,6 +49,10 @@
   .cancel-inline span { font-size: 0.82rem; color: var(--text-secondary); }
   .cancel-inline.series { flex-direction: column; align-items: flex-start; }
   .cancel-inline-btns { display: flex; gap: 8px; flex-wrap: wrap; }
+  /* TRU-137: cancellation reason capture */
+  .cancel-reason { display: flex; flex-direction: column; gap: 6px; width: 100%; margin: 6px 0; }
+  .cancel-reason select, .cancel-reason input { font: inherit; font-size: 0.85rem; padding: 8px 10px; border: 1px solid var(--border); border-radius: 8px; background: #fff; color: var(--text); }
+  .cancel-notice { font-size: 0.76rem; color: var(--text-muted); width: 100%; }
   .nav-avatar {
     width: 32px; height: 32px; border-radius: 50%; background: var(--blush);
     display: flex; align-items: center; justify-content: center;
@@ -741,36 +745,80 @@ async function declineSeries(id) {
 }
 
 /* ── Cancelling an upcoming walk (and, for series walks, the whole series) ── */
+/* TRU-137: every walker cancellation records a reason; cancelling a confirmed
+   walk with under 3 hours' notice is flagged on the walker's record (server-side
+   trigger). If the owner has backup cover, cancelling also pages Truffl. */
+const CANCEL_REASONS = ['Feeling unwell', 'Personal emergency', 'Schedule conflict', 'Weather', 'Other'];
 function dashShowCancel(id) { dashCancelId = id; renderBookingsTab(); }
 function dashDismissCancel() { dashCancelId = null; renderBookingsTab(); }
+function cancelReasonUi(b) {
+  const hoursAway = (new Date(b.scheduled_at).getTime() - Date.now()) / 3600000;
+  const lateNote = (b.status === 'confirmed' && hoursAway < 3)
+    ? `<span class="cancel-notice">Heads up — this is under 3 hours' notice, which counts as a late cancellation on your record.</span>` : '';
+  return `<div class="cancel-reason">
+      <select id="cxl-reason-${b.id}">
+        <option value="">Why are you cancelling?</option>
+        ${CANCEL_REASONS.map(r => `<option>${r}</option>`).join('')}
+      </select>
+      <input type="text" id="cxl-note-${b.id}" maxlength="200" placeholder="Add a short note (optional)">
+    </div>${lateNote}`;
+}
 function dashCancelConfirm(b) {
   if (b.series_id) {
     return `<div class="cancel-inline series">
       <span>Recurring walk — cancel what?</span>
+      ${cancelReasonUi(b)}
       <div class="cancel-inline-btns">
         <button class="bc-btn decline" onclick="cancelWalk('${b.id}')">Just this walk</button>
-        <button class="bc-btn decline" onclick="cancelSeriesWalks('${b.series_id}')">All future walks</button>
+        <button class="bc-btn decline" onclick="cancelSeriesWalks('${b.series_id}', '${b.id}')">All future walks</button>
         <button class="bc-btn" style="border:1px solid var(--border);color:var(--text-muted);" onclick="dashDismissCancel()">Keep</button>
       </div>
     </div>`;
   }
-  return `<div class="cancel-inline">
+  return `<div class="cancel-inline series">
     <span>Cancel this walk?</span>
-    <button class="bc-btn decline" onclick="cancelWalk('${b.id}')">Yes, cancel</button>
-    <button class="bc-btn" style="border:1px solid var(--border);color:var(--text-muted);" onclick="dashDismissCancel()">Keep</button>
+    ${cancelReasonUi(b)}
+    <div class="cancel-inline-btns">
+      <button class="bc-btn decline" onclick="cancelWalk('${b.id}')">Yes, cancel</button>
+      <button class="bc-btn" style="border:1px solid var(--border);color:var(--text-muted);" onclick="dashDismissCancel()">Keep</button>
+    </div>
   </div>`;
 }
+function collectCancelReason(bookingId) {
+  const sel = document.getElementById('cxl-reason-' + bookingId);
+  const reason = sel ? sel.value : '';
+  if (!reason) {
+    showMsg('Please pick a reason for cancelling — the owner will want to know.', 'error');
+    return null;
+  }
+  const noteEl = document.getElementById('cxl-note-' + bookingId);
+  const note = noteEl && noteEl.value.trim() ? ': ' + noteEl.value.trim() : '';
+  return reason + note;
+}
 async function cancelWalk(id) {
+  const reason = collectCancelReason(id);
+  if (reason === null) return;
   try {
-    await sbPatch('bookings', 'id', id, { status: 'cancelled' });
+    await sbPatch('bookings', 'id', id, { status: 'cancelled', cancel_reason: reason });
     const b = bookings.find(x => x.id === id);
     if (b) b.status = 'cancelled';
     dashCancelId = null;
     renderBookingsTab();
   } catch(e) { showMsg(e.message, 'error'); }
 }
-async function cancelSeriesWalks(seriesId) {
+async function cancelSeriesWalks(seriesId, promptBookingId) {
+  // The booking the carer is looking at gets their chosen reason directly (so a
+  // covered-walk alert carries it); the series cascade then stamps the rest with
+  // "Recurring schedule cancelled" and skips this already-cancelled row.
+  const reason = promptBookingId ? collectCancelReason(promptBookingId) : null;
+  if (promptBookingId && reason === null) return;
   try {
+    if (promptBookingId) {
+      const pb = bookings.find(x => x.id === promptBookingId);
+      if (pb && (pb.status === 'pending' || pb.status === 'confirmed')) {
+        await sbPatch('bookings', 'id', promptBookingId, { status: 'cancelled', cancel_reason: reason });
+      }
+    }
     await sbPatch('booking_series', 'id', seriesId, { status: 'cancelled' });
     const now = Date.now();
     bookings.forEach(b => {
@@ -778,6 +826,8 @@ async function cancelSeriesWalks(seriesId) {
         b.status = 'cancelled';
       }
     });
+    const pb = bookings.find(x => x.id === promptBookingId);
+    if (pb) pb.status = 'cancelled';
     dashCancelId = null;
     renderBookingsTab();
     showMsg('Recurring schedule cancelled — upcoming walks were cancelled. Past walks are unchanged.', 'success');
