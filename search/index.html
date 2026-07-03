@@ -175,6 +175,8 @@
   .pc-name { font-family: 'Cormorant Garamond', serif; font-weight: 500; font-size: 1.15rem; color: var(--brown); display: inline-flex; align-items: center; gap: 8px; flex-wrap: wrap; }
   .verified-badge { display: inline-flex; align-items: center; gap: 3px; font-family: 'DM Sans', sans-serif; font-size: 0.66rem; font-weight: 600; color: var(--sage-dark); background: var(--success-bg); padding: 2px 8px; border-radius: 20px; text-transform: uppercase; letter-spacing: 0.04em; }
   .pc-suburb { font-size: 0.8rem; color: var(--text-muted); margin-top: 2px; display: flex; align-items: center; gap: 6px; }
+  /* TRU-154: same-day-nearby ranking badge */
+  .nearby-badge { display: inline-flex; align-items: center; font-family: 'DM Sans', sans-serif; font-size: 0.66rem; font-weight: 600; color: #8a5a3b; background: #f3e8d9; padding: 2px 8px; border-radius: 20px; text-transform: uppercase; letter-spacing: 0.04em; cursor: help; }
   .pc-rating { font-size: 0.82rem; color: var(--text-secondary); margin-top: 6px; display: flex; align-items: center; gap: 6px; }
   .pc-rating .stars { color: var(--terracotta); }
   .pc-rating .new-badge { font-size: 0.72rem; color: var(--text-muted); font-style: italic; background: var(--cream); padding: 2px 10px; border-radius: 999px; border: 1px solid var(--border); }
@@ -700,6 +702,23 @@ function mountFilterForm() {
 function wireFilterForm(root) {
   const suburb = root.querySelector('#inputSuburb');
   if (suburb) suburb.addEventListener('input', e => { state.suburb = e.target.value; });
+  // TRU-154: suburb autocomplete from the seeded suburbs table (public read).
+  if (suburb && !document.getElementById('suburbList')) {
+    suburb.setAttribute('list', 'suburbList');
+    suburb.setAttribute('autocomplete', 'off');
+    const dl = document.createElement('datalist');
+    dl.id = 'suburbList';
+    document.body.appendChild(dl);
+    sbPublic('suburbs', 'select=name&order=name&limit=2000')
+      .then(rows => {
+        const seen = new Set();
+        dl.innerHTML = rows
+          .filter(r => !seen.has(r.name) && seen.add(r.name))
+          .map(r => `<option value="${esc(r.name)}"></option>`)
+          .join('');
+      })
+      .catch(() => { /* autocomplete is progressive enhancement */ });
+  }
 
   root.querySelectorAll('.service-tile').forEach(tile => {
     tile.addEventListener('click', () => {
@@ -879,8 +898,18 @@ function sortLabel(s) {
 /* ── FIX 2: All provider data queries use sbPublic, not sbGet ── */
 /* This ensures unauthenticated users (no token or expired token) can always load carers */
 async function fetchProviders() {
+  // TRU-154: PostGIS search — carers whose own service radius covers the searched
+  // suburb, with distance + a same-day-nearby ranking flag (server-side definer fn).
   try {
-    return await sbPublic('provider_search_view', 'select=*');
+    const body = { p_suburb: state.suburb || null };
+    if (!state.recurring && state.date) body.p_date = state.date;
+    const r = await fetch(`${SUPABASE_URL}/rest/v1/rpc/search_carers`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'apikey': SUPABASE_ANON_KEY, 'Authorization': `Bearer ${SUPABASE_ANON_KEY}` },
+      body: JSON.stringify(body),
+    });
+    if (!r.ok) throw new Error('search_carers failed (' + r.status + ')');
+    return await r.json();
   } catch (e) {
     return await fallbackSearch();
   }
@@ -955,7 +984,11 @@ function sortProviders(list, sortBy) {
     case 'newest':    return [...list].sort((a, b) => new Date(b.created_at || 0) - new Date(a.created_at || 0));
     default:
       return [...list].sort((a, b) => {
+        // Walkers already booked near the searched suburb that day float to the
+        // top (TRU-154) — booking them builds an efficient back-to-back route.
+        if (!!a.nearby_same_day !== !!b.nearby_same_day) return b.nearby_same_day ? 1 : -1;
         if (!!a.is_verified !== !!b.is_verified) return b.is_verified ? 1 : -1;
+        if (a.distance_km != null && b.distance_km != null && a.distance_km !== b.distance_km) return a.distance_km - b.distance_km;
         return (b.avg_rating || 0) - (a.avg_rating || 0);
       });
   }
@@ -963,10 +996,8 @@ function sortProviders(list, sortBy) {
 
 async function applyFilters(rawList) {
   let list = rawList;
-  if (state.suburb) {
-    const q = state.suburb.toLowerCase();
-    list = list.filter(p => (p.suburb || '').toLowerCase().includes(q));
-  }
+  // Suburb matching happens server-side in search_carers (TRU-154) — the old
+  // substring filter on the carer's HOME suburb is exactly the bug this replaced.
   if (state.service) {
     list = list.filter(p => {
       const svcs = Array.isArray(p.services) ? p.services : (typeof p.services === 'string' ? p.services.split(',').map(s => s.trim()) : []);
@@ -1040,7 +1071,7 @@ function renderCard(p) {
       ${avatarHtml}
       <div>
         <div class="pc-name">${esc(p.first_name || '')} ${esc(lastInitial)} ${verifiedHtml}</div>
-        <div class="pc-suburb">${esc(p.suburb || 'Sydney')}${distanceHtml}</div>
+        <div class="pc-suburb">${esc(p.suburb || 'Sydney')}${distanceHtml}${p.nearby_same_day ? ` <span class="nearby-badge" title="This walker already has a confirmed walk near you that day — yours slots right into their route.">In your area that day</span>` : ''}</div>
         ${ratingHtml}
         ${svcHtml}
         ${attrsHtml}
@@ -1116,9 +1147,8 @@ async function runSearch() {
   document.getElementById('resultsArea').innerHTML = document.getElementById('initialSkeletons').outerHTML;
 
   try {
-    if (providers.length === 0) {
-      providers = await fetchProviders();
-    }
+    // Always refetch: suburb + date now shape the server-side query (TRU-154).
+    providers = await fetchProviders();
     await ensureAttributesLoaded();
     renderedProviders = await applyFilters(providers);
     renderResults(renderedProviders);

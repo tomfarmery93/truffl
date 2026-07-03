@@ -817,7 +817,9 @@ async function submitStep2() {
       bio: bio,
       experience_years: experience,
       suburb: suburb,
-      service_radius_km: radius,
+      // radius_km is what search matches against (TRU-154). This previously wrote
+      // service_radius_km, which nothing read — a new carer's radius was ignored.
+      radius_km: radius,
       abn: abn || null,
       is_verified: false,
       is_active: true
