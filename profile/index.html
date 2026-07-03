@@ -213,6 +213,7 @@
     .row-2{grid-template-columns:1fr;}
   }
 </style>
+  <link rel="preconnect" href="https://gadflsntbnbnnxbpiral.supabase.co" crossorigin>
   <script src="/session.js"></script>
 </head>
 <body>
@@ -1483,55 +1484,66 @@ async function init() {
     customerProfile = profiles[0];
     profileRow = profiles[0];
 
-    // TRU-139: outstanding manual credits (RLS scopes to own rows).
-    try { myCredits = await sbGet('customer_credits', 'select=amount_cents&redeemed_at=is.null'); } catch (e) { myCredits = []; }
-
-    const rawBookings = await sbGet('bookings', `customer_id=eq.${customerProfile.id}&select=*&order=scheduled_at.desc`);
-
-    // Series this customer owns — used to drive the meet & greet card state.
+    // TRU-142: one parallel round for the page data, then batched IN-queries to
+    // enrich bookings — replaces up to 6 SERIAL queries per booking (~10s for a
+    // busy owner). RLS visibility is identical; it's the same reads, batched.
+    const [creditsRows, rawBookings, seriesRows, myReviews, myPets] = await Promise.all([
+      sbGet('customer_credits', 'select=amount_cents&redeemed_at=is.null').catch(() => []),
+      sbGet('bookings', `customer_id=eq.${customerProfile.id}&select=*&order=scheduled_at.desc`),
+      sbGet('booking_series', `customer_id=eq.${customerProfile.id}&select=id,status,booking_kind,frequency_type,days_of_week,time_of_day,window_end_time,start_date,end_date,locked_price_cents,service_id`).catch(() => []),
+      sbGet('reviews', `customer_id=eq.${customerProfile.id}&select=booking_id`).catch(() => []),
+      sbGet('pets', `customer_id=eq.${customerProfile.id}&is_active=eq.true&select=*`).catch(() => []),
+    ]);
+    myCredits = creditsRows;
     seriesById = {};
-    try {
-      const seriesRows = await sbGet('booking_series', `customer_id=eq.${customerProfile.id}&select=id,status,booking_kind,frequency_type,days_of_week,time_of_day,window_end_time,start_date,end_date,locked_price_cents,service_id`);
-      seriesRows.forEach(s => { seriesById[s.id] = s; });
-    } catch(e) { /* non-fatal */ }
+    seriesRows.forEach(s => { seriesById[s.id] = s; });
+    const reviewedBookingIds = new Set(myReviews.map(r => r.booking_id));
+    pets = myPets;
 
-    let reviewedBookingIds = new Set();
-    try {
-      const myReviews = await sbGet('reviews', `customer_id=eq.${customerProfile.id}&select=booking_id`);
-      reviewedBookingIds = new Set(myReviews.map(r => r.booking_id));
-    } catch(e) { /* none reviewed */ }
+    if (rawBookings.length) {
+      const provIds = [...new Set(rawBookings.map(b => b.provider_id).filter(Boolean))];
+      const svcIds = [...new Set(rawBookings.map(b => b.service_id).filter(Boolean))];
+      const bookingIds = rawBookings.map(b => b.id);
+      const activeIds = rawBookings.filter(b => b.status === 'in_progress').map(b => b.id);
 
-    for (const b of rawBookings) {
-      try {
-        const provProfiles = await sbGet('provider_profiles', `id=eq.${b.provider_id}&select=user_id`);
-        if (provProfiles.length) {
-          b._provider_user_id = provProfiles[0].user_id;
-          const pUsers = await sbGet('users', `id=eq.${provProfiles[0].user_id}&select=first_name,last_name`);
-          if (pUsers.length) b._provider_name = `${pUsers[0].first_name} ${pUsers[0].last_name}`;
-        }
-        let petRows = [];
-        try {
-          const bp = await sbGet('booking_pets', `booking_id=eq.${b.id}&select=pet_id`);
-          const ids = bp.map(r => r.pet_id).filter(Boolean);
-          if (ids.length) petRows = await sbGet('pets', `id=in.(${ids.join(',')})&select=name,breed`);
-        } catch(e) {}
-        if (!petRows.length && b.pet_id) petRows = await sbGet('pets', `id=eq.${b.pet_id}&select=name,breed`);
+      const [provProfiles, bookingPets, svcs, sessions] = await Promise.all([
+        provIds.length ? sbGet('provider_profiles', `id=in.(${provIds.join(',')})&select=id,user_id`).catch(() => []) : [],
+        sbGet('booking_pets', `booking_id=in.(${bookingIds.join(',')})&select=booking_id,pet_id`).catch(() => []),
+        svcIds.length ? sbGet('provider_services', `id=in.(${svcIds.join(',')})&select=id,service_type`).catch(() => []) : [],
+        activeIds.length ? sbGet('walk_sessions', `booking_id=in.(${activeIds.join(',')})&status=eq.active&select=booking_id`).catch(() => []) : [],
+      ]);
+
+      const provUserById = Object.fromEntries(provProfiles.map(p => [p.id, p.user_id]));
+      const provUserIds = [...new Set(provProfiles.map(p => p.user_id).filter(Boolean))];
+      const petIdsByBooking = {};
+      bookingPets.forEach(r => { (petIdsByBooking[r.booking_id] = petIdsByBooking[r.booking_id] || []).push(r.pet_id); });
+      const fallbackPetIds = rawBookings.filter(b => !(petIdsByBooking[b.id] || []).length && b.pet_id).map(b => b.pet_id);
+      const allPetIds = [...new Set([...bookingPets.map(r => r.pet_id), ...fallbackPetIds].filter(Boolean))];
+
+      const [provUsers, petRowsAll] = await Promise.all([
+        provUserIds.length ? sbGet('users', `id=in.(${provUserIds.join(',')})&select=id,first_name,last_name`).catch(() => []) : [],
+        allPetIds.length ? sbGet('pets', `id=in.(${allPetIds.join(',')})&select=id,name,breed`).catch(() => []) : [],
+      ]);
+      const nameByUser = Object.fromEntries(provUsers.map(u => [u.id, `${u.first_name} ${u.last_name}`]));
+      const petById = Object.fromEntries(petRowsAll.map(p => [p.id, p]));
+      const svcById = Object.fromEntries(svcs.map(s => [s.id, s.service_type]));
+      const activeWalk = new Set(sessions.map(s => s.booking_id));
+
+      rawBookings.forEach(b => {
+        const pu = provUserById[b.provider_id];
+        if (pu) { b._provider_user_id = pu; if (nameByUser[pu]) b._provider_name = nameByUser[pu]; }
+        const petIds = (petIdsByBooking[b.id] || []).length ? petIdsByBooking[b.id] : (b.pet_id ? [b.pet_id] : []);
+        const petRows = petIds.map(id => petById[id]).filter(Boolean);
         if (petRows.length) {
           b._pet_name = petRows.map(p => p.name).filter(Boolean).join(' + ');
           b._pet_breed = petRows.length === 1 ? petRows[0].breed : null;
         }
-        const svcs = await sbGet('provider_services', `id=eq.${b.service_id}&select=service_type`);
-        if (svcs.length) b._service_type = svcs[0].service_type;
-        if (b.status === 'in_progress') {
-          const sessions = await sbGet('walk_sessions', `booking_id=eq.${b.id}&status=eq.active&select=id&limit=1`);
-          b._has_active_walk = sessions.length > 0;
-        }
+        if (svcById[b.service_id]) b._service_type = svcById[b.service_id];
+        if (b.status === 'in_progress') b._has_active_walk = activeWalk.has(b.id);
         b._has_review = reviewedBookingIds.has(b.id);
-      } catch(e) {}
+      });
     }
     bookings = rawBookings;
-
-    pets = await sbGet('pets', `customer_id=eq.${customerProfile.id}&is_active=eq.true&select=*`);
 
     renderNav();
     renderCustomerHub();
