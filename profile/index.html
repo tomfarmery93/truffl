@@ -1145,7 +1145,9 @@ function showCancelConfirm(id) { pendingCancelId = id; renderBookingsTab(); }
 function dismissCancel() { pendingCancelId = null; renderBookingsTab(); }
 async function doCancelBooking(id) {
   try {
-    await sbPatch('bookings', 'id', id, { status: 'cancelled' });
+    // Customers have no UPDATE policy on bookings (a direct PATCH matches 0 rows),
+    // so cancelling goes through a definer RPC scoped to exactly this transition.
+    await sbRpc('cancel_my_booking', { p_booking_id: id });
     const b = bookings.find(x => x.id === id);
     if (b) b.status = 'cancelled';
     pendingCancelId = null;
