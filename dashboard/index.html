@@ -49,6 +49,9 @@
   .cancel-inline span { font-size: 0.82rem; color: var(--text-secondary); }
   .cancel-inline.series { flex-direction: column; align-items: flex-start; }
   .cancel-inline-btns { display: flex; gap: 8px; flex-wrap: wrap; }
+  /* TRU-110: request proximity context */
+  .bc-context { font-size: 0.8rem; color: var(--text-muted); margin-top: 4px; }
+  .bc-context.hot { display: inline-block; color: #8a5a3b; background: #f3e8d9; border-radius: 8px; padding: 4px 10px; font-weight: 500; }
   /* TRU-137: cancellation reason capture */
   .cancel-reason { display: flex; flex-direction: column; gap: 6px; width: 100%; margin: 6px 0; }
   .cancel-reason select, .cancel-reason input { font: inherit; font-size: 0.85rem; padding: 8px 10px; border: 1px solid var(--border); border-radius: 8px; background: #fff; color: var(--text); }
@@ -403,6 +406,11 @@ async function sbGet(table, params) {
   const r = await fetch(`${SUPABASE_URL}/rest/v1/${table}?${params}`, { headers: headers(authToken) });
   if (!r.ok) { const e = await r.json(); throw new Error(e.message); } return await r.json();
 }
+async function sbRpc(fn, args) {
+  const r = await fetch(`${SUPABASE_URL}/rest/v1/rpc/${fn}`, { method: 'POST', headers: headers(authToken), body: JSON.stringify(args || {}) });
+  if (!r.ok) { const e = await r.json().catch(() => ({})); throw new Error(e.message || 'Request failed'); }
+  return await r.json();
+}
 async function sbPatch(table, col, val, updates) {
   const r = await fetch(`${SUPABASE_URL}/rest/v1/${table}?${col}=eq.${val}`, {
     method: 'PATCH', headers: { ...headers(authToken), 'Prefer':'return=representation' }, body: JSON.stringify(updates)
@@ -622,6 +630,13 @@ async function loadBookings() {
   bookings = await sbGet('bookings', `provider_id=eq.${providerProfile.id}&select=*&order=scheduled_at.asc`);
   if (!bookings.length) return;
 
+  // TRU-110: proximity/efficiency context for new requests — how far from home,
+  // and whether it slots next to a walk already booked that day. Server-side
+  // definer RPC returns distances only; failures just hide the line.
+  await Promise.all(bookings.filter(b => b.status === 'pending').map(async b => {
+    try { b._context = await sbRpc('booking_request_context', { p_booking_id: b.id }); } catch (e) { /* enhancement only */ }
+  }));
+
   const ids = bookings.map(b => b.id);
 
   // Providers can't read a customer's users/customer_profiles/pets rows directly under
@@ -742,6 +757,22 @@ async function declineSeries(id) {
     await loadSeries();
     renderBookingsTab();
   } catch(e) { showMsg(e.message, 'error'); }
+}
+
+/* TRU-110: proximity line on new requests. A same-day walk within 4km is the
+   headline ("slots right in"); otherwise just the distance from home. */
+function requestContextHtml(b) {
+  const c = b._context;
+  if (!c) return '';
+  const near = (c.same_day || []).find(j => j.distance_km != null && j.distance_km <= 4);
+  if (near) {
+    const t = new Date(near.scheduled_at).toLocaleTimeString('en-AU', { hour: 'numeric', minute: '2-digit' });
+    return `<div class="bc-context hot">🎯 ${near.distance_km} km from your ${t} walk${near.pet_name ? ' with ' + esc(near.pet_name) : ''} that day — slots right in</div>`;
+  }
+  if (c.distance_from_home_km != null) {
+    return `<div class="bc-context">${c.distance_from_home_km} km from home</div>`;
+  }
+  return '';
 }
 
 /* ── Cancelling an upcoming walk (and, for series walks, the whole series) ── */
@@ -927,6 +958,7 @@ function renderBookingsTab() {
           <div class="bc-pet">${b._pet_label || 'Pet'}</div>
           <span class="bc-service">${SERVICE_LABELS[b._service_type] || b._service_type || 'Service'}</span>
           <div class="bc-time">${bookingTimeLine(b)}</div>
+          ${requestContextHtml(b)}
           ${b.customer_notes ? `<div class="bc-notes">"${esc(b.customer_notes)}"</div>` : ''}
           ${bookingDetailsHtml(b)}
         </div>
