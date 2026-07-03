@@ -305,6 +305,7 @@
     .tab { padding: 10px 14px; font-size: 0.8rem; }
   }
 </style>
+  <link rel="preconnect" href="https://gadflsntbnbnnxbpiral.supabase.co" crossorigin>
   <script src="/session.js"></script>
 </head>
 <body>
@@ -1637,13 +1638,15 @@ async function init() {
     }
     providerProfile = profiles[0];
 
-    // Load services
-    providerServices = await sbGet('provider_services', `provider_id=eq.${authUid}&select=*`);
-
-    // Load bookings
-    await loadBookings();
-    await loadSeries();
-    await loadMgSeries();
+    // TRU-142: services, bookings and both series loads are independent — run
+    // them in one parallel round instead of four serial ones.
+    const [svcRows] = await Promise.all([
+      sbGet('provider_services', `provider_id=eq.${authUid}&select=*`),
+      loadBookings(),
+      loadSeries(),
+      loadMgSeries(),
+    ]);
+    providerServices = svcRows;
 
     // Returning from Stripe Connect onboarding? refresh payout readiness before first paint.
     const payoutsParam = new URLSearchParams(location.search).get('payouts');
