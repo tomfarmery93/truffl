@@ -162,6 +162,75 @@ async function buildMessages(type: string, payload: Record<string, unknown>) {
         footnote: 'Your carer has already provided the service, so please retry soon.',
       }),
     });
+  } else if (type === 'cover_cancellation') {
+    // TRU-138: a covered walk was cancelled by its walker — page every admin
+    // immediately with everything needed to act. This is the ONE operational
+    // surface where stored access detail (TRU-135) appears; the footnote asks
+    // for the email to be deleted once the walk is covered.
+    const d = await loadBooking(payload.booking_id as string);
+    const { data: admins } = await sb.from('users').select('email,first_name').eq('is_admin', true);
+    if (!admins?.length) return out;
+    const { data: cover } = await sb.rpc('get_cover_details', { p_booking_id: d.booking.id });
+    const c = (cover ?? {}) as Record<string, string | null>;
+
+    // Per-dog handling notes, linked from the pet profile (booking_pets with the
+    // legacy single-pet fallback). The service client bypasses RLS.
+    const { data: bps } = await sb.from('booking_pets').select('pet_id').eq('booking_id', d.booking.id);
+    const petIds = (bps?.length ? bps.map((r: { pet_id: string }) => r.pet_id) : [d.booking.pet_id]).filter(Boolean);
+    const { data: petRows } = petIds.length
+      ? await sb.from('pets').select('name,breed,behaviour_notes,medical_notes,vet_name,vet_phone').in('id', petIds)
+      : { data: [] as never[] };
+    const dogs = (petRows ?? []) as { name: string; breed: string | null; behaviour_notes: string | null; medical_notes: string | null; vet_name: string | null; vet_phone: string | null }[];
+    const dogNames = dogs.map((p) => p.name).join(' & ') || d.petName;
+
+    const windowStr = d.booking.window_end_at
+      ? `${fmtWhen(d.booking.scheduled_at, null)}–${new Date(d.booking.window_end_at).toLocaleTimeString('en-AU', { hour: 'numeric', minute: '2-digit', timeZone: 'Australia/Sydney' })}${d.durationMins ? ` · ${d.durationMins} min` : ''}`
+      : fmtWhen(d.booking.scheduled_at, d.durationMins);
+
+    const rows: [string, string][] = [
+      ['Dog', dogs.map((p) => p.breed ? `${p.name} (${p.breed})` : p.name).join(' & ') || d.petName],
+      ['Window', windowStr],
+      ['Address', [c.address, c.suburb, c.postcode].filter(Boolean).join(', ') || '⚠ missing'],
+      ['Lockbox', c.access_location || '⚠ missing — contact owner'],
+      ['Code', c.access_code || '⚠ missing'],
+    ];
+    if (c.access_notes) rows.push(['Access notes', c.access_notes]);
+    rows.push(
+      ['Owner', c.owner_name || 'Owner'],
+      ['Owner phone', c.owner_phone || '—'],
+      ['Owner email', c.owner_email || '—'],
+      ['Original walker', d.provider?.first_name || '—'],
+      ['Reason', d.booking.cancel_reason || '—'],
+      ['Late (<3h notice)', d.booking.late_cancellation ? 'YES' : 'no'],
+    );
+
+    const notesHtml = dogs
+      .map((pet) => {
+        const bits = [];
+        if (pet.behaviour_notes) bits.push(`Behaviour: ${esc(pet.behaviour_notes)}`);
+        if (pet.medical_notes) bits.push(`Medical: ${esc(pet.medical_notes)}`);
+        if (pet.vet_name || pet.vet_phone) bits.push(`Vet: ${esc([pet.vet_name, pet.vet_phone].filter(Boolean).join(' · '))}`);
+        return bits.length ? p(`<b>${esc(pet.name)}</b> — ${bits.join(' · ')}`) : '';
+      })
+      .filter(Boolean)
+      .join('');
+
+    for (const admin of admins) {
+      if (!admin.email) continue;
+      out.push({
+        to: admin.email,
+        subject: `🚨 Cover needed — ${dogNames} · ${fmtWhen(d.booking.scheduled_at, null)}`,
+        html: layout({
+          preview: `Covered walk cancelled — ${dogNames} needs cover`,
+          heading: 'A covered walk needs you',
+          body: p(`${esc(d.provider?.first_name || 'The walker')} cancelled a covered ${esc(d.serviceLabel.toLowerCase())}. Everything you need is below.`) +
+            detailsTable(rows) +
+            (notesHtml || p('No handling notes on file.')),
+          cta: { label: 'Open the admin console', href: `${SITE}/admin/` },
+          footnote: 'This email contains entry access details — delete it once the walk is covered.',
+        }),
+      });
+    }
   } else if (type === 'walk_started') {
     const { data: ws } = await sb.from('walk_sessions').select('booking_id').eq('id', payload.walk_session_id as string).single();
     if (!ws) return out;
