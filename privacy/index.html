@@ -105,13 +105,11 @@
   <article class="article">
     <a class="crumb" href="/"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg> Home</a>
     <h1>Privacy policy</h1>
-    <!-- PLACEHOLDER: confirm effective date before launch -->
-    <p class="updated" data-placeholder="effective-date">Last updated: 22 June 2026</p>
+    <p class="updated">Last updated: 4 July 2026</p>
     <p class="lead">Truffl Pets connects pet owners with vetted local carers in Sydney. This policy explains what personal information we collect, how we use it, who we share it with, and the choices and rights you have. It applies to our website, our mobile apps, and the services we provide through them.</p>
 
     <div class="note">
-      <!-- PLACEHOLDER: confirm legal entity name + ABN before launch -->
-      <p>Truffl Pets <span data-placeholder="legal-entity">(legal entity name and ABN to be confirmed)</span> is the organisation responsible for your personal information. We handle it in accordance with the Australian <em>Privacy Act 1988</em> (Cth) and the Australian Privacy Principles (APPs).</p>
+      <p>Truffl Pets (ABN 14 690 054 980) is the organisation responsible for your personal information. We handle it in accordance with the Australian <em>Privacy Act 1988</em> (Cth) and the Australian Privacy Principles (APPs). A copy of the APPs is available from the Office of the Australian Information Commissioner at <a class="inline" href="https://www.oaic.gov.au" target="_blank" rel="noopener">oaic.gov.au</a>.</p>
     </div>
 
     <div class="toc">
@@ -152,9 +150,22 @@
       <li>Photos and updates a carer shares during a booking.</li>
     </ul>
 
+    <h3>Payments</h3>
+    <ul>
+      <li>Payments are processed by <strong>Stripe</strong>. Your card details go directly to Stripe and are never stored on, and never pass through, Truffl's systems.</li>
+      <li>We keep a reference to your Stripe customer or payout account, and records of charges and refunds for your bookings.</li>
+    </ul>
+
+    <h3>Home access details (backup cover)</h3>
+    <ul>
+      <li>If you choose to turn on backup cover, we collect your lockbox or key access location, its code, and any access notes — together with your explicit, timestamped consent for a Truffl backup to use them if your walker cancels.</li>
+      <li>These details are stored separately from your booking data with restricted access, are only ever surfaced to Truffl when a covered walk is actually cancelled, and are <strong>deleted immediately</strong> if you turn backup cover off.</li>
+    </ul>
+
     <h3>Location &amp; GPS</h3>
     <ul>
       <li>During a walk, the carer's app records GPS location so owners can follow along live and review the route afterwards. See <a class="inline" href="#location">Location &amp; GPS</a> below.</li>
+      <li>We also store approximate (suburb-level) coordinates for carers and owners, derived from the suburb on your profile, so search can match carers to the areas they serve.</li>
     </ul>
 
     <h3>Technical &amp; usage information</h3>
@@ -186,9 +197,12 @@
     <p>We do not sell your personal information. We share it only where it is needed to provide the service:</p>
     <ul>
       <li><strong>Between owners and carers.</strong> When you book or accept a booking, the other party sees the information they need to provide or receive care — for example a carer sees your pet's details and relevant notes, and you see the carer's profile.</li>
-      <li><strong>Service providers who help us run Truffl.</strong> We use trusted third parties to host data and understand usage:
+      <li><strong>Service providers who help us run Truffl.</strong> We use trusted third parties to host data, process payments, send email and understand usage:
         <ul>
           <li><strong>Supabase</strong> — our database and authentication provider, where your account, booking, message and pet data is stored.</li>
+          <li><strong>Stripe</strong> — our payment processor. Stripe receives your card details directly and handles them under its own privacy policy; carers' payout accounts are also held with Stripe.</li>
+          <li><strong>Resend</strong> — delivers our transactional emails (booking confirmations, updates and alerts), and processes your name and email address to do so.</li>
+          <li><strong>GitHub Pages</strong> — hosts the Truffl website.</li>
           <li><strong>Google Analytics</strong> — to understand how the site and apps are used. This uses cookies and similar technologies and processes limited usage and device data.</li>
         </ul>
       </li>
@@ -202,7 +216,13 @@
     <p>Your data is stored with our database provider, Supabase, and protected by access controls so that owners and carers can only see the information relevant to their own account and bookings. We use encryption in transit and apply reasonable technical and organisational measures to protect your information. No system is perfectly secure, so we cannot guarantee absolute security, but we work to protect your data and to respond quickly if something goes wrong.</p>
 
     <h2 id="retention">6. How long we keep your information</h2>
-    <p>We keep your information while your account is active and for as long as we need it to provide the service, comply with our legal obligations, resolve disputes, and enforce our agreements. When information is no longer needed for these purposes, we delete it or de-identify it. If you close your account, you can ask us to delete your personal information, subject to any records we are required to keep.</p>
+    <p>We keep your information while your account is active and for as long as we need it to provide the service, comply with our legal obligations, resolve disputes, and enforce our agreements. In particular:</p>
+    <ul>
+      <li><strong>Home access details</strong> (backup cover) are deleted immediately when you turn backup cover off.</li>
+      <li><strong>Payment and transaction records</strong> are kept for up to seven years, as Australian tax and financial record-keeping laws require.</li>
+      <li><strong>Walk routes, messages and booking history</strong> are kept while your account is active so you and your carer can refer back to them.</li>
+    </ul>
+    <p>When information is no longer needed for these purposes, we delete it or de-identify it. If you close your account, you can ask us to delete your personal information, subject to any records we are required to keep.</p>
 
     <h2 id="rights">7. Your rights &amp; choices</h2>
     <p>You can:</p>
@@ -223,10 +243,11 @@
     <h2 id="contact">10. Contact us</h2>
     <p>If you have a question about this policy or about how we handle your personal information, or you want to make a privacy request, contact us at:</p>
     <ul>
-      <li><strong>Email:</strong> <a class="inline" href="mailto:privacy@trufflpets.com" data-placeholder="privacy-email">privacy@trufflpets.com</a></li>
+      <li><strong>Email:</strong> <a class="inline" href="mailto:privacy@trufflpets.com">privacy@trufflpets.com</a></li>
+      <li><strong>Business:</strong> Truffl Pets · ABN 14 690 054 980 · Sydney, NSW</li>
     </ul>
 
-    <p style="margin-top:28px;">See also our <a class="inline" href="/trust-and-safety/">Trust &amp; safety</a> guidance.</p>
+    <p style="margin-top:28px;">See also our <a class="inline" href="/trust-and-safety/">Trust &amp; safety</a> guidance and <a class="inline" href="/how-we-vet/">how we vet every carer</a>.</p>
   </article>
 
   <footer>
@@ -241,7 +262,8 @@
       <a href="/register/">For carers</a>
       <a href="/about-us/">About</a>
       <a href="/trust-and-safety/">Trust &amp; safety</a>
-      <a href="#">Contact</a>
+      <a href="/how-we-vet/">How we vet</a>
+      <a href="mailto:hello@trufflpets.com">Contact</a>
       <a href="/privacy/">Privacy</a>
     </div>
     <div class="footer-copy">© 2025 Truffl Pets · Sydney, NSW</div>
