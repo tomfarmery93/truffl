@@ -112,7 +112,7 @@ async function loadBooking(bookingId: string) {
 
 // ── Build the email for an event → { to[], subject, html } messages ──
 async function buildMessages(type: string, payload: Record<string, unknown>) {
-  const out: { to: string; subject: string; html: string }[] = [];
+  const out: { to: string; subject: string; html: string; replyTo?: string }[] = [];
 
   if (type === 'booking_request') {
     const d = await loadBooking(payload.booking_id as string);
@@ -231,6 +231,70 @@ async function buildMessages(type: string, payload: Record<string, unknown>) {
         }),
       });
     }
+  } else if (type === 'carer_request') {
+    // TRU-121: a customer (or guest) couldn't find a carer and asked us to find one.
+    // Page every admin with the request details; reply-to is the requester so an admin can
+    // respond straight from their inbox.
+    const { data: rq } = await sb.from('carer_requests').select('*').eq('id', payload.request_id as string).single();
+    if (!rq) return out;
+    const { data: admins } = await sb.from('users').select('email,first_name').eq('is_admin', true);
+    if (!admins?.length) return out;
+
+    // Contact details come from the linked account when signed in, else the guest fields.
+    let contactName: string | null = rq.contact_name;
+    let contactEmail: string | null = rq.contact_email;
+    let petName: string | null = null;
+    if (rq.customer_id) {
+      const { data: cp } = await sb.from('customer_profiles').select('user_id').eq('id', rq.customer_id).single();
+      if (cp?.user_id) {
+        const { data: u } = await sb.from('users').select('email,first_name,last_name').eq('id', cp.user_id).single();
+        contactName = contactName || `${u?.first_name || ''} ${u?.last_name || ''}`.trim() || null;
+        contactEmail = contactEmail || u?.email || null;
+      }
+    }
+    if (rq.pet_id) {
+      const { data: pet } = await sb.from('pets').select('name').eq('id', rq.pet_id).single();
+      petName = pet?.name || null;
+    }
+
+    const serviceLabel = rq.service_type ? (SERVICE_LABELS[rq.service_type] || rq.service_type) : 'Any service';
+    const whenStr = rq.wanted_date
+      ? new Date(`${rq.wanted_date}T00:00:00`).toLocaleDateString('en-AU', { weekday: 'short', day: 'numeric', month: 'short', timeZone: 'Australia/Sydney' })
+      : (rq.recurring ? 'Recurring' : 'Flexible');
+    const windowStr = rq.window_start ? `${rq.window_start}${rq.window_end ? '–' + rq.window_end : ''}` : '—';
+    const canAssign = !!(rq.customer_id && rq.pet_id);
+
+    const rows: [string, string][] = [
+      ['Suburb', rq.suburb || '—'],
+      ['Service', serviceLabel],
+      ['When', whenStr],
+      ['Time window', windowStr],
+      ['Dog', [rq.dog_size, rq.puppy ? 'puppy' : ''].filter(Boolean).join(' · ') || '—'],
+      ['From', contactName || (rq.customer_id ? 'Registered customer' : 'Guest')],
+      ['Email', contactEmail || '—'],
+      ['Account', rq.customer_id ? `Signed-in${rq.pet_id ? ` · pet: ${petName || 'selected'}` : ' · no pet selected'}` : 'Guest (not signed up)'],
+    ];
+
+    const requester = contactName || 'Someone';
+    for (const admin of admins) {
+      if (!admin.email) continue;
+      out.push({
+        to: admin.email,
+        replyTo: contactEmail || undefined,
+        subject: `🔎 Carer request — ${serviceLabel} in ${rq.suburb || 'unknown suburb'}`,
+        html: layout({
+          preview: `${requester} couldn't find a carer in ${rq.suburb || 'their area'}`,
+          heading: 'Someone needs a carer',
+          body: p(`${esc(requester)} searched and couldn't find the right carer. Here's what they're after:`) +
+            detailsTable(rows) +
+            (rq.note ? p(`<b>Their note:</b> ${esc(rq.note)}`) : '') +
+            p(canAssign
+              ? 'You can assign an existing carer straight from the console, or go find and onboard someone new.'
+              : 'Reply to this email to reach them, or work it from the console.'),
+          cta: { label: 'Open the admin console', href: `${SITE}/admin/` },
+        }),
+      });
+    }
   } else if (type === 'walk_started') {
     const { data: ws } = await sb.from('walk_sessions').select('booking_id').eq('id', payload.walk_session_id as string).single();
     if (!ws) return out;
@@ -310,12 +374,12 @@ async function buildMessages(type: string, payload: Record<string, unknown>) {
 }
 
 // ── Resend send with retry on 429 ──
-async function sendEmail(msg: { to: string; subject: string; html: string }) {
+async function sendEmail(msg: { to: string; subject: string; html: string; replyTo?: string }) {
   for (let attempt = 0; attempt < 4; attempt++) {
     const res = await fetch('https://api.resend.com/emails', {
       method: 'POST',
       headers: { Authorization: `Bearer ${RESEND_API_KEY}`, 'Content-Type': 'application/json' },
-      body: JSON.stringify({ from: FROM, reply_to: REPLY_TO, to: msg.to, subject: msg.subject, html: msg.html }),
+      body: JSON.stringify({ from: FROM, reply_to: msg.replyTo || REPLY_TO, to: msg.to, subject: msg.subject, html: msg.html }),
     });
     if (res.status !== 429) {
       const data = await res.json().catch(() => ({}));
