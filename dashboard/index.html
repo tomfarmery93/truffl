@@ -1363,7 +1363,7 @@ function renderDashboard() {
           <div class="pp-avatar">${initials}</div>
           <div>
             <div class="pp-name">${userData.first_name} ${userData.last_name}</div>
-            <div class="pp-suburb">${providerProfile.suburb || 'Sydney'}${providerProfile.radius_km ? ' · ' + providerProfile.radius_km + 'km radius' : ''}</div>
+            <div class="pp-suburb">${providerProfile.suburb || 'Sydney'}${providerProfile.travel_time_mins ? ' · ' + providerProfile.travel_time_mins + ' min service area' : (providerProfile.radius_km ? ' · ' + providerProfile.radius_km + 'km radius' : '')}</div>
             <a href="/carer/?id=${authUid}" class="pp-link">View as customers see it →</a>
           </div>
         </div>
