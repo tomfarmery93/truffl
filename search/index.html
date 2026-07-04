@@ -406,6 +406,7 @@ let myPets = [];
 let isLoading = false;
 const loggedMisses = new Set(); // TRU-121: dedupe passive zero-result signals per session
 let requestSubmitted = false;   // TRU-121: switch the empty-state CTA to a thank-you once sent
+let SKELETON_HTML = '';         // TRU-158: captured once at boot — the source element is destroyed by the first render
 
 const state = {
   suburb: '', service: '', recurring: false, date: '', dateEnd: '', time: '',
@@ -420,11 +421,14 @@ function isWindowService() { return WINDOW_SERVICES.includes(state.service); }
 
 /* Time-window slider — 30-min indices over 6:00am–9:00pm; minimum 2-hour window. */
 const WIN_MIN = 12, WIN_MAX = 42, WIN_GAP = 4;
+// TRU-158: the sliders open at 8am–5pm (a sensible working-day default) but state stays
+// empty — "any time" — until the user actually drags a handle.
+const WIN_DEF_START = 16, WIN_DEF_END = 34;
 function winIdxToHHMM(i) { return String(Math.floor(i / 2)).padStart(2, '0') + ':' + ((i % 2) ? '30' : '00'); }
 function winIdxToLabel(i) { const h = Math.floor(i / 2), m = (i % 2) ? 30 : 0; return ((h % 12) || 12) + ':' + String(m).padStart(2, '0') + ' ' + (h < 12 ? 'AM' : 'PM'); }
 function winHHMMToIdx(s) { const [h, m] = (s || '').split(':').map(Number); return h * 2 + (m >= 30 ? 1 : 0); }
-function winStartIdx() { return state.windowStart ? winHHMMToIdx(state.windowStart) : WIN_MIN; }
-function winEndIdx() { return state.windowEnd ? winHHMMToIdx(state.windowEnd) : WIN_MAX; }
+function winStartIdx() { return state.windowStart ? winHHMMToIdx(state.windowStart) : WIN_DEF_START; }
+function winEndIdx() { return state.windowEnd ? winHHMMToIdx(state.windowEnd) : WIN_DEF_END; }
 function winLabelFor(hhmm) { return hhmm ? winIdxToLabel(winHHMMToIdx(hhmm)) : 'any'; }
 
 /* ── Inline line-icon set (stroke=currentColor so they recolour with the tile) ── */
@@ -1255,12 +1259,14 @@ function renderError(err) {
 async function runSearch() {
   if (isLoading) return;
   isLoading = true;
-  writeUrlParams();
-  renderMobileSummary();
-
-  document.getElementById('resultsArea').innerHTML = document.getElementById('initialSkeletons').outerHTML;
-
+  // TRU-158: everything below lives inside try/finally. Previously the skeleton swap ran
+  // before the try and re-queried #initialSkeletons — an element the first render destroys
+  // (it lives inside #resultsArea) — so search #2 threw and isLoading wedged true, silently
+  // swallowing every later "Update results" click until a page refresh.
   try {
+    writeUrlParams();
+    renderMobileSummary();
+    document.getElementById('resultsArea').innerHTML = SKELETON_HTML;
     // Always refetch: suburb + date now shape the server-side query (TRU-154).
     providers = await fetchProviders();
     await ensureAttributesLoaded();
@@ -1298,6 +1304,9 @@ async function init() {
   }
 
   readUrlParams();
+
+  // TRU-158: snapshot the loading skeletons while they still exist in the DOM.
+  SKELETON_HTML = document.getElementById('initialSkeletons').outerHTML;
 
   // Saved pets — only attempted when logged in, using sbGet (auth required)
   if (authUid) {
