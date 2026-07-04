@@ -208,6 +208,20 @@
   .empty-state p, .error-state p { color: var(--text-muted); font-size: 0.9rem; max-width: 420px; margin: 0 auto 1.25rem; line-height: 1.55; }
   .btn-secondary { padding: 10px 20px; background: transparent; border: 1px solid var(--border); border-radius: 999px; color: var(--text-secondary); font-family: 'DM Sans', sans-serif; font-size: 0.85rem; cursor: pointer; transition: border-color 0.2s, color 0.2s; }
   .btn-secondary:hover { border-color: var(--text-muted); color: var(--text-primary); }
+  /* ── TRU-121: "can't find a carer" request box ── */
+  .request-box { text-align: center; margin-top: 1rem; padding: 2rem 1.75rem; background: var(--terracotta-soft); border: 1px solid var(--blush); border-radius: 14px; }
+  .request-box h3 { font-family: 'Cormorant Garamond', serif; font-size: 1.35rem; font-weight: 500; color: var(--brown); margin: 0 0 0.5rem; }
+  .request-box p { color: var(--text-secondary); font-size: 0.9rem; max-width: 440px; margin: 0 auto 1.1rem; line-height: 1.55; }
+  .request-box.request-done { background: var(--success-bg); border-color: var(--sage-light); }
+  .btn-primary { padding: 11px 24px; background: var(--terracotta); border: 1px solid var(--terracotta); border-radius: 999px; color: #fff; font-family: 'DM Sans', sans-serif; font-size: 0.88rem; font-weight: 500; cursor: pointer; transition: background 0.2s; }
+  .btn-primary:hover { background: var(--terracotta-light); }
+  .btn-primary:disabled { opacity: 0.6; cursor: default; }
+  .req-lbl { display: block; font-size: 0.82rem; font-weight: 500; color: var(--text-secondary); margin: 12px 0 5px; }
+  .req-fld { width: 100%; padding: 10px 12px; border: 1px solid var(--border); border-radius: 10px; font-family: 'DM Sans', sans-serif; font-size: 0.9rem; color: var(--text-primary); background: var(--warm-white); }
+  .req-fld:focus { outline: none; border-color: var(--border-focus); }
+  .req-msg { font-size: 0.84rem; min-height: 1em; margin: 10px 0; color: var(--text-muted); }
+  .req-msg.error { color: var(--terracotta); }
+  #reqForm .btn-primary { margin-top: 8px; }
 
   /* ── Mobile ── */
   @media (max-width: 768px) {
@@ -390,6 +404,8 @@ let allAttrMap = null;
 let renderedProviders = [];
 let myPets = [];
 let isLoading = false;
+const loggedMisses = new Set(); // TRU-121: dedupe passive zero-result signals per session
+let requestSubmitted = false;   // TRU-121: switch the empty-state CTA to a thank-you once sent
 
 const state = {
   suburb: '', service: '', recurring: false, date: '', dateEnd: '', time: '',
@@ -1086,6 +1102,100 @@ function renderCard(p) {
   `;
 }
 
+/* ── TRU-121: "can't find a carer" — passive signal + request form ── */
+function sbRpc(fn, body) {
+  // Works for guests (anon key) and signed-in users (their token) alike.
+  return fetch(`${SUPABASE_URL}/rest/v1/rpc/${fn}`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'apikey': SUPABASE_ANON_KEY, 'Authorization': `Bearer ${authToken || SUPABASE_ANON_KEY}` },
+    body: JSON.stringify(body),
+  });
+}
+function logSearchMiss() {
+  if (!state.suburb) return; // no suburb = no useful signal
+  const key = state.suburb + '|' + (state.service || '');
+  if (loggedMisses.has(key)) return; // once per distinct suburb+service this session
+  loggedMisses.add(key);
+  sbRpc('log_search_miss', { p_suburb: state.suburb, p_service: state.service || null }).catch(() => {});
+}
+function requestCtaHtml() {
+  if (requestSubmitted) {
+    return `<div class="request-box request-done fade-in">
+      <h3>We're on it 🐾</h3>
+      <p>Thanks — we've got your request and we'll be in touch as soon as we've lined up a carer for you.</p>
+    </div>`;
+  }
+  const loggedIn = !!authUid;
+  const petPicker = (loggedIn && myPets.length)
+    ? `<label class="req-lbl">Which pet?</label>
+       <select class="req-fld" id="reqPet">${myPets.map(p => `<option value="${esc(p.id)}">${esc(p.name)}${p.breed ? ' · ' + esc(p.breed) : ''}</option>`).join('')}</select>`
+    : '';
+  const contactFields = loggedIn ? '' : `
+       <label class="req-lbl">Your name</label>
+       <input class="req-fld" id="reqName" type="text" placeholder="First name" autocomplete="given-name">
+       <label class="req-lbl">Email</label>
+       <input class="req-fld" id="reqEmail" type="email" placeholder="you@example.com" autocomplete="email" required>`;
+  return `
+    <div class="request-box fade-in">
+      <h3>Can't find the right carer?</h3>
+      <p>Tell us what you need and we'll find one for you — from our carers, or someone new we go and vet.</p>
+      <button class="btn-primary" id="btnReqOpen" type="button">Let us find you a carer →</button>
+      <form id="reqForm" style="display:none;margin-top:14px;text-align:left;max-width:440px;margin-left:auto;margin-right:auto;">
+        ${petPicker}${contactFields}
+        <label class="req-lbl">Anything else? <span style="color:var(--text-muted);font-weight:400;">(optional)</span></label>
+        <textarea class="req-fld" id="reqNote" rows="2" placeholder="Dates, your dog, what matters to you…"></textarea>
+        <div id="reqMsg" class="req-msg"></div>
+        <button class="btn-primary" id="btnReqSubmit" type="submit">Send request</button>
+      </form>
+    </div>`;
+}
+function wireRequestCta() {
+  const openBtn = document.getElementById('btnReqOpen');
+  if (openBtn) openBtn.addEventListener('click', () => {
+    document.getElementById('reqForm').style.display = 'block';
+    openBtn.style.display = 'none';
+  });
+  const form = document.getElementById('reqForm');
+  if (form) form.addEventListener('submit', submitCarerRequest);
+}
+async function submitCarerRequest(e) {
+  e.preventDefault();
+  const msg = document.getElementById('reqMsg');
+  const btn = document.getElementById('btnReqSubmit');
+  const emailEl = document.getElementById('reqEmail');
+  const nameEl = document.getElementById('reqName');
+  const petEl = document.getElementById('reqPet');
+  const noteEl = document.getElementById('reqNote');
+  if (!authUid && emailEl && !emailEl.value.trim()) {
+    msg.textContent = 'Please leave an email so we can reach you.'; msg.className = 'req-msg error'; return;
+  }
+  btn.disabled = true; btn.textContent = 'Sending…'; msg.textContent = ''; msg.className = 'req-msg';
+  const body = {
+    p_suburb: state.suburb || null,
+    p_service_type: state.service || null,
+    p_wanted_date: (!state.recurring && state.date) ? state.date : null,
+    p_recurring: !!state.recurring,
+    p_window_start: state.windowStart || null,
+    p_window_end: state.windowEnd || null,
+    p_dog_size: state.size || null,
+    p_puppy: !!state.puppy,
+    p_pet_id: (authUid && petEl) ? petEl.value : null,
+    p_contact_name: nameEl ? nameEl.value.trim() : null,
+    p_contact_email: emailEl ? emailEl.value.trim() : null,
+    p_note: noteEl ? noteEl.value.trim() : null,
+    p_search_params: state,
+  };
+  try {
+    const r = await sbRpc('submit_carer_request', body);
+    if (!r.ok) { const d = await r.json().catch(() => ({})); throw new Error(d.message || 'Could not send (' + r.status + ')'); }
+    requestSubmitted = true;
+    renderResults(renderedProviders); // re-render the empty state → thank-you
+  } catch (err) {
+    msg.textContent = err.message || 'Something went wrong — please try again.'; msg.className = 'req-msg error';
+    btn.disabled = false; btn.textContent = 'Send request';
+  }
+}
+
 /* ── Render results ── */
 function renderResults(list) {
   const area = document.getElementById('resultsArea');
@@ -1099,6 +1209,7 @@ function renderResults(list) {
   if (sortSel.value !== state.sort) sortSel.value = state.sort;
 
   if (list.length === 0) {
+    logSearchMiss(); // TRU-121: passive demand signal for a zero-result search
     area.innerHTML = `
       <div class="empty-state fade-in">
         <div class="empty-icon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="6.5"></circle><path d="M16 16l4 4"></path></svg></div>
@@ -1106,8 +1217,10 @@ function renderResults(list) {
         <p>Try expanding your search area, choosing a different service, or removing some filters.</p>
         <button class="btn-secondary" id="btnEmptyClear">Clear filters</button>
       </div>
+      ${requestCtaHtml()}
     `;
     document.getElementById('btnEmptyClear').addEventListener('click', clearFilters);
+    wireRequestCta();
     return;
   }
 

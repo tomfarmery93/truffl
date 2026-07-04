@@ -18,6 +18,10 @@
 //   cover_reassign  - (admin) take over a covered cancelled booking (TRU-139)
 //   cover_fell_through - (admin) mark cover as failed; issue a manual credit + owner message
 //   credit_redeem   - (admin) mark a manual credit as applied
+//   requests_list   - (admin) open "can't find a carer" requests + unmet-search signal (TRU-121)
+//   request_find_carers - (admin) candidate carers near a request (reuses search_carers)
+//   request_assign  - (admin) assign an existing carer -> creates a pending booking request
+//   request_update  - (admin) set a request's status + admin note (guest / onboarding path)
 //
 // Required function secrets (Supabase → Edge Functions → Secrets):
 //   STRIPE_SECRET_KEY   - sk_test_… (platform secret key)
@@ -446,6 +450,163 @@ Deno.serve(async (req) => {
         .update({ redeemed_at: new Date().toISOString(), redeemed_note: note || null })
         .eq('id', creditId).is('redeemed_at', null).select('id');
       if (upd.error || !upd.data?.length) return json({ error: 'Credit not found or already applied' }, 409);
+      return json({ ok: true });
+    }
+
+    // ── "Can't find a carer" requests (TRU-121) — admin actions ──
+
+    if (action === 'requests_list') {
+      if (!(await isAdmin(user.id))) return json({ error: 'Not authorised' }, 403);
+      const NONE = ['00000000-0000-0000-0000-000000000000'];
+      const { data: reqs } = await sb.from('carer_requests')
+        .select('*')
+        .in('status', ['open', 'onboarding'])
+        .order('created_at', { ascending: false })
+        .limit(50);
+      const rows = reqs || [];
+      const custIds = [...new Set(rows.map((r) => r.customer_id).filter(Boolean))] as string[];
+      const petIds = [...new Set(rows.map((r) => r.pet_id).filter(Boolean))] as string[];
+      const [{ data: cps }, { data: petsData }] = await Promise.all([
+        sb.from('customer_profiles').select('id,user_id').in('id', custIds.length ? custIds : NONE),
+        sb.from('pets').select('id,name').in('id', petIds.length ? petIds : NONE),
+      ]);
+      const custUser = Object.fromEntries((cps || []).map((c) => [c.id, c.user_id]));
+      const petName = Object.fromEntries((petsData || []).map((p) => [p.id, p.name]));
+      const uIds = [...new Set(Object.values(custUser))] as string[];
+      const { data: us } = await sb.from('users').select('id,first_name,last_name,email').in('id', uIds.length ? uIds : NONE);
+      const userBy = Object.fromEntries((us || []).map((u) => [u.id, u]));
+
+      // Passive signal — unmet searches over the last 30 days, aggregated by suburb + service.
+      const since = new Date(Date.now() - 30 * 864e5).toISOString();
+      const { data: misses } = await sb.from('search_misses').select('suburb,service_type').gte('created_at', since).limit(2000);
+      const aggMap: Record<string, number> = {};
+      (misses || []).forEach((m) => {
+        const k = `${m.suburb}||${m.service_type || ''}`;
+        aggMap[k] = (aggMap[k] || 0) + 1;
+      });
+      const signal = Object.entries(aggMap)
+        .map(([k, count]) => { const [suburb, service_type] = k.split('||'); return { suburb, service_type, count }; })
+        .sort((a, b) => b.count - a.count)
+        .slice(0, 20);
+
+      return json({
+        requests: rows.map((r) => {
+          const u = userBy[custUser[r.customer_id]];
+          return {
+            ...r,
+            contact: r.contact_name || (u ? `${u.first_name || ''} ${u.last_name || ''}`.trim() : '') || (r.customer_id ? 'Customer' : 'Guest'),
+            email: r.contact_email || (u ? u.email : '') || '',
+            pet: r.pet_id ? (petName[r.pet_id] || 'Dog') : '',
+            can_assign: !!(r.customer_id && r.pet_id),
+          };
+        }),
+        signal,
+      });
+    }
+
+    if (action === 'request_find_carers') {
+      if (!(await isAdmin(user.id))) return json({ error: 'Not authorised' }, 403);
+      const NONE = ['00000000-0000-0000-0000-000000000000'];
+      const { data: rq } = await sb.from('carer_requests')
+        .select('id,suburb,service_type,wanted_date,window_start')
+        .eq('id', String(payload.request_id || '')).maybeSingle();
+      if (!rq) return json({ error: 'Request not found' }, 404);
+      const { data: carers, error } = await sb.rpc('search_carers', { p_suburb: rq.suburb, p_date: rq.wanted_date });
+      if (error) return json({ error: error.message }, 500);
+      const list = (carers || []) as Record<string, unknown>[];
+      // Attach each carer's matching provider_services (id/price/duration) for the assign step.
+      // Note: provider_services.provider_id references users.id (the carer's user_id).
+      const userIds = list.map((c) => c.user_id as string).filter(Boolean);
+      const { data: svcs } = await sb.from('provider_services')
+        .select('id,provider_id,service_type,price_cents,duration_mins')
+        .in('provider_id', userIds.length ? userIds : NONE)
+        .eq('is_available', true);
+      const svcByUser: Record<string, Record<string, unknown>[]> = {};
+      (svcs || []).forEach((s) => { (svcByUser[s.provider_id] ||= []).push(s); });
+      const carersOut = list.map((c) => {
+        let services = svcByUser[c.user_id as string] || [];
+        if (rq.service_type) services = services.filter((s) => s.service_type === rq.service_type);
+        return {
+          provider_id: c.id, user_id: c.user_id,
+          name: `${c.first_name || ''} ${c.last_name || ''}`.trim() || 'Carer',
+          suburb: c.suburb, distance_km: c.distance_km, is_verified: c.is_verified,
+          avg_rating: c.avg_rating, total_reviews: c.total_reviews,
+          services: services.map((s) => ({ id: s.id, service_type: s.service_type, price_cents: s.price_cents, duration_mins: s.duration_mins })),
+        };
+      }).filter((c) => !rq.service_type || c.services.length > 0);
+      return json({ request: rq, carers: carersOut });
+    }
+
+    if (action === 'request_assign') {
+      if (!(await isAdmin(user.id))) return json({ error: 'Not authorised' }, 403);
+      const reqId = String(payload.request_id || '');
+      const providerId = String(payload.provider_id || ''); // provider_profiles.id
+      const serviceId = String(payload.service_id || '');   // provider_services.id
+      const scheduledAt = String(payload.scheduled_at || ''); // ISO timestamp
+      if (!providerId || !serviceId || !scheduledAt) return json({ error: 'Missing carer, service or time' }, 400);
+      const { data: rq } = await sb.from('carer_requests').select('*').eq('id', reqId).maybeSingle();
+      if (!rq) return json({ error: 'Request not found' }, 404);
+      if (rq.status !== 'open' && rq.status !== 'onboarding') return json({ error: 'Request already resolved' }, 409);
+      if (!rq.customer_id || !rq.pet_id) return json({ error: 'This request has no linked customer/pet to assign' }, 400);
+
+      const { data: svc } = await sb.from('provider_services').select('id,duration_mins').eq('id', serviceId).maybeSingle();
+      if (!svc) return json({ error: 'Service not found' }, 404);
+
+      // Mirror the customer's single-booking insert (book/index.html): status 'pending',
+      // total_cents 0 (single bookings price on completion; series carry locked_price_cents).
+      // The carer still accepts and the customer still confirms — nothing is forced. The
+      // existing trg_email_booking_request trigger notifies the carer on insert.
+      const ins = await sb.from('bookings').insert({
+        customer_id: rq.customer_id,
+        provider_id: providerId,
+        pet_id: rq.pet_id,
+        service_id: serviceId,
+        status: 'pending',
+        scheduled_at: scheduledAt,
+        duration_mins: svc.duration_mins ?? null,
+        total_cents: 0,
+      }).select('id').single();
+      if (ins.error || !ins.data) return json({ error: 'Could not create booking: ' + (ins.error?.message || '') }, 500);
+      const bookingId = ins.data.id;
+      await sb.from('booking_pets').insert({ booking_id: bookingId, pet_id: rq.pet_id });
+
+      await sb.from('carer_requests').update({
+        status: 'matched',
+        assigned_provider_id: providerId,
+        assigned_booking_id: bookingId,
+        resolved_at: new Date().toISOString(),
+        resolved_by: user.id,
+      }).eq('id', reqId);
+
+      // Tell the customer in-app (the carer's booking-request email is fired by the DB trigger).
+      const { data: cp } = await sb.from('customer_profiles').select('user_id').eq('id', rq.customer_id).single();
+      const { data: pp } = await sb.from('provider_profiles').select('user_id').eq('id', providerId).single();
+      const { data: cu } = pp?.user_id ? await sb.from('users').select('first_name').eq('id', pp.user_id).single() : { data: null };
+      if (cp?.user_id) {
+        await sb.from('system_messages').insert({
+          recipient_user_id: cp.user_id,
+          body: `Good news — we found you a carer${cu?.first_name ? ` (${cu.first_name})` : ''} for your request. They'll confirm shortly.`,
+          link_url: '/profile/',
+          link_label: 'View my bookings',
+        });
+      }
+      return json({ ok: true, booking_id: bookingId });
+    }
+
+    if (action === 'request_update') {
+      if (!(await isAdmin(user.id))) return json({ error: 'Not authorised' }, 403);
+      const reqId = String(payload.request_id || '');
+      const status = String(payload.status || '');
+      const adminNote = String(payload.admin_note || '').slice(0, 500);
+      if (!['open', 'onboarding', 'closed'].includes(status)) return json({ error: 'Invalid status' }, 400);
+      const resolved = status === 'closed';
+      const upd = await sb.from('carer_requests').update({
+        status,
+        admin_note: adminNote || null,
+        resolved_at: resolved ? new Date().toISOString() : null,
+        resolved_by: resolved ? user.id : null,
+      }).eq('id', reqId).select('id');
+      if (upd.error || !upd.data?.length) return json({ error: 'Request not found' }, 404);
       return json({ ok: true });
     }
 
