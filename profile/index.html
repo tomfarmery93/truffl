@@ -107,6 +107,10 @@
   .cover-check{display:flex;gap:9px;align-items:flex-start;font-size:0.85rem;line-height:1.55;color:var(--text);margin:12px 0;}
   .cover-check input{margin-top:3px;flex-shrink:0;}
   .cover-meta{font-size:0.82rem;color:var(--text-muted);margin:4px 0 10px;}
+  /* TRU-156: service-area mode toggle */
+  .sa-seg{display:flex;padding:3px;background:var(--cream,#F7F3EE);border:1px solid var(--border);border-radius:999px;margin:10px 0;max-width:320px;}
+  .sa-seg button{flex:1;border:0;background:transparent;padding:8px 12px;font:inherit;font-size:0.85rem;color:var(--text-muted);border-radius:999px;cursor:pointer;}
+  .sa-seg button.active{background:#fff;color:var(--brown);font-weight:600;box-shadow:0 1px 3px rgba(61,43,31,0.12);}
   /* TRU-139: fall-through note + manual credit banner */
   .cover-note{margin-bottom:10px;background:#fdf3ec;border:1px solid #f0d9c8;border-radius:8px;padding:8px 12px;font-size:0.82rem;color:#8a5a3b;line-height:1.5;}
   .credit-banner{background:var(--success-bg);border:1px solid #d3e3d2;border-radius:10px;padding:10px 14px;font-size:0.86rem;color:var(--sage-dark);margin-bottom:14px;}
@@ -1136,9 +1140,73 @@ function renderProviderProfile() {
     <hr class="section-divider">
     <div class="section-heading">My details</div>
     ${detailsFormHtml()}
+    <hr class="section-divider">
+    <div class="section-heading">Service area</div>
+    ${serviceAreaHtml()}
     <button class="sign-out-btn" onclick="signOut()">Sign out</button>
   `;
   renderAvatar();
+}
+
+/* ── Service area (TRU-156): travel-time isochrone or simple radius ── */
+let areaMode = null, areaCoverage = null;
+const AREA_KM = [3, 5, 8, 10, 15, 20];
+const AREA_MINS = [10, 15, 20, 30, 45, 60];
+function serviceAreaHtml() {
+  if (!profileRow) return '';
+  const mode = areaMode || (profileRow.travel_time_mins ? 'travel' : 'radius');
+  const current = profileRow.travel_time_mins
+    ? `up to ${profileRow.travel_time_mins} min drive from home`
+    : `${profileRow.radius_km || 5} km from home`;
+  const opts = mode === 'travel'
+    ? AREA_MINS.map(m => `<option value="${m}" ${profileRow.travel_time_mins === m ? 'selected' : ''}>${m} minutes</option>`).join('')
+    : AREA_KM.map(k => `<option value="${k}" ${(profileRow.radius_km || 5) === k ? 'selected' : ''}>${k} km</option>`).join('');
+  return `<div class="cover-card">
+    <p>How far will you go for a job? <b>Travel time</b> follows real roads — no jobs across the harbour unless you'd actually drive it. <b>Distance</b> is a simple circle around your suburb.</p>
+    <div class="sa-seg">
+      <button type="button" class="${mode === 'radius' ? 'active' : ''}" onclick="setAreaMode('radius')">Distance</button>
+      <button type="button" class="${mode === 'travel' ? 'active' : ''}" onclick="setAreaMode('travel')">Travel time</button>
+    </div>
+    <div class="cover-field"><label for="sa-value">${mode === 'travel' ? 'Up to (drive time from home)' : 'Within'}</label>
+      <select id="sa-value">${opts}</select></div>
+    <div id="sa-msg" class="msg"></div>
+    <div class="bc-actions"><button class="btn-primary" id="sa-save" onclick="saveServiceArea('${mode}')">Save service area</button></div>
+    <p class="cover-meta" style="margin-top:12px;">Current setting: ${esc(current)}</p>
+    <div id="sa-coverage" class="cover-meta">${areaCoverage ? coverageLine(areaCoverage) : 'Checking your coverage…'}</div>
+  </div>`;
+}
+function coverageLine(names) {
+  if (!names || !names.length) return 'No suburbs in range yet — make sure your suburb is set in My details.';
+  const shown = names.slice(0, 18);
+  return `Covers ${names.length}${names.length >= 80 ? '+' : ''} suburbs: ${shown.map(esc).join(', ')}${names.length > shown.length ? '…' : ''}`;
+}
+function setAreaMode(m) { areaMode = m; renderProviderProfile(); loadAreaCoverage(); }
+async function loadAreaCoverage() {
+  try {
+    const rows = await sbRpc('my_service_area_suburbs', {});
+    areaCoverage = rows.map(r => r.name);
+  } catch (e) { areaCoverage = []; }
+  const el = document.getElementById('sa-coverage');
+  if (el) el.innerHTML = coverageLine(areaCoverage);
+}
+async function saveServiceArea(mode) {
+  const v = parseInt(document.getElementById('sa-value').value, 10);
+  const btn = document.getElementById('sa-save'); const msg = document.getElementById('sa-msg');
+  btn.disabled = true; btn.textContent = mode === 'travel' ? 'Mapping your area…' : 'Saving…';
+  msg.textContent = ''; msg.className = 'msg';
+  try {
+    const body = mode === 'travel'
+      ? { action: 'set_service_area', mode: 'travel', minutes: v }
+      : { action: 'set_service_area', mode: 'radius', radius_km: v };
+    const r = await sbFn('geo-api', body);
+    if (mode === 'travel') { profileRow.travel_time_mins = v; } else { profileRow.radius_km = v; profileRow.travel_time_mins = null; }
+    areaCoverage = r.covered || [];
+    renderProviderProfile();
+    showMsg('Service area saved — search now matches you to those suburbs.', 'success');
+  } catch (e) {
+    msg.textContent = e.message; msg.className = 'msg error';
+    btn.disabled = false; btn.textContent = 'Save service area';
+  }
 }
 
 /* ── Cancel flow ── */
@@ -1467,10 +1535,11 @@ async function init() {
 
     if (userData.role === 'provider') {
       profileTable = 'provider_profiles';
-      const profiles = await sbGet('provider_profiles', `user_id=eq.${authUid}&select=id,suburb`);
+      const profiles = await sbGet('provider_profiles', `user_id=eq.${authUid}&select=id,suburb,radius_km,travel_time_mins`);
       profileRow = profiles.length ? profiles[0] : null;
       renderNav();
       renderProviderProfile();
+      loadAreaCoverage();
       return;
     }
 
