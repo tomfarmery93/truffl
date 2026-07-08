@@ -170,8 +170,9 @@
   .field{margin-bottom:1rem;}
   .field:last-child{margin-bottom:0;}
   .field label{display:block;font-size:0.78rem;font-weight:500;color:var(--text-secondary);margin-bottom:5px;}
-  .field input{width:100%;padding:10px 12px;border:1px solid var(--border);border-radius:8px;font-family:'DM Sans',sans-serif;font-size:0.9rem;color:var(--text-primary);background:var(--warm-white);outline:none;transition:border-color 0.2s;}
-  .field input:focus{border-color:var(--border-focus);}
+  .field input,.field textarea,.field select{width:100%;padding:10px 12px;border:1px solid var(--border);border-radius:8px;font-family:'DM Sans',sans-serif;font-size:0.9rem;color:var(--text-primary);background:var(--warm-white);outline:none;transition:border-color 0.2s;}
+  .field textarea{resize:vertical;min-height:90px;}
+  .field input:focus,.field textarea:focus,.field select:focus{border-color:var(--border-focus);}
   .field input.invalid{border-color:var(--error);background:var(--error-bg);}
   .field .field-hint{font-size:0.74rem;color:var(--text-muted);margin-top:5px;}
   .field .field-error{font-size:0.74rem;color:var(--error);margin-top:5px;display:none;}
@@ -642,6 +643,22 @@ function detailsFormHtml() {
         <input id="f-postcode" type="text" value="${esc(postcode)}" autocomplete="postal-code" placeholder="e.g. 2130">
         <div class="field-error" id="err-postcode"></div>
       </div>` : '';
+  // TRU-157: bio + experience were set once at signup with no way to change them —
+  // everything a customer sees on the public carer page is now editable here.
+  const EXP_OPTIONS = ['0-1', '1-3', '3-5', '5+'];
+  const EXP_LABELS = { '0-1': 'Less than 1 year', '1-3': '1–3 years', '3-5': '3–5 years', '5+': '5+ years' };
+  const providerFields = !isCustomer && profileRow ? `
+      <div class="field">
+        <label for="f-bio">About you <span style="font-weight:400;color:var(--text-muted);">(shown on your public profile)</span></label>
+        <textarea id="f-bio" rows="4" placeholder="A few sentences about your experience with animals, why you love what you do, and what makes you great at it.">${esc(profileRow.bio || '')}</textarea>
+      </div>
+      <div class="field">
+        <label for="f-experience">Experience with animals</label>
+        <select id="f-experience">
+          <option value="">Select...</option>
+          ${EXP_OPTIONS.map(v => `<option value="${v}" ${profileRow.experience_years === v ? 'selected' : ''}>${EXP_LABELS[v]}</option>`).join('')}
+        </select>
+      </div>` : '';
   return `
     <div class="details-card">
       <div class="row-2">
@@ -672,7 +689,7 @@ function detailsFormHtml() {
         <input id="f-suburb" type="text" value="${esc(suburb)}" autocomplete="address-level2" placeholder="e.g. Summer Hill">
         <div class="field-error" id="err-suburb"></div>
       </div>
-      ${addressFields}
+      ${addressFields}${providerFields}
       <div class="form-actions">
         <button class="pf-save" id="saveBtn" onclick="saveProfile()">Save changes</button>
         <button class="pf-discard" onclick="resetDetails()">Reset</button>
@@ -741,12 +758,21 @@ async function saveProfile() {
         const postcode = document.getElementById('f-postcode').value.trim();
         profilePatch.address = address || null;
         profilePatch.postcode = postcode || null;
+      } else {
+        // TRU-157: carers can now edit their public bio + experience
+        const bioEl = document.getElementById('f-bio');
+        const expEl = document.getElementById('f-experience');
+        if (bioEl) profilePatch.bio = bioEl.value.trim() || null;
+        if (expEl && expEl.value) profilePatch.experience_years = expEl.value;
       }
       await sbPatch(profileTable, 'user_id', authUid, profilePatch);
       profileRow.suburb = suburb || null;
       if (userData.role === 'customer') {
         profileRow.address = profilePatch.address;
         profileRow.postcode = profilePatch.postcode;
+      } else {
+        if ('bio' in profilePatch) profileRow.bio = profilePatch.bio;
+        if ('experience_years' in profilePatch) profileRow.experience_years = profilePatch.experience_years;
       }
     }
 
@@ -1535,7 +1561,7 @@ async function init() {
 
     if (userData.role === 'provider') {
       profileTable = 'provider_profiles';
-      const profiles = await sbGet('provider_profiles', `user_id=eq.${authUid}&select=id,suburb,radius_km,travel_time_mins`);
+      const profiles = await sbGet('provider_profiles', `user_id=eq.${authUid}&select=id,suburb,radius_km,travel_time_mins,bio,experience_years`);
       profileRow = profiles.length ? profiles[0] : null;
       renderNav();
       renderProviderProfile();
