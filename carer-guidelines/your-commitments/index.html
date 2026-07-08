@@ -109,6 +109,23 @@
         showDone(now);
       } catch(e){ btn.disabled=false; btn.textContent='I\'ve read this and I agree'; }
     }
+    // TRU-157: enforce actually reading — the agree button stays locked until the
+    // carer has been on the page 20 seconds AND scrolled to the bottom. The button
+    // counts down so it never looks broken.
+    const READ_SECONDS=20, ACK_LABEL="I've read this and I agree";
+    const gateStart=Date.now(); let gateScrolled=false, gateDone=false;
+    function atBottom(){ return window.innerHeight+window.scrollY >= document.body.scrollHeight-80; }
+    function gateTick(){
+      if(gateDone) return;
+      const btn=document.getElementById('ackBtn');
+      if(!btn || btn.style.display==='none'){ gateDone=true; return; } // already acknowledged
+      if(atBottom()) gateScrolled=true;
+      const left=Math.ceil((READ_SECONDS*1000-(Date.now()-gateStart))/1000);
+      if(left<=0 && gateScrolled){ gateDone=true; btn.disabled=false; btn.textContent=ACK_LABEL; return; }
+      btn.disabled=true;
+      btn.textContent = left>0 ? `Keep reading — ${left}s` : 'Scroll to the end to agree';
+      setTimeout(gateTick,500);
+    }
     (async function(){
       try { const s=localStorage.getItem('truffl_session'); if(s) session=JSON.parse(s); } catch(e){}
       if(!session || session.role!=='provider') return; // only carers see the acknowledge box
@@ -116,8 +133,9 @@
       try {
         const r=await fetch(`${SUPABASE_URL}/rest/v1/provider_profiles?user_id=eq.${session.user_id}&select=${ACK_COLUMN}`,{headers:{'apikey':SUPABASE_ANON_KEY,'Authorization':`Bearer ${session.access_token}`}});
         const rows=await r.json();
-        if(rows[0] && rows[0][ACK_COLUMN]) showDone(rows[0][ACK_COLUMN]);
+        if(rows[0] && rows[0][ACK_COLUMN]) { showDone(rows[0][ACK_COLUMN]); return; }
       } catch(e){}
+      gateTick();
     })();
   </script>
 </body>

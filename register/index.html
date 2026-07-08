@@ -257,6 +257,11 @@
     margin-top: 4px;
   }
 
+  /* ─── Service-area mode toggle (TRU-157, mirrors the profile editor) ─── */
+  .sa-seg { display: flex; padding: 3px; background: var(--cream); border: 1px solid var(--border); border-radius: 999px; margin: 4px 0 10px; max-width: 320px; }
+  .sa-seg button { flex: 1; border: 0; background: transparent; padding: 8px 12px; font: inherit; font-size: 0.85rem; color: var(--text-muted); border-radius: 999px; cursor: pointer; }
+  .sa-seg button.active { background: #fff; color: var(--brown); font-weight: 600; box-shadow: 0 1px 3px rgba(61,43,31,0.12); }
+
   /* ─── Checkbox Group ─── */
   .checkbox-grid {
     display: grid;
@@ -534,15 +539,21 @@
         <div class="field-hint">The area you're based in — we'll use this for matching with local pet owners</div>
       </div>
 
-      <div class="field-row">
-        <div class="field">
-          <label>Service radius <span class="optional">(km)</span></label>
-          <input type="number" id="radius" placeholder="e.g. 10" min="1" max="50" value="10">
+      <!-- TRU-157: service area in the same terms as the profile editor — travel time
+           (isochrone, TRU-156) or a simple distance circle. No more orphan radius-km. -->
+      <div class="field">
+        <label>How far will you go for a job?</label>
+        <div class="sa-seg">
+          <button type="button" id="saModeRadius" onclick="setSignupAreaMode('radius')">Distance</button>
+          <button type="button" id="saModeTravel" class="active" onclick="setSignupAreaMode('travel')">Travel time</button>
         </div>
-        <div class="field">
-          <label>ABN <span class="optional">(optional)</span></label>
-          <input type="text" id="abn" placeholder="If you have one">
-        </div>
+        <select id="saValue"></select>
+        <div class="field-hint" id="saHint">Travel time follows real roads — you won't be shown jobs across the harbour unless you'd actually drive it.</div>
+      </div>
+
+      <div class="field">
+        <label>ABN <span class="optional">(optional)</span></label>
+        <input type="text" id="abn" placeholder="If you have one">
       </div>
 
       <div class="btn-row">
@@ -646,6 +657,28 @@ const supabase = {
 // ─── State ───
 let currentStep = 1;
 let userData = {};
+
+// ─── Service area picker (TRU-157) — same options as the profile editor ───
+const AREA_KM = [3, 5, 8, 10, 15, 20];
+const AREA_MINS = [10, 15, 20, 30, 45, 60];
+let signupAreaMode = 'travel';
+function renderSaOptions() {
+  const sel = document.getElementById('saValue');
+  if (!sel) return;
+  sel.innerHTML = signupAreaMode === 'travel'
+    ? AREA_MINS.map(m => `<option value="${m}" ${m === 30 ? 'selected' : ''}>${m} minutes' drive</option>`).join('')
+    : AREA_KM.map(k => `<option value="${k}" ${k === 10 ? 'selected' : ''}>${k} km</option>`).join('');
+  const hint = document.getElementById('saHint');
+  if (hint) hint.textContent = signupAreaMode === 'travel'
+    ? "Travel time follows real roads — you won't be shown jobs across the harbour unless you'd actually drive it."
+    : 'A simple circle around your suburb. You can switch to travel time anytime in your profile.';
+}
+function setSignupAreaMode(m) {
+  signupAreaMode = m;
+  document.getElementById('saModeRadius').classList.toggle('active', m === 'radius');
+  document.getElementById('saModeTravel').classList.toggle('active', m === 'travel');
+  renderSaOptions();
+}
 
 // ─── Services & Attributes Config ───
 const SERVICES = [
@@ -802,7 +835,7 @@ async function submitStep2() {
   const bio = document.getElementById('bio').value.trim();
   const experience = document.getElementById('experience').value;
   const suburb = document.getElementById('suburb').value.trim();
-  const radius = parseInt(document.getElementById('radius').value) || 10;
+  const saValue = parseInt(document.getElementById('saValue').value, 10) || (signupAreaMode === 'travel' ? 30 : 10);
   const abn = document.getElementById('abn').value.trim();
 
   if (!bio || !experience || !suburb) {
@@ -818,13 +851,27 @@ async function submitStep2() {
       bio: bio,
       experience_years: experience,
       suburb: suburb,
-      // radius_km is what search matches against (TRU-154). This previously wrote
-      // service_radius_km, which nothing read — a new carer's radius was ignored.
-      radius_km: radius,
+      // radius_km is the search fallback when no isochrone exists (TRU-156). In travel
+      // mode we keep a sane default here; the isochrone below is what search prefers.
+      radius_km: signupAreaMode === 'radius' ? saValue : 10,
       abn: abn || null,
       is_verified: false,
       is_active: true
     });
+
+    // TRU-157: compute the service area right away — same geo-api call as the profile
+    // editor. The insert trigger has already set location from the suburb centroid.
+    // Non-fatal: if it hiccups (e.g. routing API down), the radius fallback still
+    // matches searches and the carer can redo it from their profile.
+    try {
+      await fetch(`${SUPABASE_URL}/functions/v1/geo-api`, {
+        method: 'POST',
+        headers: supabase.headers(),
+        body: JSON.stringify(signupAreaMode === 'travel'
+          ? { action: 'set_service_area', mode: 'travel', minutes: saValue }
+          : { action: 'set_service_area', mode: 'radius', radius_km: saValue }),
+      });
+    } catch (e) { /* fallback radius already saved */ }
 
     userData.bio = bio;
     userData.suburb = suburb;
@@ -880,6 +927,7 @@ async function submitStep3() {
 document.addEventListener('DOMContentLoaded', () => {
   renderCheckboxes('servicesGrid', SERVICES);
   renderCheckboxes('attribGrid', ATTRIBUTES);
+  renderSaOptions(); // TRU-157: service-area picker options
 });
 </script>
 

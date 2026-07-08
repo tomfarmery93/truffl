@@ -535,31 +535,38 @@ function requireGuidelines() {
   window.scrollTo({ top: 0, behavior: 'smooth' });
   return false;
 }
-function ackGateBannerHtml() {
-  if (guidelinesAcknowledged()) return '';
-  const c = !!providerProfile.acknowledged_commitments_at, s = !!providerProfile.acknowledged_safety_at;
-  const done = (c ? 1 : 0) + (s ? 1 : 0);
-  const item = (ok, href, label) => `<a class="ack-gate-item ${ok ? 'done' : ''}" href="${href}">${ok
-    ? '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg>'
-    : '<span class="ack-gate-dot"></span>'} ${label}</a>`;
-  return `<div class="ack-gate">
-    <div class="ack-gate-title">Before you can accept bookings</div>
-    <p>Read and acknowledge these two pages — ${done} of 2 done.</p>
-    <div class="ack-gate-links">
-      ${item(c, '/carer-guidelines/your-commitments/', 'Your commitments')}
-      ${item(s, '/carer-guidelines/emergencies-and-safety/', 'Emergencies and safety')}
-    </div>
-  </div>`;
-}
-
 /* ── TRU-143: Stripe Connect payouts ── */
 function payoutsEnabled() { return !!(providerProfile && providerProfile.payouts_enabled); }
-// Slim top-of-dashboard nudge once the carer is past the guidelines gate but hasn't set up payouts.
-function payoutBannerHtml() {
-  if (payoutsEnabled() || !guidelinesAcknowledged()) return '';
-  return `<div class="ack-gate" style="cursor:pointer;" onclick="switchTab('earnings')">
-    <div class="ack-gate-title">Set up payouts to get paid</div>
-    <p>Add your bank details with Stripe so we can pay you after each booking — see the Earnings tab.</p>
+
+/* ── TRU-157: "Finish setting up" checklist — one card absorbing the old guidelines
+   and payouts banners, plus the two silent gaps signup leaves behind (no photo, no
+   prices). Each step links straight to where it's done; the card disappears once
+   the account is customer-ready. ── */
+function servicesPriced() {
+  const offered = providerServices.filter(s => s.is_available !== false);
+  if (!offered.length) return false;
+  const types = [...new Set(offered.map(s => s.service_type))];
+  return types.every(t => offered.some(s => s.service_type === t && s.price_cents != null));
+}
+function setupChecklistHtml() {
+  const c = !!(providerProfile && providerProfile.acknowledged_commitments_at);
+  const s = !!(providerProfile && providerProfile.acknowledged_safety_at);
+  const steps = [
+    { ok: !!(userData && userData.avatar_url), label: 'Add a profile photo', href: '/profile/' },
+    { ok: servicesPriced(), label: 'Set your walk lengths & prices', onclick: "switchTab('services')" },
+    { ok: c, label: 'Your commitments', href: '/carer-guidelines/your-commitments/' },
+    { ok: s, label: 'Emergencies and safety', href: '/carer-guidelines/emergencies-and-safety/' },
+    { ok: payoutsEnabled(), label: 'Connect payouts', onclick: "switchTab('earnings')" },
+  ];
+  const done = steps.filter(st => st.ok).length;
+  if (done === steps.length) return '';
+  const tick = '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg>';
+  const item = st => `<a class="ack-gate-item ${st.ok ? 'done' : ''}" ${st.href ? `href="${st.href}"` : `href="javascript:void(0)" onclick="${st.onclick}"`}>${st.ok ? tick : '<span class="ack-gate-dot"></span>'} ${st.label}</a>`;
+  const gateNote = guidelinesAcknowledged() ? '' : ' The two guideline pages must be read before you can accept bookings.';
+  return `<div class="ack-gate">
+    <div class="ack-gate-title">Finish setting up — ${done} of ${steps.length} done</div>
+    <p>Complete these so owners see a bookable, priced profile.${gateNote}</p>
+    <div class="ack-gate-links">${steps.map(item).join('')}</div>
   </div>`;
 }
 // Payout status card shown in the Earnings tab.
@@ -1336,9 +1343,7 @@ function renderDashboard() {
 
     ${activeWalkBarHtml()}
 
-    ${ackGateBannerHtml()}
-
-    ${payoutBannerHtml()}
+    ${setupChecklistHtml()}
 
     <div class="tabs">
       <button class="tab active" data-tab="bookings" onclick="switchTab('bookings')">Bookings${pending.length > 0 ? ` (${pending.length})` : ''}</button>
@@ -1621,7 +1626,7 @@ async function init() {
 
   try {
     // Check role
-    const users = await sbGet('users', `id=eq.${authUid}&select=first_name,last_name,role`);
+    const users = await sbGet('users', `id=eq.${authUid}&select=first_name,last_name,role,avatar_url`);
     if (!users.length) { logout(); return; }
     userData = users[0];
 
@@ -1649,13 +1654,18 @@ async function init() {
     providerServices = svcRows;
 
     // Returning from Stripe Connect onboarding? refresh payout readiness before first paint.
-    const payoutsParam = new URLSearchParams(location.search).get('payouts');
+    const bootParams = new URLSearchParams(location.search);
+    const payoutsParam = bootParams.get('payouts');
+    const tabParam = bootParams.get('tab');
     if (payoutsParam === 'return' || payoutsParam === 'refresh') {
       await refreshPayoutStatus();
       history.replaceState(null, '', location.pathname);
     }
 
     renderDashboard();
+    // TRU-157: deep-link a tab (Stripe onboarding returns to ?tab=earnings so the
+    // carer lands on the payout confirmation instead of the default bookings view).
+    if (tabParam && document.querySelector(`.tab[data-tab="${tabParam}"]`)) switchTab(tabParam);
     refreshMsgBadge();
     setInterval(refreshMsgBadge, 10000);
   } catch(e) {

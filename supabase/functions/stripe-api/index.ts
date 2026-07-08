@@ -135,8 +135,10 @@ Deno.serve(async (req) => {
       const link = await stripe('account_links', 'POST', {
         account: acctId,
         type: 'account_onboarding',
-        refresh_url: `${SITE}/dashboard/?payouts=refresh`,
-        return_url: `${SITE}/dashboard/?payouts=return`,
+        // TRU-157: land back on the Earnings tab so the carer sees the payout
+        // confirmation card instead of the default bookings view.
+        refresh_url: `${SITE}/dashboard/?payouts=refresh&tab=earnings`,
+        return_url: `${SITE}/dashboard/?payouts=return&tab=earnings`,
       });
       return json({ url: link.url });
     }
