@@ -262,12 +262,17 @@ function recurringAllowed(svcType) { return !MULTI_DAY_SERVICES.includes(svcType
 /* Time window — a "between X and Y" range the carer fits the walk into.
    Slider works in 30-min indices over 6:00am–9:00pm. */
 const WIN_MIN = 12, WIN_MAX = 42; // 6:00 .. 21:00 in half-hours
-const win = { start: 18, end: 24 }; // default 9:00am–12:00pm
+const win = { start: 16, end: 34 }; // TRU-158: default 8:00am–5:00pm (working-day window)
 function idxToHHMM(i) { return String(Math.floor(i / 2)).padStart(2, '0') + ':' + ((i % 2) ? '30' : '00'); }
 function idxToLabel(i) { const h = Math.floor(i / 2), m = (i % 2) ? 30 : 0; return ((h % 12) || 12) + ':' + String(m).padStart(2, '0') + ' ' + (h < 12 ? 'AM' : 'PM'); }
 function durationsForType(svcType) {
-  return providerServices.filter(s => s.service_type === svcType && s.is_available !== false)
+  const rows = providerServices.filter(s => s.service_type === svcType && s.is_available !== false)
     .sort((a, b) => (a.duration_mins || 0) - (b.duration_mins || 0));
+  // TRU-158: registration creates a bare stub row (no duration, no price). Once the carer
+  // has added real priced durations, the stub is an unbookable leftover — hide it. If it's
+  // the only row, keep it so the service is still bookable ("Standard" label).
+  const real = rows.filter(s => s.duration_mins != null || s.price_cents != null);
+  return real.length ? real : rows;
 }
 function selectedDurationMins() {
   const svc = providerServices.find(s => s.id === selectedServiceId);
@@ -363,7 +368,7 @@ function renderLengthPicker(svcType) {
     <div class="field" style="margin-bottom:14px;">
       <label>Walk length</label>
       <div class="len-row">
-        ${durs.map(d => `<button type="button" class="len-chip ${d.id === selectedServiceId ? 'active' : ''}" onclick="selectLength('${d.id}')">${d.duration_mins} min${d.price_cents != null ? ` · ${fmtPrice(d.price_cents)}` : ''}</button>`).join('')}
+        ${durs.map(d => `<button type="button" class="len-chip ${d.id === selectedServiceId ? 'active' : ''}" onclick="selectLength('${d.id}')">${d.duration_mins ? `${d.duration_mins} min` : 'Standard'}${d.price_cents != null ? ` · ${fmtPrice(d.price_cents)}` : ''}</button>`).join('')}
       </div>
     </div>`;
 }
