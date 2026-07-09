@@ -133,6 +133,10 @@
   .inline-field input:focus,.inline-field select:focus,.inline-field textarea:focus{border-color:var(--border-focus);}
   .inline-field textarea{resize:vertical;min-height:48px;line-height:1.4;}
   .inline-field .opt{color:var(--text-muted);font-weight:400;}
+  /* TRU-215: modernise native selects (custom chevron) and date inputs so they don't look like raw OS controls */
+  .field select,.inline-field select{-webkit-appearance:none;-moz-appearance:none;appearance:none;padding-right:36px;cursor:pointer;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 16 16' fill='none' stroke='%238B7355' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M4 6l4 4 4-4'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 12px center;}
+  .field input[type="date"],.inline-field input[type="date"]{cursor:pointer;}
+  .field input[type="date"]::-webkit-calendar-picker-indicator,.inline-field input[type="date"]::-webkit-calendar-picker-indicator{cursor:pointer;opacity:0.55;}
   .pet-form-row{display:grid;grid-template-columns:1fr 1fr;gap:10px;}
   .pet-form-row>*{min-width:0;}
   .pet-checkbox{display:flex;align-items:center;gap:8px;font-size:0.85rem;color:var(--text-secondary);margin-bottom:10px;cursor:pointer;user-select:none;}

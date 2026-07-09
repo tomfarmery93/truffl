@@ -831,12 +831,30 @@ function showMeetGreetSuccess(intent) {
   clearMsg();
 }
 
+// TRU-215: vet details are optional at signup but required before a booking can happen —
+// if a walker needs to act in an emergency we must have a vet on file. Blocks the booking
+// (and M&G) when any selected pet is missing vet_name or vet_phone, linking to the profile.
+function vetDetailsOk() {
+  const missing = selectedPetIds
+    .map(id => customerPets.find(p => p.id === id))
+    .filter(p => p && (!(p.vet_name || '').trim() || !(p.vet_phone || '').trim()));
+  if (!missing.length) return true;
+  const names = missing.map(p => esc(p.name || 'your dog')).join(', ');
+  const plural = missing.length > 1;
+  const el = document.getElementById('formMsg');
+  el.className = 'msg error';
+  el.innerHTML = `Please add vet details (clinic name and phone) for ${names} before booking — we need a vet on file in case of an emergency. <a href="/profile/" style="color:inherit;text-decoration:underline;font-weight:600;">Add ${plural ? 'them' : 'it'} in your profile</a>, then come back.`;
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+  return false;
+}
+
 async function submitBooking() {
   if (bookingMode === 'recurring') return submitSeries();
   clearMsg();
   if (!selectedServiceId) return showMsg('Please select a service.', 'error');
   if (!selectedPetIds.length && customerPets.length > 0) selectedPetIds = [customerPets[0].id];
   if (!selectedPetIds.length) return showMsg('Please select at least one pet.', 'error');
+  if (!vetDetailsOk()) return;
 
   const date = document.getElementById('bookDate').value;
   const notes = document.getElementById('bookNotes').value.trim();
@@ -933,6 +951,7 @@ async function submitSeries() {
   if (!recurringAllowed(selectedSvc && selectedSvc.service_type)) return showMsg('Recurring isn\'t available for this service.', 'error');
   if (!selectedPetIds.length && customerPets.length > 0) selectedPetIds = [customerPets[0].id];
   if (!selectedPetIds.length) return showMsg('Please select at least one pet.', 'error');
+  if (!vetDetailsOk()) return;
   if (recurring.frequency === 'specific_days' && !recurring.days.length) return showMsg('Pick at least one day of the week.', 'error');
   if (!recurring.startDate) return showMsg('Pick a start date.', 'error');
   if (recurring.endMode === 'until') {

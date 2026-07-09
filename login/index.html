@@ -96,17 +96,32 @@
   .field input[type="password"],
   .field input[type="tel"],
   .field input[type="number"],
+  .field input[type="date"],
   .field textarea,
   .field select {
     width: 100%; padding: 10px 14px; border: 1px solid var(--border); border-radius: 10px;
     font-family: 'DM Sans', sans-serif; font-size: 0.9rem; color: var(--text-primary);
     background: var(--warm-white); transition: border-color 0.2s, box-shadow 0.2s; outline: none;
+    height: 42px; /* TRU-215: consistent control height so date/select match text inputs */
   }
+  .field textarea { height: auto; }
+  /* TRU-215: style native <select> and <input type=date> so they don't look like raw OS controls */
+  .field select {
+    -webkit-appearance: none; -moz-appearance: none; appearance: none;
+    padding-right: 38px; cursor: pointer;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 16 16' fill='none' stroke='%238B7355' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M4 6l4 4 4-4'/%3E%3C/svg%3E");
+    background-repeat: no-repeat; background-position: right 14px center;
+  }
+  .field input[type="date"] { cursor: pointer; }
+  .field input[type="date"]::-webkit-calendar-picker-indicator { cursor: pointer; opacity: 0.55; }
   .field input:focus, .field textarea:focus, .field select:focus {
     border-color: var(--border-focus); box-shadow: 0 0 0 3px rgba(196,117,91,0.12);
   }
   .field textarea { resize: vertical; min-height: 80px; }
-  .field-row { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; }
+  /* TRU-215: align-items:end keeps the two inputs bottom-aligned when one label wraps */
+  .field-row { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; align-items: end; }
+  .text-link { color: var(--terracotta); font-size: 0.82rem; font-weight: 500; text-decoration: none; }
+  .text-link:hover { text-decoration: underline; }
   .field-hint { font-size: 0.78rem; color: var(--text-muted); margin-top: 4px; }
 
   .btn-row { display: flex; gap: 12px; margin-top: 1.5rem; }
@@ -291,6 +306,7 @@
       <div class="field">
         <label>Password</label>
         <input type="password" id="loginPassword" placeholder="Your password">
+        <div style="text-align:right;margin-top:6px;"><a href="#" class="text-link" onclick="showView('resetView');return false;">Forgot password?</a></div>
       </div>
       <div class="btn-row">
         <button class="btn btn-primary" onclick="doLogin()">Sign in</button>
@@ -303,10 +319,56 @@
         <div class="opt-title">Find a carer</div>
         <div class="opt-desc">I'm a dog owner looking for trusted care</div>
       </div>
-      <div class="signup-option" onclick="showView('providerSignup')">
+      <!-- TRU-215: route carers to the canonical /register/ flow (travel-time service area,
+           correct radius_km write). The old in-page providerSignup below wrote the ignored
+           service_radius_km and still showed a plain km input — this was the "item 1" flow Tom saw. -->
+      <a class="signup-option" href="/register/">
         <span class="opt-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><ellipse cx="8" cy="8" rx="1.5" ry="2"/><ellipse cx="16" cy="8" rx="1.5" ry="2"/><ellipse cx="5" cy="13" rx="1.3" ry="1.6"/><ellipse cx="19" cy="13" rx="1.3" ry="1.6"/><path d="M8.5 17.5c0-2.2 1.6-3.5 3.5-3.5s3.5 1.3 3.5 3.5-1.6 3-3.5 3-3.5-.8-3.5-3z"/></svg></span>
         <div class="opt-title">Become a carer</div>
         <div class="opt-desc">I want to offer professional dog care</div>
+      </a>
+    </div>
+  </div>
+
+  <!-- ═══ RESET-REQUEST VIEW (TRU-215) ═══ -->
+  <div class="view" id="resetView">
+    <div class="back-link" onclick="showView('loginView')">
+      <svg width="14" height="14" viewBox="0 0 16 16" fill="none"><path d="M10 12L6 8L10 4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      Back to sign in
+    </div>
+    <div class="page-header">
+      <h1>Reset your password</h1>
+      <p>Enter your email and we'll send you a link to set a new password.</p>
+    </div>
+    <div class="form-card">
+      <div class="field">
+        <label>Email address</label>
+        <input type="email" id="resetEmail" placeholder="you@example.com">
+      </div>
+      <div class="btn-row">
+        <button class="btn btn-primary" onclick="doResetRequest()">Send reset link</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══ SET-NEW-PASSWORD VIEW (TRU-215 recovery landing) ═══ -->
+  <div class="view" id="recoveryView">
+    <div class="page-header">
+      <h1>Set a new password</h1>
+      <p>Choose a new password for your Truffl account.</p>
+    </div>
+    <div class="form-card">
+      <div class="field">
+        <label>New password</label>
+        <input type="password" id="recoveryPassword" placeholder="At least 8 characters">
+        <div class="field-hint">Minimum 8 characters</div>
+      </div>
+      <div class="field">
+        <label>Confirm new password</label>
+        <input type="password" id="recoveryPasswordConfirm" placeholder="Re-enter your new password">
+      </div>
+      <div class="btn-row">
+        <button class="btn btn-primary" onclick="doSetNewPassword()">Save new password</button>
       </div>
     </div>
   </div>
@@ -617,6 +679,70 @@ async function doLogin() {
   finally { setLoading(btn, false); }
 }
 
+/* ─── FORGOT / RESET PASSWORD (TRU-215) ─── */
+async function doResetRequest() {
+  clearMsg();
+  const email = document.getElementById('resetEmail').value.trim();
+  if (!email) return showMsg('Please enter your email address.', 'error');
+  const btn = document.querySelector('#resetView .btn-primary');
+  setLoading(btn, true);
+  try {
+    // GoTrue recover: the email link returns to redirect_to with a recovery token in the hash.
+    const redirectTo = encodeURIComponent(location.origin + '/login/');
+    const r = await fetch(`${SUPABASE_URL}/auth/v1/recover?redirect_to=${redirectTo}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'apikey': SUPABASE_ANON_KEY },
+      body: JSON.stringify({ email })
+    });
+    // Neutral confirmation regardless of whether the account exists (don't leak membership).
+    if (!r.ok && r.status !== 429) { /* still show neutral message; 429 = rate limited */ }
+    showMsg("If that email has a Truffl account, we've sent a link to reset your password. Check your inbox.", 'success');
+  } catch (e) {
+    showMsg("If that email has a Truffl account, we've sent a link to reset your password. Check your inbox.", 'success');
+  } finally { setLoading(btn, false); }
+}
+
+// Parse the recovery token GoTrue puts in the URL hash after the email link is clicked.
+function parseRecoveryHash() {
+  const h = location.hash.startsWith('#') ? location.hash.slice(1) : location.hash;
+  if (!h) return null;
+  const p = new URLSearchParams(h);
+  if (p.get('type') === 'recovery' && p.get('access_token')) {
+    return { access_token: p.get('access_token'), refresh_token: p.get('refresh_token') };
+  }
+  if (p.get('error_description')) return { error: p.get('error_description').replace(/\+/g, ' ') };
+  return null;
+}
+
+let recoverySession = null;
+async function doSetNewPassword() {
+  clearMsg();
+  const pw = document.getElementById('recoveryPassword').value;
+  const pw2 = document.getElementById('recoveryPasswordConfirm').value;
+  if (pw.length < 8) return showMsg('Password must be at least 8 characters.', 'error');
+  if (pw !== pw2) return showMsg('The two passwords don\'t match.', 'error');
+  if (!recoverySession?.access_token) return showMsg('This reset link has expired — please request a new one.', 'error');
+  const btn = document.querySelector('#recoveryView .btn-primary');
+  setLoading(btn, true);
+  try {
+    // The recovery token is a full session — update the password, then log the user in.
+    const r = await fetch(`${SUPABASE_URL}/auth/v1/user`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json', 'apikey': SUPABASE_ANON_KEY, 'Authorization': `Bearer ${recoverySession.access_token}` },
+      body: JSON.stringify({ password: pw })
+    });
+    const d = await r.json();
+    if (!r.ok) throw new Error(d.error_description || d.msg || d.error?.message || 'Could not update your password.');
+    sb._token = recoverySession.access_token; sb._refresh = recoverySession.refresh_token; sb._uid = d.id;
+    const users = await sb.get('users', `id=eq.${sb._uid}&select=role`);
+    const role = users[0]?.role || 'customer';
+    localStorage.setItem('truffl_session', JSON.stringify({ access_token: sb._token, refresh_token: sb._refresh, user_id: sb._uid, role }));
+    history.replaceState(null, '', location.pathname); // drop the token from the URL
+    window.location.href = role === 'provider' ? '/dashboard/' : '/profile/';
+  } catch (e) { showMsg(e.message, 'error'); }
+  finally { setLoading(btn, false); }
+}
+
 /* ─── CUSTOMER SIGNUP ─── */
 function custGoStep(n) { showStep('c', n); updateSteps('c', n, 3); }
 
@@ -736,6 +862,12 @@ document.addEventListener('DOMContentLoaded', () => {
   renderCheckboxes('attribGrid', ATTRIBUTES);
   const petDob = document.getElementById('cPetDob'); if (petDob) petDob.max = new Date().toISOString().slice(0, 10);
   document.querySelectorAll('input').forEach(i => { i.addEventListener('keydown', e => { if (e.key === 'Enter') e.preventDefault(); }); });
+  // TRU-215: landed here from a password-reset email? Show the set-new-password view.
+  const rec = parseRecoveryHash();
+  if (rec) {
+    if (rec.error) { showView('loginView'); showMsg(rec.error + ' — please request a new reset link.', 'error'); }
+    else { recoverySession = rec; showView('recoveryView'); }
+  }
 });
 </script>
 </body>
