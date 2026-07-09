@@ -152,6 +152,8 @@
   .btn-update { width: 100%; padding: 12px; border-radius: 999px; background: var(--terracotta); color: white; border: 0; font-family: 'DM Sans', sans-serif; font-size: 0.9rem; font-weight: 500; cursor: pointer; transition: background 0.2s, transform 0.1s; margin-top: 6px; }
   .btn-update:hover { background: var(--terracotta-light); }
   .btn-update:active { transform: translateY(1px); }
+  /* TRU-215: desktop sidebar updates live, so no button needed there. */
+  #filterCard .btn-update { display: none; }
 
   /* ── Results column ── */
   .results-header { display: flex; justify-content: space-between; align-items: flex-end; gap: 1rem; margin-bottom: 1.25rem; flex-wrap: wrap; }
@@ -245,6 +247,8 @@
     .sheet { display: block; position: fixed; left: 0; right: 0; bottom: 0; background: var(--warm-white); border-radius: 24px 24px 0 0; padding: 1.25rem; max-height: 88vh; overflow-y: auto; transform: translateY(100%); transition: transform 0.28s cubic-bezier(.2,.7,.3,1); z-index: 201; box-shadow: 0 -10px 40px rgba(61,43,31,0.18); }
     .sheet.open { transform: translateY(0); }
     .sheet-handle { width: 40px; height: 4px; background: var(--border); border-radius: 999px; margin: 0 auto 1rem; }
+    /* TRU-215: pin the "Show results" CTA to the bottom of the sheet so it's never scrolled off-screen. */
+    .sheet .btn-update { position: sticky; bottom: 0; margin-top: 14px; box-shadow: 0 -12px 16px -4px var(--warm-white); }
     .sheet-close { position: absolute; top: 12px; right: 12px; background: transparent; border: 0; padding: 8px; color: var(--text-muted); cursor: pointer; }
 
     .results-heading { font-size: 1.6rem; }
@@ -398,7 +402,7 @@ const DAYS = ['mon','tue','wed','thu','fri','sat','sun'];
 const DAY_LABELS = { mon:'M', tue:'T', wed:'W', thu:'T', fri:'F', sat:'S', sun:'S' };
 const DAY_FULL =  { mon:'Mon', tue:'Tue', wed:'Wed', thu:'Thu', fri:'Fri', sat:'Sat', sun:'Sun' };
 
-let authToken = null, authUid = null;
+let authToken = null, authUid = null, sessionRole = null;
 let providers = [];
 let allAttrMap = null;
 let renderedProviders = [];
@@ -615,7 +619,7 @@ function renderFilterForm() {
       </div>
     </div>
 
-    <button type="button" class="btn-update" id="btnUpdate">Update results</button>
+    <button type="button" class="btn-update" id="btnUpdate">Show results</button>
   `;
   return html;
 }
@@ -720,9 +724,17 @@ function mountFilterForm() {
   syncWhenSection();
 }
 
+// TRU-215: results update live as filters change (no "Update results" button to hunt for).
+// Debounced so text typing and slider drags don't fire a request per keystroke/tick.
+let searchTimer = null;
+function scheduleSearch(delay = 350) {
+  clearTimeout(searchTimer);
+  searchTimer = setTimeout(() => { runSearch(); }, delay);
+}
+
 function wireFilterForm(root) {
   const suburb = root.querySelector('#inputSuburb');
-  if (suburb) suburb.addEventListener('input', e => { state.suburb = e.target.value; });
+  if (suburb) suburb.addEventListener('input', e => { state.suburb = e.target.value; scheduleSearch(); });
   // TRU-154: suburb autocomplete from the seeded suburbs table (public read).
   if (suburb && !document.getElementById('suburbList')) {
     suburb.setAttribute('list', 'suburbList');
@@ -748,6 +760,7 @@ function wireFilterForm(root) {
       document.querySelectorAll('.service-tile').forEach(t => t.classList.toggle('active', t.dataset.svc === state.service));
       // Re-render when fields — multi-day vs single-date depends on service
       syncWhenSection();
+      scheduleSearch();
     });
   });
 
@@ -757,6 +770,7 @@ function wireFilterForm(root) {
       document.querySelectorAll('.segmented button').forEach(b => b.classList.toggle('active', (b.dataset.rec === 'true') === state.recurring));
       document.querySelectorAll('#whenFields').forEach(el => el.innerHTML = renderWhenFields());
       wireWhenFields();
+      scheduleSearch();
     });
   });
 
@@ -767,15 +781,17 @@ function wireFilterForm(root) {
       const v = btn.dataset.size;
       state.size = (state.size === v) ? '' : v;
       document.querySelectorAll('[data-size]').forEach(b => b.classList.toggle('active', b.dataset.size === state.size));
+      scheduleSearch();
     });
   });
   const puppy = root.querySelector('#puppyChk');
-  if (puppy) puppy.addEventListener('change', e => { state.puppy = !!e.target.checked; document.querySelectorAll('#puppyChk').forEach(c => c.checked = state.puppy); });
+  if (puppy) puppy.addEventListener('change', e => { state.puppy = !!e.target.checked; document.querySelectorAll('#puppyChk').forEach(c => c.checked = state.puppy); scheduleSearch(); });
   root.querySelectorAll('[data-pet]').forEach(btn => {
     btn.addEventListener('click', () => {
       const v = btn.dataset.pet;
       state.petId = (state.petId === v) ? '' : v;
       document.querySelectorAll('[data-pet]').forEach(b => b.classList.toggle('active', b.dataset.pet === state.petId));
+      scheduleSearch();
     });
   });
 
@@ -786,6 +802,7 @@ function wireFilterForm(root) {
       if (idx >= 0) state.attributes.splice(idx, 1);
       else state.attributes.push(v);
       document.querySelectorAll(`[data-attr="${v}"]`).forEach(b => b.classList.toggle('active', state.attributes.includes(v)));
+      scheduleSearch();
     });
   });
   const head = root.querySelector('.expander-head');
@@ -793,10 +810,13 @@ function wireFilterForm(root) {
     document.querySelectorAll('.expander').forEach(ex => ex.classList.toggle('open'));
   });
 
+  // TRU-215: results now update live, so this is just the mobile sheet's "done" CTA.
+  // Flush any pending debounce so results are current the instant the sheet closes.
   const update = root.querySelector('#btnUpdate');
   if (update) update.addEventListener('click', () => {
-    closeSheet();
+    clearTimeout(searchTimer);
     runSearch();
+    closeSheet();
   });
 }
 
@@ -812,13 +832,13 @@ function updateWinWrap(wrap, s, e) {
 function wireWhenFields(root) {
   const scope = root || document;
   scope.querySelectorAll('#inputDate').forEach(input => {
-    input.addEventListener('change', e => { state.date = e.target.value; });
+    input.addEventListener('change', e => { state.date = e.target.value; scheduleSearch(); });
   });
   scope.querySelectorAll('#inputDateEnd').forEach(input => {
-    input.addEventListener('change', e => { state.dateEnd = e.target.value; });
+    input.addEventListener('change', e => { state.dateEnd = e.target.value; scheduleSearch(); });
   });
   scope.querySelectorAll('#inputTime').forEach(input => {
-    input.addEventListener('change', e => { state.time = e.target.value; });
+    input.addEventListener('change', e => { state.time = e.target.value; scheduleSearch(); });
   });
   scope.querySelectorAll('.win-wrap').forEach(wrap => {
     const sEl = wrap.querySelector('.winStart'), eEl = wrap.querySelector('.winEnd');
@@ -832,6 +852,7 @@ function wireWhenFields(root) {
       if (s === WIN_MIN && e === WIN_MAX) { state.windowStart = ''; state.windowEnd = ''; }
       else { state.windowStart = winIdxToHHMM(s); state.windowEnd = winIdxToHHMM(e); }
       updateWinWrap(wrap, s, e);
+      scheduleSearch();
     };
     sEl.addEventListener('input', () => onIn('start'));
     eEl.addEventListener('input', () => onIn('end'));
@@ -841,6 +862,7 @@ function wireWhenFields(root) {
     btn.addEventListener('click', () => {
       state.length = (state.length === btn.dataset.len) ? '' : btn.dataset.len;
       document.querySelectorAll('[data-len]').forEach(b => b.classList.toggle('active', b.dataset.len === state.length));
+      scheduleSearch();
     });
   });
   scope.querySelectorAll('[data-day]').forEach(btn => {
@@ -854,6 +876,7 @@ function wireWhenFields(root) {
         b.classList.toggle('active', active);
         b.setAttribute('aria-pressed', active ? 'true' : 'false');
       });
+      scheduleSearch();
     });
   });
 }
@@ -1298,6 +1321,7 @@ async function init() {
       const s = JSON.parse(stored);
       authToken = s.access_token;
       authUid = s.user_id;
+      sessionRole = s.role || 'customer';
     }
   } catch (e) {
     // No session or parse error — continue as guest, authToken stays null
@@ -1308,14 +1332,22 @@ async function init() {
   // TRU-158: snapshot the loading skeletons while they still exist in the DOM.
   SKELETON_HTML = document.getElementById('initialSkeletons').outerHTML;
 
-  // Saved pets — only attempted when logged in, using sbGet (auth required)
+  // Saved pets + suburb prefill — only when logged in (sbGet needs auth).
   if (authUid) {
     try {
-      const cp = await sbGet('customer_profiles', `user_id=eq.${authUid}&select=id`);
-      if (cp.length) {
-        myPets = await sbGet('pets', `customer_id=eq.${cp[0].id}&is_active=eq.true&select=id,name,breed`);
+      if (sessionRole === 'provider') {
+        // TRU-215: prefill the search suburb from the provider's own suburb (editable).
+        const pp = await sbGet('provider_profiles', `user_id=eq.${authUid}&select=suburb`);
+        if (!state.suburb && pp.length && pp[0].suburb) state.suburb = pp[0].suburb;
+      } else {
+        const cp = await sbGet('customer_profiles', `user_id=eq.${authUid}&select=id,suburb`);
+        if (cp.length) {
+          // TRU-215: prefill from the customer's suburb unless the URL already set one.
+          if (!state.suburb && cp[0].suburb) state.suburb = cp[0].suburb;
+          myPets = await sbGet('pets', `customer_id=eq.${cp[0].id}&is_active=eq.true&select=id,name,breed`);
+        }
       }
-    } catch (e) { /* ignore — pet chips just won't show */ }
+    } catch (e) { /* ignore — pet chips / prefill just won't show */ }
   }
 
   mountFilterForm();
