@@ -9,10 +9,11 @@
 --
 -- Fix: create SECURITY DEFINER RPCs as the ONLY trusted path to create bookings/series. They
 -- derive price server-side from provider_services + pet count, ignoring anything the client
--- sends. Then revoke the client's privilege to write the price columns, so the old direct-insert
--- path can no longer set a price at all. Series were already priced server-side (the tru14/tru13
--- materialize functions copy locked_price_cents -> total_cents), so making locked_price_cents
--- trustworthy at series-creation time makes every materialized booking trustworthy too.
+-- sends. BEFORE triggers then block any client-role attempt to create a booking/series directly
+-- or to change the price column, so the old direct-insert path can no longer set a price. Series
+-- were already priced server-side (the tru14/tru13 materialize functions copy locked_price_cents
+-- -> total_cents), so making locked_price_cents trustworthy at creation makes every materialized
+-- booking trustworthy too.
 --
 -- Applied to the live DB via apply_migration (Supabase branching is broken on this repo);
 -- committed here for version control. The "Supabase Preview" check on the PR is expected to
@@ -88,10 +89,15 @@ declare
   v_booking_id  uuid;
 begin
   v_customer_id := private.assert_customer_owns_pets(p_pet_ids);
-  -- provider is derived from the service, never trusted from the client.
-  select provider_id into v_provider_id from public.provider_services where id = p_service_id;
+  -- Provider is derived from the service, never trusted from the client. Note the id spaces
+  -- differ: provider_services.provider_id references auth.users.id, but bookings.provider_id
+  -- references provider_profiles.id — so we map through provider_profiles.user_id.
+  select pp.id into v_provider_id
+    from public.provider_services ps
+    join public.provider_profiles pp on pp.user_id = ps.provider_id
+   where ps.id = p_service_id;
   if v_provider_id is null then
-    raise exception 'Service % not found', p_service_id;
+    raise exception 'Service % not found or has no provider profile', p_service_id;
   end if;
   v_total_cents := private.compute_service_price(p_service_id, cardinality(p_pet_ids));
 
@@ -111,6 +117,7 @@ begin
   return v_booking_id;
 end; $$;
 
+revoke execute on function public.create_booking(uuid, uuid[], timestamptz, timestamptz, timestamptz, int, text) from public, anon;
 grant execute on function public.create_booking(uuid, uuid[], timestamptz, timestamptz, timestamptz, int, text) to authenticated;
 
 -- ── 3. create_booking_series: recurring + first-time M&G, priced server-side ────
@@ -137,9 +144,13 @@ declare
   v_mg_id       uuid;
 begin
   v_customer_id := private.assert_customer_owns_pets(p_pet_ids);
-  select provider_id into v_provider_id from public.provider_services where id = p_service_id;
+  -- provider_services.provider_id is an auth.users.id; map it to provider_profiles.id.
+  select pp.id into v_provider_id
+    from public.provider_services ps
+    join public.provider_profiles pp on pp.user_id = ps.provider_id
+   where ps.id = p_service_id;
   if v_provider_id is null then
-    raise exception 'Service % not found', p_service_id;
+    raise exception 'Service % not found or has no provider profile', p_service_id;
   end if;
   v_locked := private.compute_service_price(p_service_id, cardinality(p_pet_ids));
 
@@ -176,15 +187,55 @@ begin
   return v_series_id;
 end; $$;
 
+revoke execute on function public.create_booking_series(uuid, uuid[], text, public.series_frequency, int[], time, time, date, date, boolean, timestamptz) from public, anon;
 grant execute on function public.create_booking_series(uuid, uuid[], text, public.series_frequency, int[], time, time, date, date, boolean, timestamptz) to authenticated;
 
--- ── 4. Lock down the price columns ─────────────────────────────────────────────
--- The client can no longer write price on any path. The definer RPCs run as the function owner
--- (bypassing these grants), so they remain the only way to set a price. bookings.total_cents is
--- NOT NULL with no default, so this also forces every client booking through create_booking.
--- RLS insert policies (bookings_customer_create, customers_insert_series) stay as defense in depth.
-revoke insert (total_cents), update (total_cents) on public.bookings from authenticated, anon;
-revoke insert (locked_price_cents), update (locked_price_cents) on public.booking_series from authenticated, anon;
+-- ── 4. Lock down price writes so the RPCs are the only trusted path ────────────
+-- Column-level REVOKE does NOT work here: Supabase grants anon/authenticated table-level
+-- INSERT/UPDATE, and a column-level revoke cannot subtract from a table-level grant. Enforce
+-- with BEFORE triggers instead. The guard functions are SECURITY INVOKER (default) so
+-- current_user reflects the real writer: 'postgres' inside the SECURITY DEFINER RPCs (allowed),
+-- vs 'authenticated'/'anon' for direct PostgREST writes (blocked). Providers keep updating
+-- their bookings (status/notes) — only a change to the price column is rejected.
+create or replace function private.tg_guard_booking_price()
+returns trigger language plpgsql set search_path = '' as $$
+begin
+  if current_user in ('anon','authenticated') then
+    if tg_op = 'INSERT' then
+      raise exception 'Bookings must be created via create_booking() / create_booking_series()'
+        using errcode = 'insufficient_privilege';
+    elsif tg_op = 'UPDATE' and new.total_cents is distinct from old.total_cents then
+      raise exception 'total_cents cannot be changed directly'
+        using errcode = 'insufficient_privilege';
+    end if;
+  end if;
+  return new;
+end; $$;
+
+drop trigger if exists trg_guard_booking_price on public.bookings;
+create trigger trg_guard_booking_price
+  before insert or update on public.bookings
+  for each row execute function private.tg_guard_booking_price();
+
+create or replace function private.tg_guard_series_price()
+returns trigger language plpgsql set search_path = '' as $$
+begin
+  if current_user in ('anon','authenticated') then
+    if tg_op = 'INSERT' then
+      raise exception 'Series must be created via create_booking_series()'
+        using errcode = 'insufficient_privilege';
+    elsif tg_op = 'UPDATE' and new.locked_price_cents is distinct from old.locked_price_cents then
+      raise exception 'locked_price_cents cannot be changed directly'
+        using errcode = 'insufficient_privilege';
+    end if;
+  end if;
+  return new;
+end; $$;
+
+drop trigger if exists trg_guard_series_price on public.booking_series;
+create trigger trg_guard_series_price
+  before insert or update on public.booking_series
+  for each row execute function private.tg_guard_series_price();
 
 -- ── 5. TRU-170 recovery report (run manually; backfill is a founder decision) ──
 -- Completed, chargeable bookings that were never charged under the old total_cents = 0 bug.
