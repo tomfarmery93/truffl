@@ -51,6 +51,22 @@ Deno.serve(async (req) => {
 
   const type = String(evt.type || '');
   const obj = ((evt.data as Record<string, unknown>)?.object || {}) as Record<string, unknown>;
+  const eventId = String(evt.id || '');
+  const eventCreated = Number(evt.created) || 0;
+
+  // TRU-172: dedupe on Stripe's event.id. Short-circuit events we've already fully processed
+  // so replays are no-ops. We only *record* the id after the handler succeeds (below), so a
+  // transient handler failure is safely reprocessed on Stripe's retry rather than swallowed.
+  if (eventId) {
+    const { data: seen, error: seenErr } = await sb.rpc('stripe_event_seen', { p_event_id: eventId });
+    if (seenErr) {
+      console.error('stripe-webhook stripe_event_seen failed', eventId, seenErr);
+      return new Response(JSON.stringify({ error: 'dedupe check failed' }), { status: 500, headers: { 'Content-Type': 'application/json' } });
+    }
+    if (seen === true) {
+      return new Response(JSON.stringify({ received: true, duplicate: true }), { status: 200, headers: { 'Content-Type': 'application/json' } });
+    }
+  }
 
   try {
     if (type === 'payment_intent.succeeded') {
@@ -68,10 +84,17 @@ Deno.serve(async (req) => {
           .eq('id', bid).neq('payment_status', 'paid');
       }
     } else if (type === 'account.updated') {
-      await sb.from('provider_profiles')
-        .update({ payouts_enabled: !!obj.payouts_enabled, charges_enabled: !!obj.charges_enabled })
-        .eq('stripe_account_id', obj.id as string);
+      // TRU-172: apply only if this event is newer than the last one we applied for the
+      // account — an out-of-order/replayed event must not flip readiness flags backwards.
+      await sb.rpc('apply_stripe_account_update', {
+        p_account_id: obj.id as string,
+        p_payouts: !!obj.payouts_enabled,
+        p_charges: !!obj.charges_enabled,
+        p_created: eventCreated,
+      });
     }
+    // Mark processed only now that the handler ran cleanly (see dedupe note above).
+    if (eventId) await sb.rpc('record_stripe_event', { p_event_id: eventId, p_type: type, p_created: eventCreated });
     return new Response(JSON.stringify({ received: true }), { status: 200, headers: { 'Content-Type': 'application/json' } });
   } catch (e) {
     console.error('stripe-webhook error', type, e);

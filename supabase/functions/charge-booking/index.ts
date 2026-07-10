@@ -52,7 +52,7 @@ async function stripe(path: string, method: 'GET' | 'POST', body?: Record<string
 
 async function markFailed(bookingId: string, piId?: string) {
   await sb.from('bookings')
-    .update({ payment_status: 'failed', ...(piId ? { stripe_payment_intent_id: piId } : {}) })
+    .update({ payment_status: 'failed', payment_processing_at: null, ...(piId ? { stripe_payment_intent_id: piId } : {}) })
     .eq('id', bookingId);
 }
 
@@ -78,8 +78,10 @@ Deno.serve(async (req) => {
     const covered = b.cover_status === 'reassigned';
 
     // Atomic claim: only one invocation may move unpaid/failed -> processing.
+    // TRU-173: stamp the claim time so the reaper cron can detect bookings stranded in
+    // 'processing' (e.g. if this function crashes after the claim) and retry them.
     const { data: claimed } = await sb.from('bookings')
-      .update({ payment_status: 'processing' })
+      .update({ payment_status: 'processing', payment_processing_at: new Date().toISOString() })
       .eq('id', bookingId).in('payment_status', ['unpaid', 'failed'])
       .select('id');
     if (!claimed || !claimed.length) return json({ skipped: 'already processing or paid' });
@@ -124,12 +126,13 @@ Deno.serve(async (req) => {
         stripe_payment_intent_id: pi.id,
         application_fee_cents: fee,
         charged_at: new Date().toISOString(),
+        payment_processing_at: null,
       }).eq('id', bookingId);
       return json({ ok: true, payment_intent: pi.id, amount: b.total_cents, application_fee_cents: fee, covered });
     }
 
     // requires_action etc. — an off-session charge can't complete; flag for follow-up.
-    await sb.from('bookings').update({ payment_status: 'failed', stripe_payment_intent_id: pi.id }).eq('id', bookingId);
+    await sb.from('bookings').update({ payment_status: 'failed', stripe_payment_intent_id: pi.id, payment_processing_at: null }).eq('id', bookingId);
     return json({ ok: false, status: pi.status, payment_intent: pi.id });
   } catch (e) {
     console.error('charge-booking error', bookingId, e);
