@@ -300,6 +300,16 @@ async function sbInsert(table, row, token) {
   return await r.json();
 }
 
+// Call a Postgres RPC. Booking/series creation goes through server-side definer RPCs that
+// derive price from provider_services (the client can no longer set or tamper with price).
+async function sbRpc(fn, body, token) {
+  const r = await fetch(`${SUPABASE_URL}/rest/v1/rpc/${fn}`, {
+    method: 'POST', headers: headers(token), body: JSON.stringify(body)
+  });
+  if (!r.ok) { const e = await r.json().catch(() => ({})); throw new Error(e.message || 'Request failed'); }
+  return await r.json();
+}
+
 async function sbPatch(table, params, row, token) {
   const r = await fetch(`${SUPABASE_URL}/rest/v1/${table}?${params}`, {
     method: 'PATCH', headers: { ...headers(token), 'Prefer': 'return=minimal' }, body: JSON.stringify(row)
@@ -772,41 +782,23 @@ async function createMeetGreetSeries() {
   const btn = document.getElementById('mgConfirmBtn');
   setLoading(btn, true);
   try {
-    const seriesIns = await sbInsert('booking_series', {
-      customer_id: customerProfile.id,
-      provider_id: providerProfile.id,
-      service_id: intent.serviceId,
-      booking_kind: intent.kind,
-      frequency_type: intent.frequency_type,
-      days_of_week: intent.days_of_week,
-      time_of_day: intent.time_of_day,
-      window_end_time: intent.window_end_time,
-      start_date: intent.start_date,
-      end_date: intent.end_date,
-      status: 'pending_meet_greet',
-      locked_price_cents: intent.lockedPrice
-    }, authToken);
-    const series = Array.isArray(seriesIns) ? seriesIns[0] : seriesIns;
-    await sbInsert('series_pets', intent.petIds.map(pid => ({ series_id: series.id, pet_id: pid })), authToken);
-
-    // Placeholder time — the real timing is arranged in the messages thread.
+    // Price is derived server-side; the RPC creates the pending_meet_greet series, its pets,
+    // and the free flagged M&G booking (+ its pets) atomically. Placeholder M&G time — the real
+    // timing is arranged in the messages thread.
     const mgScheduled = new Date(`${intent.start_date}T12:00:00`).toISOString();
-    const mgIns = await sbInsert('bookings', {
-      customer_id: customerProfile.id,
-      provider_id: providerProfile.id,
-      pet_id: intent.petIds[0],
-      service_id: intent.serviceId,
-      status: 'confirmed',
-      scheduled_at: mgScheduled,
-      duration_mins: 30,
-      total_cents: 0,
-      is_meet_and_greet: true,
-      series_id: series.id
+    await sbRpc('create_booking_series', {
+      p_service_id: intent.serviceId,
+      p_pet_ids: intent.petIds,
+      p_booking_kind: intent.kind,
+      p_frequency_type: intent.frequency_type,
+      p_days_of_week: intent.days_of_week,
+      p_time_of_day: intent.time_of_day,
+      p_window_end_time: intent.window_end_time,
+      p_start_date: intent.start_date,
+      p_end_date: intent.end_date,
+      p_is_meet_greet: true,
+      p_mg_scheduled_at: mgScheduled
     }, authToken);
-    const mg = Array.isArray(mgIns) ? mgIns[0] : mgIns;
-    if (mg && mg.id) {
-      await sbInsert('booking_pets', intent.petIds.map(pid => ({ booking_id: mg.id, pet_id: pid })), authToken);
-    }
     closeMgModal();
     showMeetGreetSuccess(intent);
   } catch (e) {
@@ -887,40 +879,31 @@ async function submitBooking() {
     // First booking with this carer? Route into the meet & greet flow: the intended
     // booking is wrapped in a pending_meet_greet series and gated on the M&G.
     if (!(await hasCompletedMeetGreet())) {
-      const lockedPrice = lockedPriceFor(selectedSvc, selectedPetIds.length);
       const intent = isMultiDay ? {
         kind: 'multiday', svcType: selectedSvc.service_type, serviceId: selectedServiceId, petIds: selectedPetIds.slice(),
         frequency_type: 'daily', days_of_week: [], time_of_day: '12:00', window_end_time: null,
-        start_date: date, end_date: document.getElementById('bookDateEnd')?.value, lockedPrice
+        start_date: date, end_date: document.getElementById('bookDateEnd')?.value
       } : {
         kind: 'oneoff', svcType: selectedSvc.service_type, serviceId: selectedServiceId, petIds: selectedPetIds.slice(),
         frequency_type: 'daily', days_of_week: [], time_of_day: idxToHHMM(win.start), window_end_time: idxToHHMM(win.end),
-        start_date: date, end_date: null, lockedPrice
+        start_date: date, end_date: null
       };
       setLoading(btn, false);
       return enterMeetGreetFlow(intent);
     }
 
-    // pet_id keeps the first selected pet as the "primary" for backward compat;
-    // every selected pet (including the primary) is recorded in booking_pets.
-    const inserted = await sbInsert('bookings', {
-      customer_id: customerProfile.id,
-      provider_id: providerProfile.id,
-      pet_id: selectedPetIds[0],
-      service_id: selectedServiceId,
-      status: 'pending',
-      scheduled_at: scheduledAt,
-      ends_at: endsAt,
-      window_end_at: windowEndAt,
-      duration_mins: durationMins,
-      total_cents: 0,
-      customer_notes: notes || null
+    // Server-side RPC derives total_cents from provider_services + pet count, records the primary
+    // pet and every selected pet in booking_pets, and returns the new booking id. The client no
+    // longer sends a price (TRU-170/171).
+    await sbRpc('create_booking', {
+      p_service_id: selectedServiceId,
+      p_pet_ids: selectedPetIds,
+      p_scheduled_at: scheduledAt,
+      p_ends_at: endsAt,
+      p_window_end_at: windowEndAt,
+      p_duration_mins: durationMins,
+      p_customer_notes: notes || null
     }, authToken);
-
-    const booking = Array.isArray(inserted) ? inserted[0] : inserted;
-    if (booking && booking.id) {
-      await sbInsert('booking_pets', selectedPetIds.map(pid => ({ booking_id: booking.id, pet_id: pid })), authToken);
-    }
 
     document.getElementById('bookingContent').innerHTML = `
       <div class="form-card success-card fade-in">
@@ -960,11 +943,6 @@ async function submitSeries() {
   }
   if (!computeUpcomingDates(1).length) return showMsg('That schedule has no upcoming walks — check the dates.', 'error');
 
-  // Lock the per-walk price (base + extra-pet fees) at series creation.
-  const base = selectedSvc.price_cents;
-  const extraFee = selectedSvc.additional_pet_price_cents || 0;
-  const lockedPrice = base != null ? base + Math.max(0, selectedPetIds.length - 1) * extraFee : null;
-
   const btn = document.querySelector('.btn-primary');
   setLoading(btn, true);
   try {
@@ -979,30 +957,25 @@ async function submitSeries() {
         frequency_type: recurring.frequency,
         days_of_week: recurring.frequency === 'specific_days' ? recurring.days.slice().sort((a, b) => a - b) : [],
         time_of_day: idxToHHMM(win.start), window_end_time: idxToHHMM(win.end),
-        start_date: recurring.startDate, end_date: recurring.endMode === 'until' ? recurring.endDate : null,
-        lockedPrice
+        start_date: recurring.startDate, end_date: recurring.endMode === 'until' ? recurring.endDate : null
       };
       setLoading(btn, false);
       return enterMeetGreetFlow(intent);
     }
 
-    const inserted = await sbInsert('booking_series', {
-      customer_id: customerProfile.id,
-      provider_id: providerProfile.id,
-      service_id: selectedServiceId,
-      frequency_type: recurring.frequency,
-      days_of_week: recurring.frequency === 'specific_days' ? recurring.days.slice().sort((a, b) => a - b) : [],
-      time_of_day: idxToHHMM(win.start),
-      window_end_time: idxToHHMM(win.end),
-      start_date: recurring.startDate,
-      end_date: recurring.endMode === 'until' ? recurring.endDate : null,
-      status: 'pending',
-      locked_price_cents: lockedPrice
+    // Server-side RPC derives locked_price_cents from provider_services + pet count and records
+    // series_pets atomically. The client no longer sends a price (TRU-171).
+    await sbRpc('create_booking_series', {
+      p_service_id: selectedServiceId,
+      p_pet_ids: selectedPetIds,
+      p_booking_kind: 'recurring',
+      p_frequency_type: recurring.frequency,
+      p_days_of_week: recurring.frequency === 'specific_days' ? recurring.days.slice().sort((a, b) => a - b) : [],
+      p_time_of_day: idxToHHMM(win.start),
+      p_window_end_time: idxToHHMM(win.end),
+      p_start_date: recurring.startDate,
+      p_end_date: recurring.endMode === 'until' ? recurring.endDate : null
     }, authToken);
-    const series = Array.isArray(inserted) ? inserted[0] : inserted;
-    if (series && series.id) {
-      await sbInsert('series_pets', selectedPetIds.map(pid => ({ series_id: series.id, pet_id: pid })), authToken);
-    }
 
     const endText = recurring.endMode === 'until' ? ` until ${new Date(recurring.endDate + 'T00:00:00').toLocaleDateString('en-AU', { day: 'numeric', month: 'short', year: 'numeric' })}` : ', ongoing';
     document.getElementById('bookingContent').innerHTML = `
