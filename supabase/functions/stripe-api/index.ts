@@ -28,6 +28,7 @@
 //   (SUPABASE_URL / SUPABASE_SERVICE_ROLE_KEY are injected automatically)
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+import { corsHeaders } from '../_shared/cors.ts';
 
 const STRIPE_SECRET_KEY = Deno.env.get('STRIPE_SECRET_KEY')!;
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!;
@@ -37,16 +38,6 @@ const SITE = 'https://trufflpets.com';
 const PLATFORM_FEE_BPS = 1500;
 
 const sb = createClient(SUPABASE_URL, SERVICE_ROLE);
-
-const CORS: Record<string, string> = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, content-type, apikey',
-  'Access-Control-Allow-Methods': 'POST, OPTIONS',
-};
-
-function json(body: unknown, status = 200) {
-  return new Response(JSON.stringify(body), { status, headers: { ...CORS, 'Content-Type': 'application/json' } });
-}
 
 // Form-encode with Stripe's nested-bracket convention (e.g. capabilities[transfers][requested]).
 function encode(obj: Record<string, unknown>, prefix = ''): string {
@@ -98,6 +89,11 @@ async function isAdmin(userId: string) {
 }
 
 Deno.serve(async (req) => {
+  // Per-request CORS (origin allow-list) — TRU-200. Local `json` closes over it.
+  const CORS = corsHeaders(req);
+  const json = (body: unknown, status = 200) =>
+    new Response(JSON.stringify(body), { status, headers: { ...CORS, 'Content-Type': 'application/json' } });
+
   if (req.method === 'OPTIONS') return new Response('ok', { headers: CORS });
   if (req.method !== 'POST') return json({ error: 'Method not allowed' }, 405);
 

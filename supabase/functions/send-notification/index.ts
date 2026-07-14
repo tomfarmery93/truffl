@@ -9,6 +9,7 @@
 //   (SUPABASE_URL / SUPABASE_SERVICE_ROLE_KEY are injected automatically)
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+import { timingSafeEqual } from '../_shared/secret.ts';
 
 const RESEND_API_KEY = Deno.env.get('RESEND_API_KEY')!;
 const WEBHOOK_SECRET = Deno.env.get('WEBHOOK_SECRET')!;
@@ -392,7 +393,7 @@ async function sendEmail(msg: { to: string; subject: string; html: string; reply
 
 Deno.serve(async (req) => {
   if (req.method !== 'POST') return new Response('Method not allowed', { status: 405 });
-  if (req.headers.get('x-webhook-secret') !== WEBHOOK_SECRET) {
+  if (!timingSafeEqual(req.headers.get('x-webhook-secret') ?? '', WEBHOOK_SECRET)) {
     return new Response('Unauthorized', { status: 401 });
   }
   let payload: Record<string, unknown>;
