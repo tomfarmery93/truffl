@@ -10,6 +10,7 @@
 //   STRIPE_SECRET_KEY, WEBHOOK_SECRET  (+ SUPABASE_URL / SUPABASE_SERVICE_ROLE_KEY injected)
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+import { timingSafeEqual } from '../_shared/secret.ts';
 
 const STRIPE_SECRET_KEY = Deno.env.get('STRIPE_SECRET_KEY')!;
 const WEBHOOK_SECRET = Deno.env.get('WEBHOOK_SECRET')!;
@@ -58,7 +59,7 @@ async function markFailed(bookingId: string, piId?: string) {
 
 Deno.serve(async (req) => {
   if (req.method !== 'POST') return json({ error: 'Method not allowed' }, 405);
-  if (req.headers.get('x-webhook-secret') !== WEBHOOK_SECRET) return json({ error: 'Unauthorized' }, 401);
+  if (!timingSafeEqual(req.headers.get('x-webhook-secret') ?? '', WEBHOOK_SECRET)) return json({ error: 'Unauthorized' }, 401);
 
   let payload: Record<string, unknown>;
   try { payload = await req.json(); } catch { return json({ error: 'Bad JSON' }, 400); }

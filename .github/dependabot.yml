@@ -1,0 +1,23 @@
+# TRU-202: automated dependency update PRs. Covers the two npm manifests (repo root and the
+# email package) plus GitHub Actions once workflows exist (Epic B / TRU-175).
+# NOTE: secret scanning + push protection are repo-settings toggles (GitHub → Settings → Code
+# security) and cannot be enabled from a committed file — those remain a manual step for TRU-202.
+version: 2
+updates:
+  - package-ecosystem: "npm"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+    open-pull-requests-limit: 5
+
+  - package-ecosystem: "npm"
+    directory: "/emails"
+    schedule:
+      interval: "weekly"
+    open-pull-requests-limit: 5
+
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+    open-pull-requests-limit: 5
