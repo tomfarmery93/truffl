@@ -1,0 +1,91 @@
+# TRU-175: first CI quality gate for a no-build static site + Deno edge functions.
+# Fast (<2 min), zero secrets — safe to run on every PR including Dependabot's.
+# Deliberately NOT here yet: migration replay against a fresh DB (TRU-176) and
+# automated Supabase deploys (TRU-177).
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+jobs:
+  inline-js:
+    name: Inline JS syntax (node --check)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      # Every page is a standalone HTML file with inline <script> blocks and no build
+      # step, so a stray syntax error ships straight to production. Extract each page's
+      # inline scripts and syntax-check them exactly as a browser would parse them.
+      - name: Check inline <script> blocks
+        run: |
+          python3 - <<'PY'
+          import pathlib, re, subprocess, sys
+          SKIP_TOP = {'android', 'ios', 'www', 'node_modules'}
+          failed = False
+          for html in sorted(pathlib.Path('.').glob('**/*.html')):
+              if set(html.parts) & SKIP_TOP:
+                  continue
+              text = html.read_text(encoding='utf-8')
+              blocks = []
+              for m in re.finditer(r'<script\b([^>]*)>(.*?)</script>', text, re.S | re.I):
+                  attrs, body = m.group(1), m.group(2)
+                  if re.search(r'\bsrc\s*=', attrs, re.I):
+                      continue  # external script, nothing inline to check
+                  t = re.search(r'type\s*=\s*["\']?([^"\'\s>]+)', attrs, re.I)
+                  if t and t.group(1).lower() not in ('text/javascript', 'module'):
+                      continue  # data blocks (e.g. application/ld+json) are not JS
+                  blocks.append(body)
+              if not blocks:
+                  continue
+              tmp = pathlib.Path('/tmp/inline-check.js')
+              tmp.write_text('\n;\n'.join(blocks), encoding='utf-8')
+              r = subprocess.run(['node', '--check', str(tmp)], capture_output=True, text=True)
+              if r.returncode:
+                  print(f'::error file={html}::inline <script> fails node --check')
+                  print(r.stderr)
+                  failed = True
+              else:
+                  print(f'ok   {html}')
+          sys.exit(1 if failed else 0)
+          PY
+
+  edge-functions:
+    name: Edge function typecheck (deno check)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: denoland/setup-deno@v2
+        with:
+          deno-version: v2.x
+      - name: deno check all functions
+        run: |
+          status=0
+          for f in supabase/functions/*/index.ts; do
+            echo "── deno check $f"
+            deno check "$f" || status=1
+          done
+          exit $status
+
+  migrations:
+    name: Migration filename sanity
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      # Cheap guard until TRU-176 adds a real replay-against-fresh-DB job: filenames must
+      # be 14-digit-timestamp_snake_case.sql so they sort (and therefore apply) in order.
+      - name: Check migration filenames
+        run: |
+          bad=0
+          for f in supabase/migrations/*.sql; do
+            base=$(basename "$f")
+            if [[ ! "$base" =~ ^[0-9]{14}_[a-z0-9_]+\.sql$ ]]; then
+              echo "::error file=$f::migration filename must match YYYYMMDDHHMMSS_snake_case.sql"
+              bad=1
+            fi
+          done
+          exit $bad
