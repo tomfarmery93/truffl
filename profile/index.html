@@ -254,8 +254,16 @@
 const SUPABASE_URL = 'https://gadflsntbnbnnxbpiral.supabase.co';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImdhZGZsc250Ym5ibm54YnBpcmFsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzUwNjcwNTcsImV4cCI6MjA5MDY0MzA1N30.g5ZrqeAX9U5l7oDZEbQFrU5j10828dUF0QuJ0ZlHXK8';
 
-// Stripe publishable (test) key — public by design, safe to ship client-side (TRU-144).
-const STRIPE_PK = 'pk_test_51TlHff1Sh4qkQvUZOXzfEFJzZcGilXp5JjaDQc3ksDFiF7iJSYSmanteWT9nDpVFiLtshU92hFucVAZzNyFvXgPX00z34gWOQA';
+// Stripe publishable key — public by design, safe to ship client-side (TRU-144).
+// It MUST match the mode of the backend STRIPE_SECRET_KEY (stripe-api / charge-booking edge-fn
+// env). The backend is currently in TEST mode, so we ship the test key everywhere. At go-live
+// (TRU-174): set STRIPE_PK_LIVE to the pk_live_… key AND switch the backend secret key to live in
+// the same change — the domain check then serves the live key on trufflpets.com (web + the
+// Capacitor app, which loads from that origin) and the test key everywhere else (local/preview).
+const STRIPE_PK_TEST = 'pk_test_51TlHff1Sh4qkQvUZOXzfEFJzZcGilXp5JjaDQc3ksDFiF7iJSYSmanteWT9nDpVFiLtshU92hFucVAZzNyFvXgPX00z34gWOQA';
+const STRIPE_PK_LIVE = ''; // pk_live_… — set at go-live; must match the backend secret-key mode
+const STRIPE_IS_PROD = /(^|\.)trufflpets\.com$/i.test(location.hostname);
+const STRIPE_PK = (STRIPE_IS_PROD && STRIPE_PK_LIVE) ? STRIPE_PK_LIVE : STRIPE_PK_TEST;
 
 const SERVICE_LABELS = {
   dog_walking:'Dog walking', dog_sitting:'Dog sitting', dog_boarding:'Dog boarding',
