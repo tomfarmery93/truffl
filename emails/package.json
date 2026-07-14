@@ -16,7 +16,7 @@
     "react-dom": "^19.1.0"
   },
   "devDependencies": {
-    "react-email": "^6.6.4",
+    "react-email": "^6.8.1",
     "typescript": "^7.0.2",
     "@types/react": "^19.0.0",
     "@types/react-dom": "^19.0.0"
