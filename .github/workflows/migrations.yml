@@ -1,0 +1,82 @@
+# TRU-176: replay the full migration history against a fresh database on every change
+# under supabase/. This is what makes the files in supabase/migrations/ the real,
+# provable source of truth rather than a hand-maintained record of what was applied
+# to prod (the drift called out in TRU-145/TRU-176).
+#
+# The job fails if any migration errors when applied from scratch, and also if the
+# replayed end state is missing objects we know prod relies on (smoke asserts below) —
+# so a migration that "succeeds" but silently produces the wrong schema still fails.
+name: Migrations
+
+on:
+  pull_request:
+    paths: ['supabase/**']
+  push:
+    branches: [main]
+    paths: ['supabase/**']
+
+jobs:
+  replay:
+    name: Replay migrations on a fresh DB
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: supabase/setup-cli@v1
+        with:
+          version: latest
+
+      - name: Start fresh local database
+        run: supabase db start
+
+      - name: Replay all migrations from scratch
+        run: supabase db reset
+
+      - name: Smoke-assert the replayed end state
+        run: |
+          psql "postgresql://postgres:postgres@127.0.0.1:54322/postgres" \
+            --set ON_ERROR_STOP=1 --quiet <<'SQL'
+          do $$
+          declare
+            missing text := '';
+          begin
+            -- Booking-creation RPCs (TRU-170/171)
+            if to_regprocedure('public.create_booking(uuid,uuid[],timestamptz,timestamptz,timestamptz,int,text)') is null then
+              missing := missing || ' public.create_booking'; end if;
+            if not exists (select 1 from pg_proc p join pg_namespace n on n.oid = p.pronamespace
+                           where n.nspname = 'public' and p.proname = 'create_booking_series') then
+              missing := missing || ' public.create_booking_series'; end if;
+
+            -- Price guards (TRU-171)
+            if not exists (select 1 from pg_trigger where tgname = 'trg_guard_booking_price') then
+              missing := missing || ' trg_guard_booking_price'; end if;
+            if not exists (select 1 from pg_trigger where tgname = 'trg_guard_series_price') then
+              missing := missing || ' trg_guard_series_price'; end if;
+
+            -- Payment-path objects (TRU-146/172/173/201)
+            if not exists (select 1 from pg_indexes where indexname = 'idx_bookings_payment_status') then
+              missing := missing || ' idx_bookings_payment_status'; end if;
+            if not exists (select 1 from pg_proc p join pg_namespace n on n.oid = p.pronamespace
+                           where n.nspname = 'private' and p.proname = 'reap_stranded_charges') then
+              missing := missing || ' private.reap_stranded_charges'; end if;
+            if not exists (select 1 from pg_proc p join pg_namespace n on n.oid = p.pronamespace
+                           where n.nspname = 'private' and p.proname = 'tg_charge_on_completion') then
+              missing := missing || ' private.tg_charge_on_completion'; end if;
+
+            -- Signup trigger fn must exist AND have a pinned search_path (TRU-198)
+            if not exists (select 1 from pg_proc p join pg_namespace n on n.oid = p.pronamespace
+                           where n.nspname = 'public' and p.proname = 'handle_new_user'
+                             and p.proconfig::text like '%search_path%') then
+              missing := missing || ' handle_new_user(search_path pinned)'; end if;
+
+            -- Core tables sanity
+            if to_regclass('public.bookings') is null then missing := missing || ' public.bookings'; end if;
+            if to_regclass('public.booking_series') is null then missing := missing || ' public.booking_series'; end if;
+            if to_regclass('private.stripe_config') is null then missing := missing || ' private.stripe_config'; end if;
+
+            if missing <> '' then
+              raise exception 'replayed schema is missing:%', missing;
+            end if;
+            raise notice 'smoke asserts passed';
+          end $$;
+          SQL
