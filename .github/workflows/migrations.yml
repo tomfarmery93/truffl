@@ -22,15 +22,14 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - uses: supabase/setup-cli@v1
-        with:
-          version: latest
-
+      # Install the CLI via npm rather than supabase/setup-cli: the action resolves
+      # "latest" through the GitHub API and intermittently dies on runner-IP rate
+      # limits; npm fetches the pinned-major binary from the release CDN instead.
       - name: Start fresh local database
-        run: supabase db start
+        run: npx --yes supabase@2 db start
 
       - name: Replay all migrations from scratch
-        run: supabase db reset
+        run: npx --yes supabase@2 db reset
 
       - name: Smoke-assert the replayed end state
         run: |
