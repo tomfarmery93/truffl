@@ -13,8 +13,7 @@
 --   * marking a booking 'failed' would fire private.tg_payment_failed (TRU-149) and email the
 --     customer about a failure that may never have really happened.
 --
--- Applied to the live DB via apply_migration; committed here for version control. The
--- "Supabase Preview" PR check is expected to fail and is non-blocking (see TRU-145).
+-- Applied to the live DB via apply_migration; committed here for version control.
 
 -- 1. When the booking was claimed into 'processing' — lets the sweep measure staleness.
 alter table public.bookings

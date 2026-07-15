@@ -11,8 +11,7 @@
 --          here — tracked as remaining scope on TRU-201.)
 --
 -- Applied to the live DB via apply_migration (Supabase branching is broken on this repo);
--- committed here for version control. The "Supabase Preview" PR check is expected to fail and is
--- non-blocking (see TRU-145 and prior migration headers).
+-- committed here for version control.
 
 -- ── TRU-198: pin search_path on the signup trigger function ────────────────────
 create or replace function public.handle_new_user()

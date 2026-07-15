@@ -10,8 +10,7 @@
 -- provider_profiles.id mismatch called out in TRU-61.
 --
 -- Applied to the live DB via apply_migration (Supabase branching is broken on this
--- repo); committed here for version control. The "Supabase Preview" check on this
--- PR is expected to fail and is non-blocking.
+-- repo); committed here for version control.
 
 -- 1. New series state: the intended booking is locked in as pending until the M&G
 --    is completed and the customer proceeds.

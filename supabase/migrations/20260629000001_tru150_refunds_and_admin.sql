@@ -3,8 +3,7 @@
 -- Refund tracking + the 'refunded' payment state.
 --
 -- Applied to the live DB via apply_migration (Supabase branching is broken on this repo);
--- committed here for version control. The "Supabase Preview" check on the PR is expected to
--- fail and is non-blocking (see TRU-145).
+-- committed here for version control.
 alter table public.users add column if not exists is_admin boolean not null default false;
 
 alter table public.bookings

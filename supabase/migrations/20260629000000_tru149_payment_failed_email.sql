@@ -3,8 +3,7 @@
 -- an email hiccup can never roll back the booking write.
 --
 -- Applied to the live DB via apply_migration (Supabase branching is broken on this repo);
--- committed here for version control. The "Supabase Preview" check on the PR is expected to
--- fail and is non-blocking (see TRU-145).
+-- committed here for version control.
 create or replace function private.tg_payment_failed() returns trigger language plpgsql security definer set search_path = '' as $$
 begin
   if NEW.payment_status = 'failed' and OLD.payment_status is distinct from 'failed' then
