@@ -4,8 +4,7 @@
 -- charge Edge Function via pg_net.
 --
 -- Applied to the live DB via apply_migration (Supabase branching is broken on this repo);
--- committed here for version control. The "Supabase Preview" check on the PR is expected to
--- fail and is non-blocking.
+-- committed here for version control.
 
 alter table public.provider_profiles
   add column if not exists stripe_account_id text,

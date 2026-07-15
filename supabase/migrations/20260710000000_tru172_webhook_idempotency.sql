@@ -11,8 +11,7 @@
 -- grant to service_role after revoking the public/anon/authenticated defaults.
 --
 -- Applied to the live DB via apply_migration (Supabase branching is broken on this repo);
--- committed here for version control. The "Supabase Preview" PR check is expected to fail
--- and is non-blocking (see TRU-145).
+-- committed here for version control.
 
 -- 1. Dedupe store: one row per processed Stripe event id. Written only by the RPC below.
 create table if not exists private.stripe_processed_events (

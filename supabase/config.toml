@@ -1,0 +1,10 @@
+# TRU-176: minimal Supabase CLI config so `supabase db reset` can replay the migration
+# history against a fresh local DB (used by .github/workflows/migrations.yml).
+# Deliberately minimal — the full local development story (auth config, seed data,
+# edge-function serving, docs) is TRU-209.
+project_id = "truffl"
+
+[db]
+port = 54322
+shadow_port = 54320
+major_version = 17

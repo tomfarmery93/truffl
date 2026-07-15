@@ -9,8 +9,7 @@
 -- mark_meet_greet_complete stays granted to authenticated (the client calls it intentionally).
 -- Leaves PostGIS st_estimatedextent alone (extension-owned).
 --
--- Applied to the live DB via apply_migration; committed for version control. Supabase Preview
--- check is expected to fail and is non-blocking (see TRU-145).
+-- Applied to the live DB via apply_migration; committed for version control.
 
 revoke execute on function public.generate_series_bookings(uuid, integer) from public, anon, authenticated;
 revoke execute on function public.roll_all_series_bookings() from public, anon, authenticated;

@@ -16,8 +16,7 @@
 -- booking trustworthy too.
 --
 -- Applied to the live DB via apply_migration (Supabase branching is broken on this repo);
--- committed here for version control. The "Supabase Preview" check on the PR is expected to
--- fail and is non-blocking (see TRU-145 and the tru146/tru172 migration headers).
+-- committed here for version control.
 
 -- ── 1. Single source of truth for price ───────────────────────────────────────
 -- base + (extra pets * per-extra-pet fee), read straight from provider_services.
