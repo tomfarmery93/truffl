@@ -210,7 +210,7 @@
   .empty-state p, .error-state p { color: var(--text-muted); font-size: 0.9rem; max-width: 420px; margin: 0 auto 1.25rem; line-height: 1.55; }
   .btn-secondary { padding: 10px 20px; background: transparent; border: 1px solid var(--border); border-radius: 999px; color: var(--text-secondary); font-family: 'DM Sans', sans-serif; font-size: 0.85rem; cursor: pointer; transition: border-color 0.2s, color 0.2s; }
   .btn-secondary:hover { border-color: var(--text-muted); color: var(--text-primary); }
-  /* ── TRU-121: "can't find a carer" request box ── */
+  /* ── TRU-121/216: "can't find a carer" capture state ── */
   .request-box { text-align: center; margin-top: 1rem; padding: 2rem 1.75rem; background: var(--terracotta-soft); border: 1px solid var(--blush); border-radius: 14px; }
   .request-box h3 { font-family: 'Cormorant Garamond', serif; font-size: 1.35rem; font-weight: 500; color: var(--brown); margin: 0 0 0.5rem; }
   .request-box p { color: var(--text-secondary); font-size: 0.9rem; max-width: 440px; margin: 0 auto 1.1rem; line-height: 1.55; }
@@ -219,11 +219,23 @@
   .btn-primary:hover { background: var(--terracotta-light); }
   .btn-primary:disabled { opacity: 0.6; cursor: default; }
   .req-lbl { display: block; font-size: 0.82rem; font-weight: 500; color: var(--text-secondary); margin: 12px 0 5px; }
+  .req-opt { color: var(--text-muted); font-weight: 400; font-size: 0.78rem; }
   .req-fld { width: 100%; padding: 10px 12px; border: 1px solid var(--border); border-radius: 10px; font-family: 'DM Sans', sans-serif; font-size: 0.9rem; color: var(--text-primary); background: var(--warm-white); }
   .req-fld:focus { outline: none; border-color: var(--border-focus); }
   .req-msg { font-size: 0.84rem; min-height: 1em; margin: 10px 0; color: var(--text-muted); }
   .req-msg.error { color: var(--terracotta); }
   #reqForm .btn-primary { margin-top: 8px; }
+  .capture-state h3 { font-size: 1.5rem; }
+  .cap-steps { display: grid; gap: 10px; margin: 1.1rem auto 1.25rem; max-width: 460px; text-align: left; }
+  .cap-step { display: flex; gap: 10px; align-items: flex-start; font-size: 0.88rem; color: var(--text-secondary); line-height: 1.5; }
+  .cap-step .cap-n { flex-shrink: 0; width: 22px; height: 22px; border-radius: 50%; background: var(--terracotta); color: #fff; font-size: 0.72rem; font-weight: 600; display: flex; align-items: center; justify-content: center; margin-top: 1px; }
+  .cap-band { text-align: center; font-size: 0.85rem; color: var(--text-secondary); background: var(--warm-white); border: 1px dashed var(--border); border-radius: 10px; padding: 8px 12px; max-width: 460px; margin: 0 auto 0.5rem; }
+  .req-row { display: grid; grid-template-columns: 1fr 1fr; gap: 0 12px; }
+  @media (max-width: 480px) { .req-row { grid-template-columns: 1fr; } }
+  .chip-row { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 2px; }
+  .chip-time { padding: 7px 14px; border-radius: 999px; border: 1px solid var(--border); background: var(--warm-white); color: var(--text-secondary); font-family: 'DM Sans', sans-serif; font-size: 0.82rem; cursor: pointer; transition: background 0.15s, border-color 0.15s, color 0.15s; }
+  .chip-time.on { background: var(--sage-soft); border-color: var(--sage-light); color: var(--sage-dark); font-weight: 500; }
+  .cap-alt { text-align: center; margin-top: 0.9rem; }
 
   /* ── Mobile ── */
   @media (max-width: 768px) {
@@ -1145,81 +1157,149 @@ function logSearchMiss() {
   loggedMisses.add(key);
   sbRpc('log_search_miss', { p_suburb: state.suburb, p_service: state.service || null }).catch(() => {});
 }
-function requestCtaHtml() {
+/* ── TRU-216/217/218: no-carer-in-area capture state (extends TRU-121) ── */
+// Launch config — the one place to change these numbers. The price band ships hidden until
+// the GTM pricing decision lands: set to e.g. { min: 30, max: 40 } to show the band line.
+const CAPTURE_PRICE_BAND = null;
+
+const CAPTURE_FREQUENCIES = [
+  ['one_off', 'Just once'],
+  ['weekly', 'Once a week'],
+  ['few_per_week', 'A few times a week'],
+  ['daily', 'Every weekday'],
+];
+const CAPTURE_TIMES = [['morning', 'Morning'], ['midday', 'Midday'], ['afternoon', 'Afternoon'], ['evening', 'Evening']];
+const capTimes = new Set(); // preferred-times chip selection (survives re-renders)
+
+function captureStateHtml(areaZero) {
   if (requestSubmitted) {
     return `<div class="request-box request-done fade-in">
       <h3>We're on it 🐾</h3>
-      <p>Thanks — we've got your request and we'll be in touch as soon as we've lined up a carer for you.</p>
+      <p><strong>Tom, Truffl's founder, will call you</strong> — usually the same day — to talk through exactly what you and your dog need.</p>
+      <p>If your perfect walker isn't nearby yet, Tom walks your dog personally while we source and vet your permanent walker — you're never left waiting.</p>
+      <p>We've also emailed you a rundown of what happens next.</p>
     </div>`;
   }
+  const heading = (areaZero && state.suburb) ? `We're new to ${esc(state.suburb)}` : 'Let us find your walker';
+  const bandLine = CAPTURE_PRICE_BAND
+    ? `<div class="cap-band">Most ${state.suburb ? esc(state.suburb) + ' ' : ''}walks are $${CAPTURE_PRICE_BAND.min}–$${CAPTURE_PRICE_BAND.max}. Your walker sets their own rate — we'll help you land inside it.</div>`
+    : '';
+  return `
+    <div class="request-box capture-state fade-in">
+      <h3>${heading}</h3>
+      <p>Request a walk and we'll match you with a vetted walker.</p>
+      <div class="cap-steps">
+        <div class="cap-step"><span class="cap-n">1</span><span><strong>Tom, our founder, calls you</strong> — usually the same day — to hear what you and your dog need.</span></div>
+        <div class="cap-step"><span class="cap-n">2</span><span><strong>Your walks start within days.</strong> Until your permanent walker is ready, Tom walks your dog personally.</span></div>
+        <div class="cap-step"><span class="cap-n">3</span><span><strong>Meet your vetted walker.</strong> We introduce them in person and hand over everything we've learned about your dog.</span></div>
+      </div>
+      ${bandLine}
+      ${captureFormHtml()}
+    </div>
+    <div class="cap-alt"><button class="btn-secondary" id="btnEmptyClear">Clear filters instead</button></div>`;
+}
+
+function captureFormHtml() {
   const loggedIn = !!authUid;
   const petPicker = (loggedIn && myPets.length)
     ? `<label class="req-lbl">Which pet?</label>
        <select class="req-fld" id="reqPet">${myPets.map(p => `<option value="${esc(p.id)}">${esc(p.name)}${p.breed ? ' · ' + esc(p.breed) : ''}</option>`).join('')}</select>`
     : '';
-  const contactFields = loggedIn ? '' : `
-       <label class="req-lbl">Your name</label>
-       <input class="req-fld" id="reqName" type="text" placeholder="First name" autocomplete="given-name">
-       <label class="req-lbl">Email</label>
-       <input class="req-fld" id="reqEmail" type="email" placeholder="you@example.com" autocomplete="email" required>`;
-  return `
-    <div class="request-box fade-in">
-      <h3>Can't find the right carer?</h3>
-      <p>Tell us what you need and we'll find one for you — from our carers, or someone new we go and vet.</p>
-      <button class="btn-primary" id="btnReqOpen" type="button">Let us find you a carer →</button>
-      <form id="reqForm" style="display:none;margin-top:14px;text-align:left;max-width:440px;margin-left:auto;margin-right:auto;">
-        ${petPicker}${contactFields}
-        <label class="req-lbl">Anything else? <span style="color:var(--text-muted);font-weight:400;">(optional)</span></label>
-        <textarea class="req-fld" id="reqNote" rows="2" placeholder="Dates, your dog, what matters to you…"></textarea>
-        <div id="reqMsg" class="req-msg"></div>
-        <button class="btn-primary" id="btnReqSubmit" type="submit">Send request</button>
-      </form>
+  const nameEmail = loggedIn ? '' : `
+    <div class="req-row">
+      <div><label class="req-lbl">Your name</label>
+        <input class="req-fld" id="reqName" type="text" placeholder="First name" autocomplete="given-name"></div>
+      <div><label class="req-lbl">Email</label>
+        <input class="req-fld" id="reqEmail" type="email" placeholder="you@example.com" autocomplete="email"></div>
     </div>`;
+  // Signed-in owners with pets already told us about the dog; guests get the lead-form basics
+  // (full dog profile happens later in the flow, not here).
+  const dogFields = (loggedIn && myPets.length) ? '' : `
+    <div class="req-row">
+      <div><label class="req-lbl">Dog's name</label>
+        <input class="req-fld" id="reqDogName" type="text" placeholder="e.g. Flick"></div>
+      <div><label class="req-lbl">Breed <span class="req-opt">(optional)</span></label>
+        <input class="req-fld" id="reqDogBreed" type="text" placeholder="e.g. Kelpie cross"></div>
+    </div>`;
+  const svcOptions = SERVICES.map(s => `<option value="${s.value}"${state.service === s.value ? ' selected' : ''}>${s.label}</option>`).join('');
+  const freqDefault = state.recurring ? 'weekly' : 'one_off';
+  return `
+    <form id="reqForm" style="margin-top:6px;text-align:left;max-width:460px;margin-left:auto;margin-right:auto;">
+      ${petPicker}${nameEmail}
+      <label class="req-lbl">Phone <span class="req-opt">— so Tom can call you, usually same day</span></label>
+      <input class="req-fld" id="reqPhone" type="tel" placeholder="04xx xxx xxx" autocomplete="tel">
+      ${dogFields}
+      <label class="req-lbl">Temperament, quirks, anything we should know <span class="req-opt">(optional)</span></label>
+      <textarea class="req-fld" id="reqTemperament" rows="2" placeholder="Reactive on lead? Shy with strangers? Pulls like a train?"></textarea>
+      <div class="req-row">
+        <div><label class="req-lbl">Service</label>
+          <select class="req-fld" id="reqService">${svcOptions}</select></div>
+        <div><label class="req-lbl">How often?</label>
+          <select class="req-fld" id="reqFrequency">${CAPTURE_FREQUENCIES.map(([v, l]) => `<option value="${v}"${v === freqDefault ? ' selected' : ''}>${l}</option>`).join('')}</select></div>
+      </div>
+      <label class="req-lbl">Preferred times <span class="req-opt">(pick any)</span></label>
+      <div class="chip-row" id="reqTimes">${CAPTURE_TIMES.map(([v, l]) => `<button type="button" class="chip-time${capTimes.has(v) ? ' on' : ''}" data-time="${v}">${l}</button>`).join('')}</div>
+      <label class="req-lbl">Anything else? <span class="req-opt">(optional)</span></label>
+      <textarea class="req-fld" id="reqNote" rows="2" placeholder="Dates, your building's quirks, what matters to you…"></textarea>
+      <div id="reqMsg" class="req-msg"></div>
+      <button class="btn-primary" id="btnReqSubmit" type="submit" style="width:100%;">Request my walker</button>
+    </form>`;
 }
-function wireRequestCta() {
-  const openBtn = document.getElementById('btnReqOpen');
-  if (openBtn) openBtn.addEventListener('click', () => {
-    document.getElementById('reqForm').style.display = 'block';
-    openBtn.style.display = 'none';
-  });
+
+function wireCaptureState() {
   const form = document.getElementById('reqForm');
   if (form) form.addEventListener('submit', submitCarerRequest);
+  document.querySelectorAll('#reqTimes .chip-time').forEach(ch => ch.addEventListener('click', () => {
+    const t = ch.dataset.time;
+    if (capTimes.has(t)) { capTimes.delete(t); ch.classList.remove('on'); }
+    else { capTimes.add(t); ch.classList.add('on'); }
+  }));
+  const clearBtn = document.getElementById('btnEmptyClear');
+  if (clearBtn) clearBtn.addEventListener('click', clearFilters);
 }
+
 async function submitCarerRequest(e) {
   e.preventDefault();
   const msg = document.getElementById('reqMsg');
   const btn = document.getElementById('btnReqSubmit');
-  const emailEl = document.getElementById('reqEmail');
-  const nameEl = document.getElementById('reqName');
-  const petEl = document.getElementById('reqPet');
-  const noteEl = document.getElementById('reqNote');
-  if (!authUid && emailEl && !emailEl.value.trim()) {
-    msg.textContent = 'Please leave an email so we can reach you.'; msg.className = 'req-msg error'; return;
-  }
+  const val = id => { const el = document.getElementById(id); return el ? el.value.trim() : ''; };
+  const fail = t => { msg.textContent = t; msg.className = 'req-msg error'; };
+  const phone = val('reqPhone').replace(/[^\d+]/g, '');
+  if (!authUid && !val('reqName')) return fail('Please tell us your name.');
+  if (phone.replace(/\D/g, '').length < 8) return fail('Please leave a phone number so Tom can call you.');
+  if (!authUid && !val('reqEmail')) return fail('Please leave an email so we can confirm your request.');
+  if (document.getElementById('reqDogName') && !val('reqDogName')) return fail("Please tell us your dog's name.");
   btn.disabled = true; btn.textContent = 'Sending…'; msg.textContent = ''; msg.className = 'req-msg';
+  const petEl = document.getElementById('reqPet');
   const body = {
     p_suburb: state.suburb || null,
-    p_service_type: state.service || null,
+    p_service_type: val('reqService') || state.service || null,
     p_wanted_date: (!state.recurring && state.date) ? state.date : null,
-    p_recurring: !!state.recurring,
+    p_recurring: val('reqFrequency') !== 'one_off',
     p_window_start: state.windowStart || null,
     p_window_end: state.windowEnd || null,
     p_dog_size: state.size || null,
     p_puppy: !!state.puppy,
     p_pet_id: (authUid && petEl) ? petEl.value : null,
-    p_contact_name: nameEl ? nameEl.value.trim() : null,
-    p_contact_email: emailEl ? emailEl.value.trim() : null,
-    p_note: noteEl ? noteEl.value.trim() : null,
+    p_contact_name: val('reqName') || null,
+    p_contact_email: val('reqEmail') || null,
+    p_note: val('reqNote') || null,
     p_search_params: state,
+    p_contact_phone: phone,
+    p_dog_name: val('reqDogName') || null,
+    p_dog_breed: val('reqDogBreed') || null,
+    p_dog_temperament: val('reqTemperament') || null,
+    p_frequency: val('reqFrequency') || null,
+    p_preferred_times: Array.from(capTimes),
   };
   try {
     const r = await sbRpc('submit_carer_request', body);
     if (!r.ok) { const d = await r.json().catch(() => ({})); throw new Error(d.message || 'Could not send (' + r.status + ')'); }
     requestSubmitted = true;
-    renderResults(renderedProviders); // re-render the empty state → thank-you
+    renderResults(renderedProviders); // re-render the capture state → confirmation
   } catch (err) {
-    msg.textContent = err.message || 'Something went wrong — please try again.'; msg.className = 'req-msg error';
-    btn.disabled = false; btn.textContent = 'Send request';
+    fail(err.message || 'Something went wrong — please try again.');
+    btn.disabled = false; btn.textContent = 'Request my walker';
   }
 }
 
@@ -1237,17 +1317,29 @@ function renderResults(list) {
 
   if (list.length === 0) {
     logSearchMiss(); // TRU-121: passive demand signal for a zero-result search
+    // TRU-217: a true area-zero (the server found nobody near the suburb) gets the full
+    // capture state; a filtered-to-zero (carers exist, the filters excluded them) keeps the
+    // tweak-your-search empty state with the capture form one click away.
+    const areaZero = providers.length === 0 && !!state.suburb;
+    if (areaZero || requestSubmitted) {
+      area.innerHTML = captureStateHtml(true);
+      wireCaptureState();
+      return;
+    }
     area.innerHTML = `
       <div class="empty-state fade-in">
         <div class="empty-icon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="6.5"></circle><path d="M16 16l4 4"></path></svg></div>
         <h3>No carers found${state.suburb ? ' near ' + esc(state.suburb) : ''}</h3>
         <p>Try expanding your search area, choosing a different service, or removing some filters.</p>
         <button class="btn-secondary" id="btnEmptyClear">Clear filters</button>
+        <button class="btn-primary" id="btnShowCapture" style="margin-left:8px;">Let us find you a carer →</button>
       </div>
-      ${requestCtaHtml()}
     `;
     document.getElementById('btnEmptyClear').addEventListener('click', clearFilters);
-    wireRequestCta();
+    document.getElementById('btnShowCapture').addEventListener('click', () => {
+      area.innerHTML = captureStateHtml(false);
+      wireCaptureState();
+    });
     return;
   }
 

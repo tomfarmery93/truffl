@@ -233,9 +233,9 @@ async function buildMessages(type: string, payload: Record<string, unknown>) {
       });
     }
   } else if (type === 'carer_request') {
-    // TRU-121: a customer (or guest) couldn't find a carer and asked us to find one.
-    // Page every admin with the request details; reply-to is the requester so an admin can
-    // respond straight from their inbox.
+    // TRU-121/216: a customer (or guest) couldn't find a carer — the capture-flow lead.
+    // One DB event, two messages: page every admin with everything needed for the candid
+    // founder call (TRU-219), and confirm to the lead what happens next (TRU-220).
     const { data: rq } = await sb.from('carer_requests').select('*').eq('id', payload.request_id as string).single();
     if (!rq) return out;
     const { data: admins } = await sb.from('users').select('email,first_name').eq('is_admin', true);
@@ -244,18 +244,22 @@ async function buildMessages(type: string, payload: Record<string, unknown>) {
     // Contact details come from the linked account when signed in, else the guest fields.
     let contactName: string | null = rq.contact_name;
     let contactEmail: string | null = rq.contact_email;
+    let firstName: string | null = rq.contact_name;
     let petName: string | null = null;
+    let petBreed: string | null = null;
     if (rq.customer_id) {
       const { data: cp } = await sb.from('customer_profiles').select('user_id').eq('id', rq.customer_id).single();
       if (cp?.user_id) {
         const { data: u } = await sb.from('users').select('email,first_name,last_name').eq('id', cp.user_id).single();
         contactName = contactName || `${u?.first_name || ''} ${u?.last_name || ''}`.trim() || null;
         contactEmail = contactEmail || u?.email || null;
+        firstName = firstName || u?.first_name || null;
       }
     }
     if (rq.pet_id) {
-      const { data: pet } = await sb.from('pets').select('name').eq('id', rq.pet_id).single();
+      const { data: pet } = await sb.from('pets').select('name,breed').eq('id', rq.pet_id).single();
       petName = pet?.name || null;
+      petBreed = pet?.breed || null;
     }
 
     const serviceLabel = rq.service_type ? (SERVICE_LABELS[rq.service_type] || rq.service_type) : 'Any service';
@@ -265,12 +269,25 @@ async function buildMessages(type: string, payload: Record<string, unknown>) {
     const windowStr = rq.window_start ? `${rq.window_start}${rq.window_end ? '–' + rq.window_end : ''}` : '—';
     const canAssign = !!(rq.customer_id && rq.pet_id);
 
+    const FREQUENCY_LABELS: Record<string, string> = {
+      one_off: 'Just once', weekly: 'Once a week', few_per_week: 'A few times a week', daily: 'Every weekday',
+    };
+    const dogName = rq.dog_name || petName;
+    const dogStr = [dogName, rq.dog_breed || petBreed, rq.dog_size, rq.puppy ? 'puppy' : '']
+      .filter(Boolean).join(' · ') || '—';
+    const timesStr = (rq.preferred_times as string[] | null)?.length
+      ? (rq.preferred_times as string[]).map((t) => t.charAt(0).toUpperCase() + t.slice(1)).join(', ')
+      : '—';
+
     const rows: [string, string][] = [
+      ['Phone', rq.contact_phone || '⚠ missing'],
       ['Suburb', rq.suburb || '—'],
       ['Service', serviceLabel],
+      ['How often', rq.frequency ? (FREQUENCY_LABELS[rq.frequency] || rq.frequency) : (rq.recurring ? 'Recurring' : 'One-off')],
       ['When', whenStr],
       ['Time window', windowStr],
-      ['Dog', [rq.dog_size, rq.puppy ? 'puppy' : ''].filter(Boolean).join(' · ') || '—'],
+      ['Preferred times', timesStr],
+      ['Dog', dogStr],
       ['From', contactName || (rq.customer_id ? 'Registered customer' : 'Guest')],
       ['Email', contactEmail || '—'],
       ['Account', rq.customer_id ? `Signed-in${rq.pet_id ? ` · pet: ${petName || 'selected'}` : ' · no pet selected'}` : 'Guest (not signed up)'],
@@ -282,17 +299,37 @@ async function buildMessages(type: string, payload: Record<string, unknown>) {
       out.push({
         to: admin.email,
         replyTo: contactEmail || undefined,
-        subject: `🔎 Carer request — ${serviceLabel} in ${rq.suburb || 'unknown suburb'}`,
+        subject: `🔎 New lead — ${serviceLabel} in ${rq.suburb || 'unknown suburb'}${rq.contact_phone ? ` · 📞 ${rq.contact_phone}` : ''}`,
         html: layout({
-          preview: `${requester} couldn't find a carer in ${rq.suburb || 'their area'}`,
-          heading: 'Someone needs a carer',
-          body: p(`${esc(requester)} searched and couldn't find the right carer. Here's what they're after:`) +
+          preview: `${requester} needs a walker in ${rq.suburb || 'their area'} — call them today`,
+          heading: 'New captured lead — call them today',
+          body: p(`${esc(requester)} searched and couldn't find the right carer. Same-day call is the bar. Here's everything for the call:`) +
             detailsTable(rows) +
+            (rq.dog_temperament_note ? p(`<b>Temperament / quirks:</b> ${esc(rq.dog_temperament_note)}`) : '') +
             (rq.note ? p(`<b>Their note:</b> ${esc(rq.note)}`) : '') +
             p(canAssign
-              ? 'You can assign an existing carer straight from the console, or go find and onboard someone new.'
+              ? 'You can assign an existing carer straight from the console, or start the stop-gap flow.'
               : 'Reply to this email to reach them, or work it from the console.'),
           cta: { label: 'Open the admin console', href: `${SITE}/admin/` },
+        }),
+      });
+    }
+
+    // TRU-220: lead-facing confirmation — candid framing, no price numbers, soft promises only.
+    if (contactEmail) {
+      out.push({
+        to: contactEmail,
+        subject: "We're on it — your Truffl walker request",
+        html: layout({
+          preview: 'Tom, our founder, will call you — usually the same day',
+          heading: "We're on it 🐾",
+          body: p(`Hi ${esc(firstName || 'there')}, thanks — we've got your request for ${esc(serviceLabel.toLowerCase())}${rq.suburb ? ` in ${esc(rq.suburb)}` : ''}.`) +
+            p(`<b>Tom, Truffl's founder, will call you</b> — usually the same day — to talk through exactly what ${esc(dogName || 'your dog')} needs.`) +
+            p("If your perfect walker isn't nearby yet, Tom walks your dog personally while we source and vet your permanent walker — so your walks can start within days, and you're never left waiting.") +
+            p("When your walker is ready, we introduce you at a meet &amp; greet and hand over everything we've learned about your dog.") +
+            (rq.customer_id ? '' : p('If you create your account now, booking is one tap when we call.')),
+          cta: rq.customer_id ? undefined : { label: 'Create your account', href: `${SITE}/register/` },
+          footnote: "Your walker sets their own rate — we'll talk pricing openly on the call, no surprises.",
         }),
       });
     }
