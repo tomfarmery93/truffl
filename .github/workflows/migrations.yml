@@ -20,7 +20,7 @@ jobs:
     name: Replay migrations on a fresh DB
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       # Install the CLI via npm rather than supabase/setup-cli: the action resolves
       # "latest" through the GitHub API and intermittently dies on runner-IP rate
