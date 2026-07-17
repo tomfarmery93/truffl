@@ -1170,8 +1170,12 @@ const CAPTURE_FREQUENCIES = [
 ];
 const CAPTURE_TIMES = [['morning', 'Morning'], ['midday', 'Midday'], ['afternoon', 'Afternoon'], ['evening', 'Evening']];
 const capTimes = new Set(); // preferred-times chip selection (survives re-renders)
+// TRU-226: which surface produced the lead. no_carers = true area-zero, filtered_out =
+// carers exist but the filters excluded them, browsed_unhappy = saw the list, none suited.
+let captureTrigger = 'no_carers';
 
-function captureStateHtml(areaZero) {
+function captureStateHtml(trigger) {
+  captureTrigger = trigger;
   if (requestSubmitted) {
     return `<div class="request-box request-done fade-in">
       <h3>We're on it 🐾</h3>
@@ -1180,7 +1184,9 @@ function captureStateHtml(areaZero) {
       <p>We've also emailed you a rundown of what happens next.</p>
     </div>`;
   }
-  const heading = (areaZero && state.suburb) ? `We're new to ${esc(state.suburb)}` : 'Let us find your walker';
+  const heading = (trigger === 'no_carers' && state.suburb) ? `We're new to ${esc(state.suburb)}`
+    : trigger === 'browsed_unhappy' ? "Let's find the right fit"
+    : 'Let us find your walker';
   const bandLine = CAPTURE_PRICE_BAND
     ? `<div class="cap-band">Most ${state.suburb ? esc(state.suburb) + ' ' : ''}walks are $${CAPTURE_PRICE_BAND.min}–$${CAPTURE_PRICE_BAND.max}. Your walker sets their own rate — we'll help you land inside it.</div>`
     : '';
@@ -1196,7 +1202,19 @@ function captureStateHtml(areaZero) {
       ${bandLine}
       ${captureFormHtml()}
     </div>
-    <div class="cap-alt"><button class="btn-secondary" id="btnEmptyClear">Clear filters instead</button></div>`;
+    ${trigger === 'browsed_unhappy' ? '' : '<div class="cap-alt"><button class="btn-secondary" id="btnEmptyClear">Clear filters instead</button></div>'}`;
+}
+
+// TRU-226: collapsed CTA under a non-empty results list — the "scrolled to the bottom and
+// still not convinced" lead. Same process as the zero-result capture, different flag.
+function browseCaptureHtml() {
+  if (requestSubmitted) return captureStateHtml('browsed_unhappy'); // thank-you card
+  return `
+    <div class="request-box fade-in" style="margin-top:1.5rem;">
+      <h3>Can't see an option that suits you?</h3>
+      <p>Tell us what you're after and we'll match you with a vetted walker — someone we know, or someone new we go and vet.</p>
+      <button class="btn-primary" id="btnBrowseCapture" type="button">Let us find your walker →</button>
+    </div>`;
 }
 
 function captureFormHtml() {
@@ -1291,6 +1309,8 @@ async function submitCarerRequest(e) {
     p_dog_temperament: val('reqTemperament') || null,
     p_frequency: val('reqFrequency') || null,
     p_preferred_times: Array.from(capTimes),
+    p_trigger: captureTrigger,
+    p_results_seen: providers.length, // server-side count, pre client filters (TRU-226)
   };
   try {
     const r = await sbRpc('submit_carer_request', body);
@@ -1322,7 +1342,7 @@ function renderResults(list) {
     // tweak-your-search empty state with the capture form one click away.
     const areaZero = providers.length === 0 && !!state.suburb;
     if (areaZero || requestSubmitted) {
-      area.innerHTML = captureStateHtml(true);
+      area.innerHTML = captureStateHtml('no_carers');
       wireCaptureState();
       return;
     }
@@ -1337,7 +1357,7 @@ function renderResults(list) {
     `;
     document.getElementById('btnEmptyClear').addEventListener('click', clearFilters);
     document.getElementById('btnShowCapture').addEventListener('click', () => {
-      area.innerHTML = captureStateHtml(false);
+      area.innerHTML = captureStateHtml('filtered_out');
       wireCaptureState();
     });
     return;
@@ -1346,13 +1366,22 @@ function renderResults(list) {
   const cap = 20;
   const visible = list.slice(0, cap);
   const more = list.length > cap;
-  area.innerHTML = `<div class="provider-list">${visible.map(renderCard).join('')}</div>${more ? `<div style="text-align:center;margin-top:1.5rem;"><button class="btn-secondary" id="btnLoadMore">Load more</button></div>` : ''}`;
+  // TRU-226: #browseCapture sits OUTSIDE .provider-list so Load more's insertAdjacentHTML
+  // never disturbs it, and the CTA stays at the true bottom of the page.
+  area.innerHTML = `<div class="provider-list">${visible.map(renderCard).join('')}</div>${more ? `<div style="text-align:center;margin-top:1.5rem;"><button class="btn-secondary" id="btnLoadMore">Load more</button></div>` : ''}<div id="browseCapture">${browseCaptureHtml()}</div>`;
   if (more) {
     document.getElementById('btnLoadMore').addEventListener('click', () => {
       area.querySelector('.provider-list').insertAdjacentHTML('beforeend', list.slice(cap).map(renderCard).join(''));
       document.getElementById('btnLoadMore').remove();
     });
   }
+  const bc = document.getElementById('btnBrowseCapture');
+  if (bc) bc.addEventListener('click', () => {
+    const box = document.getElementById('browseCapture');
+    box.innerHTML = captureStateHtml('browsed_unhappy');
+    wireCaptureState();
+    box.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  });
 
   const ctxClear = document.getElementById('btnClearAll');
   if (ctxClear) ctxClear.addEventListener('click', clearFilters);
