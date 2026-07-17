@@ -456,11 +456,13 @@ Deno.serve(async (req) => {
     if (action === 'requests_list') {
       if (!(await isAdmin(user.id))) return json({ error: 'Not authorised' }, 403);
       const NONE = ['00000000-0000-0000-0000-000000000000'];
+      // TRU-221: every non-terminal pipeline status stays on the board so nothing falls
+      // through; terminal leads (transitioned/lost/closed) drop off.
       const { data: reqs } = await sb.from('carer_requests')
         .select('*')
-        .in('status', ['open', 'onboarding'])
+        .in('status', ['captured', 'called', 'founder_walking', 'sourcing_walker', 'meet_greet_booked'])
         .order('created_at', { ascending: false })
-        .limit(50);
+        .limit(100);
       const rows = reqs || [];
       const custIds = [...new Set(rows.map((r) => r.customer_id).filter(Boolean))] as string[];
       const petIds = [...new Set(rows.map((r) => r.pet_id).filter(Boolean))] as string[];
@@ -474,19 +476,17 @@ Deno.serve(async (req) => {
       const { data: us } = await sb.from('users').select('id,first_name,last_name,email').in('id', uIds.length ? uIds : NONE);
       const userBy = Object.fromEntries((us || []).map((u) => [u.id, u]));
 
-      // Passive signal — unmet searches over the last 30 days, aggregated by suburb + service.
-      const since = new Date(Date.now() - 30 * 864e5).toISOString();
-      const { data: misses } = await sb.from('search_misses').select('suburb,service_type').gte('created_at', since).limit(2000);
-      const aggMap: Record<string, number> = {};
-      (misses || []).forEach((m) => {
-        const k = `${m.suburb}||${m.service_type || ''}`;
-        aggMap[k] = (aggMap[k] || 0) + 1;
-      });
-      const signal = Object.entries(aggMap)
-        .map(([k, count]) => { const [suburb, service_type] = k.split('||'); return { suburb, service_type, count }; })
-        .sort((a, b) => b.count - a.count)
-        .slice(0, 20);
+      // Passive signal — weekly unmet-search counts by suburb (TRU-222's rollup view),
+      // last 8 weeks, biggest gaps first.
+      const since = new Date(Date.now() - 56 * 864e5).toISOString().slice(0, 10);
+      const { data: signal } = await sb.from('search_miss_weekly')
+        .select('week_start,suburb,postcode,service_type,misses')
+        .gte('week_start', since)
+        .order('week_start', { ascending: false })
+        .order('misses', { ascending: false })
+        .limit(40);
 
+      const now = Date.now();
       return json({
         requests: rows.map((r) => {
           const u = userBy[custUser[r.customer_id]];
@@ -496,9 +496,10 @@ Deno.serve(async (req) => {
             email: r.contact_email || (u ? u.email : '') || '',
             pet: r.pet_id ? (petName[r.pet_id] || 'Dog') : '',
             can_assign: !!(r.customer_id && r.pet_id),
+            days_in_status: Math.floor((now - new Date(r.status_changed_at || r.created_at).getTime()) / 864e5),
           };
         }),
-        signal,
+        signal: signal || [],
       });
     }
 
@@ -544,7 +545,7 @@ Deno.serve(async (req) => {
       if (!providerId || !serviceId || !scheduledAt) return json({ error: 'Missing carer, service or time' }, 400);
       const { data: rq } = await sb.from('carer_requests').select('*').eq('id', reqId).maybeSingle();
       if (!rq) return json({ error: 'Request not found' }, 404);
-      if (rq.status !== 'open' && rq.status !== 'onboarding') return json({ error: 'Request already resolved' }, 409);
+      if (['transitioned', 'lost', 'closed'].includes(rq.status)) return json({ error: 'Request already resolved' }, 409);
       if (!rq.customer_id || !rq.pet_id) return json({ error: 'This request has no linked customer/pet to assign' }, 400);
 
       const { data: svc } = await sb.from('provider_services').select('id,duration_mins').eq('id', serviceId).maybeSingle();
@@ -568,12 +569,13 @@ Deno.serve(async (req) => {
       const bookingId = ins.data.id;
       await sb.from('booking_pets').insert({ booking_id: bookingId, pet_id: rq.pet_id });
 
+      // TRU-221: an assigned lead is not terminal — it stays on the board as
+      // meet_greet_booked until the admin moves it to transitioned/lost, so the
+      // follow-through (first booking actually happening) is tracked.
       await sb.from('carer_requests').update({
-        status: 'matched',
+        status: 'meet_greet_booked',
         assigned_provider_id: providerId,
         assigned_booking_id: bookingId,
-        resolved_at: new Date().toISOString(),
-        resolved_by: user.id,
       }).eq('id', reqId);
 
       // Tell the customer in-app (the carer's booking-request email is fired by the DB trigger).
@@ -596,8 +598,9 @@ Deno.serve(async (req) => {
       const reqId = String(payload.request_id || '');
       const status = String(payload.status || '');
       const adminNote = String(payload.admin_note || '').slice(0, 500);
-      if (!['open', 'onboarding', 'closed'].includes(status)) return json({ error: 'Invalid status' }, 400);
-      const resolved = status === 'closed';
+      if (!['captured', 'called', 'founder_walking', 'sourcing_walker', 'meet_greet_booked',
+            'transitioned', 'lost', 'closed'].includes(status)) return json({ error: 'Invalid status' }, 400);
+      const resolved = ['transitioned', 'lost', 'closed'].includes(status);
       const upd = await sb.from('carer_requests').update({
         status,
         admin_note: adminNote || null,
