@@ -288,6 +288,29 @@ function requestCard(rq) {
     <div id="reqcarers-${rq.id}"></div>` : '';
   const statusOpts = LEAD_STATUSES.concat(LEAD_TERMINAL)
     .map(([v, l]) => `<option value="${v}"${rq.status === v ? ' selected' : ''}>${l}</option>`).join('');
+  // TRU-224: conversion controls. Guest leads get a one-click account link once the owner
+  // registers; linked leads get the founder stop-gap booking form (rate + schedule → M&G
+  // series via admin_create_lead_series). Real-carer assignment stays via "Find carers".
+  const linkUi = !rq.customer_id
+    ? (rq.account_exists
+        ? `<div class="actions"><button class="btn" onclick="reqLinkCustomer('${rq.id}')">Link account (${esc(rq.email)})</button></div>`
+        : `<div class="meta">No account yet — they register via the confirmation email, then a link button appears here.</div>`)
+    : '';
+  const founderUi = rq.customer_id && !rq.assigned_series_id ? `
+    <div class="meta" style="margin-top:8px;"><b>Founder stop-gap</b> — books you as the walker at an interim rate; free M&G first, card captured at proceed.</div>
+    <div class="actions" style="flex-wrap:wrap;">
+      <input class="reason" id="fRate-${rq.id}" type="number" min="1" step="1" placeholder="$/walk" style="flex:0 1 90px;min-width:0;">
+      <select class="reason" id="fDur-${rq.id}" style="flex:0 1 auto;"><option value="30">30 min</option><option value="60">60 min</option></select>
+      <input class="reason" id="fMg-${rq.id}" type="datetime-local" title="Meet & greet time" style="flex:0 1 auto;min-width:0;">
+      <input class="reason" id="fStart-${rq.id}" type="date" title="First walk date" style="flex:0 1 auto;min-width:0;">
+      <input class="reason" id="fTime-${rq.id}" type="time" value="09:00" title="Walk time" style="flex:0 1 auto;min-width:0;">
+    </div>
+    <div class="actions" style="flex-wrap:wrap;">
+      ${['Mon','Tue','Wed','Thu','Fri','Sat','Sun'].map((d, i) => `<button type="button" class="btn" data-d="${i + 1}" onclick="fDayToggle('${rq.id}', this)" style="background:#fff;color:var(--terracottaDark);">${d}</button>`).join('')}
+      <button class="btn" onclick="founderBook('${rq.id}','${esc(rq.service_type || 'dog_walking')}','${rq.pet_id || ''}')">Book me as stop-gap</button>
+    </div>` : '';
+  const seriesNote = rq.assigned_series_id
+    ? `<div class="meta"><b>Series live</b> — M&G booked; owner proceeds in their profile (card capture) to activate.</div>` : '';
   return `<div class="card" id="reqcard-${rq.id}">
     <div class="row-top"><div><b>${esc(svcLabel(rq.service_type))}</b> in ${esc(rq.suburb || '—')} ${acct} ${clockBadge(rq)}</div><div class="meta">${when(rq.created_at)}</div></div>
     <div class="meta"><b>${esc(rq.contact)}</b>${rq.contact_phone ? ` · <a href="tel:${esc(rq.contact_phone)}">${esc(rq.contact_phone)}</a>` : ' · ⚠ no phone'}${rq.email ? ' · ' + esc(rq.email) : ''}</div>
@@ -295,13 +318,53 @@ function requestCard(rq) {
     ${rq.dog_temperament_note ? `<div class="meta">Temperament: “${esc(rq.dog_temperament_note)}”</div>` : ''}
     <div class="meta">${esc(reqWhen(rq))}</div>
     ${rq.note ? `<div class="meta">“${esc(rq.note)}”</div>` : ''}
+    ${linkUi}
+    ${seriesNote}
     ${assignUi}
+    ${founderUi}
     <div class="actions">
       <select class="reason" id="reqstatus-${rq.id}" style="flex:0 1 auto;">${statusOpts}</select>
       <input class="reason" id="reqnote-${rq.id}" placeholder="Admin note (optional)" value="${esc(rq.admin_note || '')}">
       <button class="btn" onclick="reqUpdate('${rq.id}')">Save</button>
     </div>
   </div>`;
+}
+// TRU-224: founder stop-gap booking helpers.
+const founderDays = {}; // per-lead selected isodow set (Mon=1 … Sun=7)
+function fDayToggle(id, btn) {
+  const set = (founderDays[id] ||= new Set());
+  const d = +btn.dataset.d;
+  if (set.has(d)) { set.delete(d); btn.style.background = '#fff'; btn.style.color = 'var(--terracottaDark)'; }
+  else { set.add(d); btn.style.background = 'var(--terracotta)'; btn.style.color = '#fff'; }
+}
+async function reqLinkCustomer(id) {
+  admMsg('');
+  try {
+    const r = await sbFn('stripe-api', { action:'request_link_customer', request_id:id });
+    admMsg('Account linked ✓' + ((r.pets && r.pets.length) ? '' : ' — owner has no pets yet; they must add one before booking.'), 'ok');
+    renderRequests(document.getElementById('adm-content'));
+  } catch (e) { admMsg(e.message, 'error'); }
+}
+async function founderBook(rqId, serviceType, petId) {
+  const val = s => (document.getElementById(s + '-' + rqId) || {}).value || '';
+  const rate = Math.round(parseFloat(val('fRate')) * 100);
+  const mg = val('fMg'), start = val('fStart'), time = val('fTime');
+  const days = Array.from(founderDays[rqId] || []);
+  if (!(rate > 0)) { admMsg('Set the stop-gap rate first.', 'error'); return; }
+  if (!mg || !start || !time) { admMsg('Set the meet & greet time, start date and walk time.', 'error'); return; }
+  if (!days.length) { admMsg('Pick at least one walk day.', 'error'); return; }
+  if (!confirm(`Book yourself as the stop-gap walker at $${(rate / 100).toFixed(0)}/walk? This creates the free meet & greet and the recurring series.`)) return;
+  admMsg('');
+  try {
+    const r = await sbFn('stripe-api', { action:'founder_service_ensure', service_type:serviceType, duration_mins:+val('fDur') || 30, price_cents:rate });
+    await sbFn('stripe-api', {
+      action:'request_create_series', request_id:rqId, service_id:r.service_id,
+      mg_scheduled_at:new Date(mg).toISOString(), start_date:start, time_of_day:time,
+      days_of_week:days, frequency_type:'specific_days', pet_id: petId || null,
+    });
+    admMsg('Stop-gap series created ✓ — meet & greet booked and owner notified.', 'ok');
+    renderRequests(document.getElementById('adm-content'));
+  } catch (e) { admMsg(e.message, 'error'); }
 }
 function signalRow(s) {
   return `<tr><td class="meta">${esc(s.week_start)}</td><td class="meta">${esc(s.suburb)}${s.postcode ? ' ' + esc(s.postcode) : ''}</td><td class="meta">${esc(svcLabel(s.service_type).toLowerCase())}</td><td class="meta" style="text-align:right;"><b>×${s.misses}</b></td></tr>`;

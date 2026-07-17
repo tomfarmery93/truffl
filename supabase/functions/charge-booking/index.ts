@@ -105,11 +105,21 @@ Deno.serve(async (req) => {
     };
     let fee = 0;
     if (!covered) {
-      const { data: pp } = await sb.from('provider_profiles').select('stripe_account_id').eq('id', b.provider_id).single();
-      if (!pp?.stripe_account_id) { await markFailed(bookingId); return json({ error: 'carer has no payout account' }, 400); }
-      piBody['transfer_data[destination]'] = pp.stripe_account_id;
-      fee = Math.round((b.total_cents * PLATFORM_FEE_BPS) / 10000);
-      if (fee > 0) piBody['application_fee_amount'] = fee; // omitted at 0% — Stripe requires it positive
+      const { data: pp } = await sb.from('provider_profiles').select('stripe_account_id,user_id').eq('id', b.provider_id).single();
+      if (pp?.stripe_account_id) {
+        piBody['transfer_data[destination]'] = pp.stripe_account_id;
+        fee = Math.round((b.total_cents * PLATFORM_FEE_BPS) / 10000);
+        if (fee > 0) piBody['application_fee_amount'] = fee; // omitted at 0% — Stripe requires it positive
+      } else {
+        // TRU-224: founder stop-gap walks — the provider profile belongs to an admin user
+        // with no connected account. The platform retains the full amount, the TRU-139
+        // covered-walk money mechanics applied to founder walks. Any other carer without
+        // a payout account is still a hard failure.
+        const { data: pu } = pp?.user_id
+          ? await sb.from('users').select('is_admin').eq('id', pp.user_id).single()
+          : { data: null };
+        if (!pu?.is_admin) { await markFailed(bookingId); return json({ error: 'carer has no payout account' }, 400); }
+      }
     }
 
     let pi;
