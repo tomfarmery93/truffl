@@ -14,7 +14,7 @@ jobs:
     name: Inline JS syntax (node --check)
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: actions/setup-node@v7
         with:
           node-version: 20
@@ -58,7 +58,7 @@ jobs:
     name: Edge function typecheck (deno check)
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: denoland/setup-deno@v2
         with:
           deno-version: v2.x
@@ -75,7 +75,7 @@ jobs:
     name: Migration filename sanity
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       # Cheap guard until TRU-176 adds a real replay-against-fresh-DB job: filenames must
       # be 14-digit-timestamp_snake_case.sql so they sort (and therefore apply) in order.
       - name: Check migration filenames
