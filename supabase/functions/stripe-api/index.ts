@@ -24,6 +24,8 @@
 //   request_link_customer - (admin) link a registered account to a guest lead by email (TRU-224)
 //   founder_service_ensure - (admin) founder stop-gap provider profile + priced service row (TRU-224)
 //   request_create_series - (admin) lead -> pending_meet_greet series via admin_create_lead_series (TRU-224)
+//   handover_nominate - (admin) book the 3-way M&G with the incoming permanent carer (TRU-225)
+//   handover_complete - (admin) transition the series to the nominee at their listed rate (TRU-225)
 //   request_update  - (admin) set a lead's pipeline status + admin note (TRU-221)
 //
 // Required function secrets (Supabase → Edge Functions → Secrets):
@@ -494,6 +496,14 @@ Deno.serve(async (req) => {
         : { data: [] as { email: string }[] };
       const emailHasAccount = new Set((matchUsers || []).map((u) => String(u.email).toLowerCase()));
 
+      // TRU-225: surface the 3-way handover M&G status so the console can show
+      // "Complete handover" at the right moment.
+      const hoIds = [...new Set(rows.map((r) => r.handover_mg_booking_id).filter(Boolean))] as string[];
+      const { data: hoBookings } = hoIds.length
+        ? await sb.from('bookings').select('id,status,scheduled_at').in('id', hoIds)
+        : { data: [] as { id: string; status: string; scheduled_at: string }[] };
+      const hoBy = Object.fromEntries((hoBookings || []).map((b) => [b.id, b]));
+
       // Passive signal — weekly unmet-search counts by suburb (TRU-222's rollup view),
       // last 8 weeks, biggest gaps first.
       const since = new Date(Date.now() - 56 * 864e5).toISOString().slice(0, 10);
@@ -517,6 +527,8 @@ Deno.serve(async (req) => {
             days_in_status: Math.floor((now - new Date(r.status_changed_at || r.created_at).getTime()) / 864e5),
             account_exists: !!r.customer_id
               || (r.contact_email ? emailHasAccount.has(String(r.contact_email).toLowerCase()) : false),
+            handover_mg_status: r.handover_mg_booking_id ? (hoBy[r.handover_mg_booking_id]?.status || null) : null,
+            handover_mg_at: r.handover_mg_booking_id ? (hoBy[r.handover_mg_booking_id]?.scheduled_at || null) : null,
           };
         }),
         signal: signal || [],
@@ -738,6 +750,78 @@ Deno.serve(async (req) => {
         });
       }
       return json({ ok: true, series_id: seriesId });
+    }
+
+    if (action === 'handover_nominate') {
+      // TRU-225: book the 3-way M&G (owner + incoming carer + founder) on the lead's
+      // series. Validation (nominee active/verified/payouts-ready, matching priced
+      // service) and the booking insert live in the service_role-only RPC.
+      if (!(await isAdmin(user.id))) return json({ error: 'Not authorised' }, 403);
+      const reqId = String(payload.request_id || '');
+      const providerId = String(payload.provider_id || ''); // provider_profiles.id
+      const serviceId = String(payload.service_id || '');   // nominee's provider_services.id
+      const mgAt = String(payload.mg_scheduled_at || '');
+      if (!reqId || !providerId || !serviceId || !mgAt) return json({ error: 'Missing carer, service or meet & greet time' }, 400);
+
+      const { data: mgId, error: rpcErr } = await sb.rpc('admin_nominate_handover', {
+        p_request_id: reqId,
+        p_provider_profile_id: providerId,
+        p_service_id: serviceId,
+        p_mg_scheduled_at: mgAt,
+      });
+      if (rpcErr) return json({ error: rpcErr.message }, 400);
+
+      // Candid owner message: introduce the walker and quote THEIR listed rate up front
+      // (GTM: the number lands inside an expectation set on day one, confirmed at the M&G).
+      const { data: rq } = await sb.from('carer_requests').select('customer_id').eq('id', reqId).single();
+      const { data: pp } = await sb.from('provider_profiles').select('user_id').eq('id', providerId).single();
+      const { data: nu } = pp?.user_id ? await sb.from('users').select('first_name').eq('id', pp.user_id).single() : { data: null };
+      const { data: svc } = await sb.from('provider_services').select('price_cents').eq('id', serviceId).single();
+      const { data: cp } = rq?.customer_id ? await sb.from('customer_profiles').select('user_id').eq('id', rq.customer_id).single() : { data: null };
+      if (cp?.user_id) {
+        const rateStr = svc?.price_cents ? ` Their rate is $${(svc.price_cents / 100).toFixed(0)} per walk — we'll confirm everything together at the meet & greet.` : '';
+        await sb.from('system_messages').insert({
+          recipient_user_id: cp.user_id,
+          body: `Great news — we've found your permanent walker${nu?.first_name ? `, ${nu.first_name}` : ''}. We've booked a meet & greet so you can meet them together with Tom.${rateStr}`,
+          link_url: '/profile/',
+          link_label: 'View my bookings',
+        });
+      }
+      return json({ ok: true, mg_booking_id: mgId });
+    }
+
+    if (action === 'handover_complete') {
+      // TRU-225: after the 3-way meet — series + future walks move to the nominee at
+      // their listed rate, founder history preserved, lead → transitioned. Atomic in
+      // the service_role-only RPC.
+      if (!(await isAdmin(user.id))) return json({ error: 'Not authorised' }, 403);
+      const reqId = String(payload.request_id || '');
+      if (!reqId) return json({ error: 'Missing request id' }, 400);
+
+      const { data: rq } = await sb.from('carer_requests')
+        .select('customer_id,handover_provider_id,handover_service_id').eq('id', reqId).maybeSingle();
+      if (!rq) return json({ error: 'Request not found' }, 404);
+
+      const { data: moved, error: rpcErr } = await sb.rpc('admin_complete_handover', {
+        p_request_id: reqId,
+        p_resolved_by: user.id,
+      });
+      if (rpcErr) return json({ error: rpcErr.message }, 400);
+
+      const { data: pp } = rq.handover_provider_id ? await sb.from('provider_profiles').select('user_id').eq('id', rq.handover_provider_id).single() : { data: null };
+      const { data: nu } = pp?.user_id ? await sb.from('users').select('first_name').eq('id', pp.user_id).single() : { data: null };
+      const { data: svc } = rq.handover_service_id ? await sb.from('provider_services').select('price_cents').eq('id', rq.handover_service_id).single() : { data: null };
+      const { data: cp } = rq.customer_id ? await sb.from('customer_profiles').select('user_id').eq('id', rq.customer_id).single() : { data: null };
+      if (cp?.user_id) {
+        const rateStr = svc?.price_cents ? ` at $${(svc.price_cents / 100).toFixed(0)} per walk` : '';
+        await sb.from('system_messages').insert({
+          recipient_user_id: cp.user_id,
+          body: `It's official — ${nu?.first_name || 'your new walker'} takes over your walks from here${rateStr}. Everything we've learned about your dog goes with them, and Tom is always a message away.`,
+          link_url: '/profile/',
+          link_label: 'View my bookings',
+        });
+      }
+      return json({ ok: true, reassigned: moved });
     }
 
     if (action === 'request_update') {

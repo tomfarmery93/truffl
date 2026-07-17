@@ -309,7 +309,16 @@ function requestCard(rq) {
       ${['Mon','Tue','Wed','Thu','Fri','Sat','Sun'].map((d, i) => `<button type="button" class="btn" data-d="${i + 1}" onclick="fDayToggle('${rq.id}', this)" style="background:#fff;color:var(--terracottaDark);">${d}</button>`).join('')}
       <button class="btn" onclick="founderBook('${rq.id}','${esc(rq.service_type || 'dog_walking')}','${rq.pet_id || ''}')">Book me as stop-gap</button>
     </div>` : '';
-  const seriesNote = rq.assigned_series_id
+  // TRU-225: handover state on the card. Once nominated, "Complete handover" runs the
+  // transition (marks the 3-way M&G complete, repoints the series + future walks at the
+  // nominee's rate, lead → transitioned).
+  const handoverUi = rq.handover_mg_booking_id
+    ? `<div class="meta"><b>Handover nominated</b> — 3-way M&G ${esc(rq.handover_mg_status || 'confirmed')}${rq.handover_mg_at ? ' · ' + when(rq.handover_mg_at) : ''}</div>
+       <div class="actions"><button class="btn" onclick="handoverComplete('${rq.id}')">Complete handover</button></div>`
+    : (rq.assigned_series_id
+        ? `<div class="meta">Sourcing the permanent walker? "Find carers" → nominate for handover (needs their payouts set up).</div>`
+        : '');
+  const seriesNote = rq.assigned_series_id && !rq.handover_mg_booking_id
     ? `<div class="meta"><b>Series live</b> — M&G booked; owner proceeds in their profile (card capture) to activate.</div>` : '';
   return `<div class="card" id="reqcard-${rq.id}">
     <div class="row-top"><div><b>${esc(svcLabel(rq.service_type))}</b> in ${esc(rq.suburb || '—')} ${acct} ${clockBadge(rq)}</div><div class="meta">${when(rq.created_at)}</div></div>
@@ -320,6 +329,7 @@ function requestCard(rq) {
     ${rq.note ? `<div class="meta">“${esc(rq.note)}”</div>` : ''}
     ${linkUi}
     ${seriesNote}
+    ${handoverUi}
     ${assignUi}
     ${founderUi}
     <div class="actions">
@@ -329,6 +339,8 @@ function requestCard(rq) {
     </div>
   </div>`;
 }
+// TRU-224/225: per-lead context the candidate cards need (filled by renderRequests).
+const leadInfo = {};
 // TRU-224: founder stop-gap booking helpers.
 const founderDays = {}; // per-lead selected isodow set (Mon=1 … Sun=7)
 function fDayToggle(id, btn) {
@@ -375,7 +387,10 @@ async function renderRequests(c) {
     const { requests, signal } = await sbFn('stripe-api', { action:'requests_list' });
     // Group the board by pipeline stage so the founder-walking clock is impossible to miss.
     const byStatus = {};
-    (requests || []).forEach(r => { (byStatus[r.status] ||= []).push(r); });
+    (requests || []).forEach(r => {
+      leadInfo[r.id] = { hasSeries: !!r.assigned_series_id };
+      (byStatus[r.status] ||= []).push(r);
+    });
     const reqHtml = (requests && requests.length)
       ? LEAD_STATUSES.filter(([v]) => byStatus[v] && byStatus[v].length)
           .map(([v, l]) => `<h1 style="font-size:1.05rem;margin:18px 0 6px;">${l} <span class="meta">(${byStatus[v].length})</span></h1>` + byStatus[v].map(requestCard).join(''))
@@ -399,14 +414,41 @@ async function renderRequests(c) {
 function carerCandidate(reqId, cr) {
   const dist = (cr.distance_km != null) ? cr.distance_km + ' km' : '';
   const rating = cr.avg_rating ? '★' + (+cr.avg_rating).toFixed(1) : 'new';
+  // TRU-225: when the lead already has a live (founder) series, candidates are handover
+  // nominees rather than direct assignments.
+  const handoverMode = !!(leadInfo[reqId] && leadInfo[reqId].hasSeries);
   const svcBtns = (cr.services || []).map(s => {
     const label = svcLabel(s.service_type) + (s.price_cents != null ? ' ' + money(s.price_cents) : '') + (s.duration_mins ? ' / ' + s.duration_mins + 'm' : '');
-    return `<button class="btn" onclick="reqAssign('${reqId}','${cr.provider_id}','${s.id}')">Assign · ${esc(label)}</button>`;
+    return handoverMode
+      ? `<button class="btn" onclick="handoverNominate('${reqId}','${cr.provider_id}','${s.id}')">Nominate · ${esc(label)}</button>`
+      : `<button class="btn" onclick="reqAssign('${reqId}','${cr.provider_id}','${s.id}')">Assign · ${esc(label)}</button>`;
   }).join(' ');
   return `<div class="card" style="margin:8px 0 0;background:var(--cream);">
     <div class="row-top"><div><b>${esc(cr.name)}</b>${cr.is_verified ? ' <span class="badge b-paid">verified</span>' : ''}</div><div class="meta">${esc(cr.suburb || '')}${dist ? ' · ' + dist : ''} · ${rating}</div></div>
     <div class="actions">${svcBtns || '<span class="meta">No matching service</span>'}</div>
   </div>`;
+}
+async function handoverNominate(reqId, providerId, serviceId) {
+  const dtEl = document.getElementById('reqdt-' + reqId);
+  const dt = dtEl && dtEl.value ? dtEl.value : '';
+  if (!dt) { admMsg('Set the 3-way meet & greet date/time first (the Start field).', 'error'); return; }
+  if (!confirm('Nominate this carer for handover? It books the 3-way meet & greet (you + owner + carer) and messages the owner with their rate.')) return;
+  admMsg('');
+  try {
+    const iso = new Date(dt).toISOString();
+    await sbFn('stripe-api', { action:'handover_nominate', request_id:reqId, provider_id:providerId, service_id:serviceId, mg_scheduled_at:iso });
+    admMsg('Handover nominated ✓ — 3-way meet & greet booked and owner introduced.', 'ok');
+    renderRequests(document.getElementById('adm-content'));
+  } catch (e) { admMsg(e.message, 'error'); }
+}
+async function handoverComplete(reqId) {
+  if (!confirm('Complete the handover? Future walks move to the new carer at THEIR listed rate; completed founder walks keep their history. This also marks the 3-way meet & greet done.')) return;
+  admMsg('');
+  try {
+    const r = await sbFn('stripe-api', { action:'handover_complete', request_id:reqId });
+    admMsg(`Handover complete ✓ — ${r.reassigned ?? 0} future walk(s) moved to the new carer. Lead transitioned.`, 'ok');
+    renderRequests(document.getElementById('adm-content'));
+  } catch (e) { admMsg(e.message, 'error'); }
 }
 async function reqFindCarers(id) {
   const box = document.getElementById('reqcarers-' + id);
