@@ -278,6 +278,11 @@ function requestCard(rq) {
   const acct = rq.can_assign ? '<span class="badge b-paid">assignable</span>'
     : rq.customer_id ? '<span class="badge b-refunded">no pet</span>'
     : '<span class="badge b-refunded">guest</span>';
+  // TRU-226: fit-gap leads (saw carers, none suited) get a loud badge — this is a supply
+  // QUALITY signal, not a coverage gap.
+  const trigBadge = rq.capture_trigger === 'browsed_unhappy'
+    ? `<span class="badge b-failed">saw ${rq.results_seen ?? '?'} carers</span>`
+    : rq.capture_trigger === 'filtered_out' ? '<span class="badge b-refunded">filtered out</span>' : '';
   const dtVal = rq.wanted_date ? (rq.wanted_date + 'T' + (rq.window_start || '09:00')) : '';
   const assignUi = rq.can_assign ? `
     <div class="actions">
@@ -321,7 +326,7 @@ function requestCard(rq) {
   const seriesNote = rq.assigned_series_id && !rq.handover_mg_booking_id
     ? `<div class="meta"><b>Series live</b> — M&G booked; owner proceeds in their profile (card capture) to activate.</div>` : '';
   return `<div class="card" id="reqcard-${rq.id}">
-    <div class="row-top"><div><b>${esc(svcLabel(rq.service_type))}</b> in ${esc(rq.suburb || '—')} ${acct} ${clockBadge(rq)}</div><div class="meta">${when(rq.created_at)}</div></div>
+    <div class="row-top"><div><b>${esc(svcLabel(rq.service_type))}</b> in ${esc(rq.suburb || '—')} ${acct} ${trigBadge} ${clockBadge(rq)}</div><div class="meta">${when(rq.created_at)}</div></div>
     <div class="meta"><b>${esc(rq.contact)}</b>${rq.contact_phone ? ` · <a href="tel:${esc(rq.contact_phone)}">${esc(rq.contact_phone)}</a>` : ' · ⚠ no phone'}${rq.email ? ' · ' + esc(rq.email) : ''}</div>
     <div class="meta">${dogBits ? esc(dogBits) : 'Dog: —'}${rq.pet ? ' · pet on file: ' + esc(rq.pet) : ''}</div>
     ${rq.dog_temperament_note ? `<div class="meta">Temperament: “${esc(rq.dog_temperament_note)}”</div>` : ''}
