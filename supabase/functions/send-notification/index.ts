@@ -279,8 +279,16 @@ async function buildMessages(type: string, payload: Record<string, unknown>) {
       ? (rq.preferred_times as string[]).map((t) => t.charAt(0).toUpperCase() + t.slice(1)).join(', ')
       : '—';
 
+    // TRU-226: why this lead exists — supply gap vs fit gap. Call-prep gold either way.
+    const whyStr = rq.capture_trigger === 'browsed_unhappy'
+      ? `Saw ${rq.results_seen ?? '?'} carer${rq.results_seen === 1 ? '' : 's'} — none suited`
+      : rq.capture_trigger === 'filtered_out'
+        ? 'Carers exist, but their filters excluded them all'
+        : 'No carers in their area';
+
     const rows: [string, string][] = [
       ['Phone', rq.contact_phone || '⚠ missing'],
+      ['Why', whyStr],
       ['Suburb', rq.suburb || '—'],
       ['Service', serviceLabel],
       ['How often', rq.frequency ? (FREQUENCY_LABELS[rq.frequency] || rq.frequency) : (rq.recurring ? 'Recurring' : 'One-off')],

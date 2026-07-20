@@ -18,10 +18,15 @@
 //   cover_reassign  - (admin) take over a covered cancelled booking (TRU-139)
 //   cover_fell_through - (admin) mark cover as failed; issue a manual credit + owner message
 //   credit_redeem   - (admin) mark a manual credit as applied
-//   requests_list   - (admin) open "can't find a carer" requests + unmet-search signal (TRU-121)
+//   requests_list   - (admin) live capture-flow leads by pipeline stage + weekly unmet-search signal (TRU-121/221)
 //   request_find_carers - (admin) candidate carers near a request (reuses search_carers)
-//   request_assign  - (admin) assign an existing carer -> creates a pending booking request
-//   request_update  - (admin) set a request's status + admin note (guest / onboarding path)
+//   request_assign  - (admin) assign an existing carer -> creates a priced pending booking request
+//   request_link_customer - (admin) link a registered account to a guest lead by email (TRU-224)
+//   founder_service_ensure - (admin) founder stop-gap provider profile + priced service row (TRU-224)
+//   request_create_series - (admin) lead -> pending_meet_greet series via admin_create_lead_series (TRU-224)
+//   handover_nominate - (admin) book the 3-way M&G with the incoming permanent carer (TRU-225)
+//   handover_complete - (admin) transition the series to the nominee at their listed rate (TRU-225)
+//   request_update  - (admin) set a lead's pipeline status + admin note (TRU-221)
 //
 // Required function secrets (Supabase → Edge Functions → Secrets):
 //   STRIPE_SECRET_KEY   - sk_test_… (platform secret key)
@@ -218,11 +223,17 @@ Deno.serve(async (req) => {
       };
       let fee = 0;
       if (!covered) {
-        const { data: pp } = await sb.from('provider_profiles').select('stripe_account_id').eq('id', b.provider_id).single();
-        if (!pp?.stripe_account_id) return json({ error: 'Carer has no payout account' }, 400);
-        piBody['transfer_data[destination]'] = pp.stripe_account_id;
-        fee = Math.round((b.total_cents * PLATFORM_FEE_BPS) / 10000);
-        if (fee > 0) piBody['application_fee_amount'] = fee;
+        const { data: pp } = await sb.from('provider_profiles').select('stripe_account_id,user_id').eq('id', b.provider_id).single();
+        if (pp?.stripe_account_id) {
+          piBody['transfer_data[destination]'] = pp.stripe_account_id;
+          fee = Math.round((b.total_cents * PLATFORM_FEE_BPS) / 10000);
+          if (fee > 0) piBody['application_fee_amount'] = fee;
+        } else if (!pp?.user_id || !(await isAdmin(pp.user_id))) {
+          return json({ error: 'Carer has no payout account' }, 400);
+        }
+        // else: TRU-224 founder stop-gap walk — the provider profile belongs to an admin
+        // with no connected account; the platform retains the full amount (the TRU-139
+        // covered-walk money mechanics, applied to founder walks).
       }
       // No confirm — the client confirms with the Payment Element so a new card / 3DS works.
       const pi = await stripe('payment_intents', 'POST', piBody);
@@ -456,11 +467,13 @@ Deno.serve(async (req) => {
     if (action === 'requests_list') {
       if (!(await isAdmin(user.id))) return json({ error: 'Not authorised' }, 403);
       const NONE = ['00000000-0000-0000-0000-000000000000'];
+      // TRU-221: every non-terminal pipeline status stays on the board so nothing falls
+      // through; terminal leads (transitioned/lost/closed) drop off.
       const { data: reqs } = await sb.from('carer_requests')
         .select('*')
-        .in('status', ['open', 'onboarding'])
+        .in('status', ['captured', 'called', 'founder_walking', 'sourcing_walker', 'meet_greet_booked'])
         .order('created_at', { ascending: false })
-        .limit(50);
+        .limit(100);
       const rows = reqs || [];
       const custIds = [...new Set(rows.map((r) => r.customer_id).filter(Boolean))] as string[];
       const petIds = [...new Set(rows.map((r) => r.pet_id).filter(Boolean))] as string[];
@@ -474,19 +487,34 @@ Deno.serve(async (req) => {
       const { data: us } = await sb.from('users').select('id,first_name,last_name,email').in('id', uIds.length ? uIds : NONE);
       const userBy = Object.fromEntries((us || []).map((u) => [u.id, u]));
 
-      // Passive signal — unmet searches over the last 30 days, aggregated by suburb + service.
-      const since = new Date(Date.now() - 30 * 864e5).toISOString();
-      const { data: misses } = await sb.from('search_misses').select('suburb,service_type').gte('created_at', since).limit(2000);
-      const aggMap: Record<string, number> = {};
-      (misses || []).forEach((m) => {
-        const k = `${m.suburb}||${m.service_type || ''}`;
-        aggMap[k] = (aggMap[k] || 0) + 1;
-      });
-      const signal = Object.entries(aggMap)
-        .map(([k, count]) => { const [suburb, service_type] = k.split('||'); return { suburb, service_type, count }; })
-        .sort((a, b) => b.count - a.count)
-        .slice(0, 20);
+      // TRU-224: for guest leads, flag when an account already exists for the contact email
+      // so the console can offer one-click linking after the lead registers.
+      const guestEmails = [...new Set(rows.filter((r) => !r.customer_id && r.contact_email)
+        .map((r) => String(r.contact_email).toLowerCase()))];
+      const { data: matchUsers } = guestEmails.length
+        ? await sb.from('users').select('email').in('email', guestEmails)
+        : { data: [] as { email: string }[] };
+      const emailHasAccount = new Set((matchUsers || []).map((u) => String(u.email).toLowerCase()));
 
+      // TRU-225: surface the 3-way handover M&G status so the console can show
+      // "Complete handover" at the right moment.
+      const hoIds = [...new Set(rows.map((r) => r.handover_mg_booking_id).filter(Boolean))] as string[];
+      const { data: hoBookings } = hoIds.length
+        ? await sb.from('bookings').select('id,status,scheduled_at').in('id', hoIds)
+        : { data: [] as { id: string; status: string; scheduled_at: string }[] };
+      const hoBy = Object.fromEntries((hoBookings || []).map((b) => [b.id, b]));
+
+      // Passive signal — weekly unmet-search counts by suburb (TRU-222's rollup view),
+      // last 8 weeks, biggest gaps first.
+      const since = new Date(Date.now() - 56 * 864e5).toISOString().slice(0, 10);
+      const { data: signal } = await sb.from('search_miss_weekly')
+        .select('week_start,suburb,postcode,service_type,misses')
+        .gte('week_start', since)
+        .order('week_start', { ascending: false })
+        .order('misses', { ascending: false })
+        .limit(40);
+
+      const now = Date.now();
       return json({
         requests: rows.map((r) => {
           const u = userBy[custUser[r.customer_id]];
@@ -496,9 +524,14 @@ Deno.serve(async (req) => {
             email: r.contact_email || (u ? u.email : '') || '',
             pet: r.pet_id ? (petName[r.pet_id] || 'Dog') : '',
             can_assign: !!(r.customer_id && r.pet_id),
+            days_in_status: Math.floor((now - new Date(r.status_changed_at || r.created_at).getTime()) / 864e5),
+            account_exists: !!r.customer_id
+              || (r.contact_email ? emailHasAccount.has(String(r.contact_email).toLowerCase()) : false),
+            handover_mg_status: r.handover_mg_booking_id ? (hoBy[r.handover_mg_booking_id]?.status || null) : null,
+            handover_mg_at: r.handover_mg_booking_id ? (hoBy[r.handover_mg_booking_id]?.scheduled_at || null) : null,
           };
         }),
-        signal,
+        signal: signal || [],
       });
     }
 
@@ -544,16 +577,19 @@ Deno.serve(async (req) => {
       if (!providerId || !serviceId || !scheduledAt) return json({ error: 'Missing carer, service or time' }, 400);
       const { data: rq } = await sb.from('carer_requests').select('*').eq('id', reqId).maybeSingle();
       if (!rq) return json({ error: 'Request not found' }, 404);
-      if (rq.status !== 'open' && rq.status !== 'onboarding') return json({ error: 'Request already resolved' }, 409);
+      if (['transitioned', 'lost', 'closed'].includes(rq.status)) return json({ error: 'Request already resolved' }, 409);
       if (!rq.customer_id || !rq.pet_id) return json({ error: 'This request has no linked customer/pet to assign' }, 400);
 
-      const { data: svc } = await sb.from('provider_services').select('id,duration_mins').eq('id', serviceId).maybeSingle();
+      const { data: svc } = await sb.from('provider_services')
+        .select('id,duration_mins,price_cents,is_available').eq('id', serviceId).maybeSingle();
       if (!svc) return json({ error: 'Service not found' }, 404);
+      if (!svc.is_available || svc.price_cents == null) return json({ error: 'Service is unavailable or has no price' }, 400);
 
-      // Mirror the customer's single-booking insert (book/index.html): status 'pending',
-      // total_cents 0 (single bookings price on completion; series carry locked_price_cents).
-      // The carer still accepts and the customer still confirms — nothing is forced. The
-      // existing trg_email_booking_request trigger notifies the carer on insert.
+      // TRU-224 (£0 bug fix): price the booking from the service at assign time — the old
+      // total_cents: 0 insert was never repriced, so charge-on-completion (TRU-146) skipped
+      // it and assigned bookings were free. Single pet here (rq.pet_id), so no extra-pet fee
+      // — mirrors private.compute_service_price for a pet count of 1. The carer still
+      // accepts; trg_email_booking_request notifies them on insert.
       const ins = await sb.from('bookings').insert({
         customer_id: rq.customer_id,
         provider_id: providerId,
@@ -562,18 +598,19 @@ Deno.serve(async (req) => {
         status: 'pending',
         scheduled_at: scheduledAt,
         duration_mins: svc.duration_mins ?? null,
-        total_cents: 0,
+        total_cents: svc.price_cents,
       }).select('id').single();
       if (ins.error || !ins.data) return json({ error: 'Could not create booking: ' + (ins.error?.message || '') }, 500);
       const bookingId = ins.data.id;
       await sb.from('booking_pets').insert({ booking_id: bookingId, pet_id: rq.pet_id });
 
+      // TRU-221: an assigned lead is not terminal — it stays on the board as
+      // meet_greet_booked until the admin moves it to transitioned/lost, so the
+      // follow-through (first booking actually happening) is tracked.
       await sb.from('carer_requests').update({
-        status: 'matched',
+        status: 'meet_greet_booked',
         assigned_provider_id: providerId,
         assigned_booking_id: bookingId,
-        resolved_at: new Date().toISOString(),
-        resolved_by: user.id,
       }).eq('id', reqId);
 
       // Tell the customer in-app (the carer's booking-request email is fired by the DB trigger).
@@ -591,13 +628,210 @@ Deno.serve(async (req) => {
       return json({ ok: true, booking_id: bookingId });
     }
 
+    if (action === 'request_link_customer') {
+      // TRU-224: after the lead registers (confirmation email CTA / founder call), link
+      // their new account to the lead by email so the booking steps can run.
+      if (!(await isAdmin(user.id))) return json({ error: 'Not authorised' }, 403);
+      const reqId = String(payload.request_id || '');
+      const { data: rq } = await sb.from('carer_requests').select('id,status,customer_id,contact_email').eq('id', reqId).maybeSingle();
+      if (!rq) return json({ error: 'Request not found' }, 404);
+      const email = String(payload.customer_email || rq.contact_email || '').trim().toLowerCase();
+      if (!email) return json({ error: 'No email to match on' }, 400);
+      let customerId = rq.customer_id as string | null;
+      if (!customerId) {
+        const { data: u } = await sb.from('users').select('id').ilike('email', email).maybeSingle();
+        if (!u) return json({ error: `No account found for ${email}` }, 404);
+        const { data: cp } = await sb.from('customer_profiles').select('id').eq('user_id', u.id).maybeSingle();
+        if (!cp) return json({ error: 'That account has no customer profile' }, 404);
+        customerId = cp.id;
+      }
+      await sb.from('carer_requests').update({
+        customer_id: customerId,
+        converted_customer_id: customerId,
+      }).eq('id', reqId);
+      const { data: pets } = await sb.from('pets').select('id,name,breed').eq('customer_id', customerId);
+      return json({ ok: true, customer_id: customerId, pets: pets || [] });
+    }
+
+    if (action === 'founder_service_ensure') {
+      // TRU-224: get-or-create the calling admin's internal provider profile (the TRU-139
+      // cover_reassign pattern — inactive + unverified, never searchable) and upsert a
+      // provider_services row at the stop-gap rate for the lead's service type. Pricing
+      // then flows through the normal machinery (compute_service_price reads this row).
+      if (!(await isAdmin(user.id))) return json({ error: 'Not authorised' }, 403);
+      const serviceType = String(payload.service_type || 'dog_walking');
+      const durationMins = Math.max(15, Math.round(Number(payload.duration_mins ?? 30)) || 30);
+      const priceCents = Math.round(Number(payload.price_cents || 0));
+      if (!(priceCents > 0)) return json({ error: 'Set a stop-gap rate first' }, 400);
+
+      let { data: mypp } = await sb.from('provider_profiles').select('id').eq('user_id', user.id).maybeSingle();
+      if (!mypp) {
+        const ins = await sb.from('provider_profiles')
+          .insert({ user_id: user.id, is_active: false, is_verified: false, bio: 'Truffl founder stop-gap' })
+          .select('id').single();
+        if (ins.error || !ins.data) return json({ error: 'Could not create founder profile' }, 500);
+        mypp = ins.data;
+      }
+
+      // provider_services.provider_id references users.id (not provider_profiles.id).
+      const { data: existing } = await sb.from('provider_services')
+        .select('id').eq('provider_id', user.id).eq('service_type', serviceType)
+        .eq('duration_mins', durationMins).maybeSingle();
+      if (existing) {
+        await sb.from('provider_services').update({ price_cents: priceCents, is_available: true }).eq('id', existing.id);
+        return json({ ok: true, service_id: existing.id, provider_profile_id: mypp.id });
+      }
+      const svcIns = await sb.from('provider_services').insert({
+        provider_id: user.id,
+        service_type: serviceType,
+        duration_mins: durationMins,
+        price_cents: priceCents,
+        is_available: true,
+      }).select('id').single();
+      if (svcIns.error || !svcIns.data) return json({ error: 'Could not create service: ' + (svcIns.error?.message || '') }, 500);
+      return json({ ok: true, service_id: svcIns.data.id, provider_profile_id: mypp.id });
+    }
+
+    if (action === 'request_create_series') {
+      // TRU-224: create the lead's pending_meet_greet series (founder stop-gap or a real
+      // carer) via the service_role-only definer RPC — pricing and the M&G gate booking
+      // happen server-side in SQL, mirroring create_booking_series. From here the flow is
+      // all existing machinery: owner marks the M&G complete, proceeds (card saved via
+      // SetupIntent), the series activates and walks charge on completion.
+      if (!(await isAdmin(user.id))) return json({ error: 'Not authorised' }, 403);
+      const reqId = String(payload.request_id || '');
+      const serviceId = String(payload.service_id || '');
+      const mgAt = String(payload.mg_scheduled_at || '');
+      const startDate = String(payload.start_date || '');
+      const timeOfDay = String(payload.time_of_day || '');
+      const daysOfWeek = Array.isArray(payload.days_of_week) ? (payload.days_of_week as number[]) : [];
+      // series_frequency enum: daily | weekdays | specific_days (specific_days uses days_of_week, isodow 1–7)
+      const frequencyType = String(payload.frequency_type || 'specific_days');
+      const bookingKind = String(payload.booking_kind || 'recurring');
+      if (!['daily', 'weekdays', 'specific_days'].includes(frequencyType)) return json({ error: 'Invalid frequency' }, 400);
+      if (!reqId || !serviceId || !mgAt || !startDate || !timeOfDay) {
+        return json({ error: 'Missing service, meet & greet time, start date or walk time' }, 400);
+      }
+      if (frequencyType === 'specific_days' && !daysOfWeek.length) {
+        return json({ error: 'Pick at least one walk day' }, 400);
+      }
+      const { data: rq } = await sb.from('carer_requests').select('id,customer_id,pet_id').eq('id', reqId).maybeSingle();
+      if (!rq) return json({ error: 'Request not found' }, 404);
+      const customerId = rq.customer_id as string | null;
+      if (!customerId) return json({ error: 'Link the lead to an account first' }, 400);
+      const petId = String(payload.pet_id || rq.pet_id || '');
+      if (!petId) return json({ error: 'Pick a pet first (the owner must add one)' }, 400);
+
+      const { data: seriesId, error: rpcErr } = await sb.rpc('admin_create_lead_series', {
+        p_request_id: reqId,
+        p_customer_id: customerId,
+        p_service_id: serviceId,
+        p_pet_ids: [petId],
+        p_booking_kind: bookingKind,
+        p_frequency_type: frequencyType,
+        p_days_of_week: daysOfWeek,
+        p_time_of_day: timeOfDay,
+        p_window_end_time: payload.window_end_time ? String(payload.window_end_time) : null,
+        p_start_date: startDate,
+        p_end_date: payload.end_date ? String(payload.end_date) : null,
+        p_mg_scheduled_at: mgAt,
+      });
+      if (rpcErr) return json({ error: rpcErr.message }, 400);
+
+      // Tell the owner in-app; the M&G banner in messages + the proceed step in profile
+      // take it from here.
+      const { data: cp } = await sb.from('customer_profiles').select('user_id').eq('id', customerId).single();
+      if (cp?.user_id) {
+        await sb.from('system_messages').insert({
+          recipient_user_id: cp.user_id,
+          body: `Your first walks are set up — we've booked a free meet & greet so you can meet your walker before anything starts. Check your bookings for the time.`,
+          link_url: '/profile/',
+          link_label: 'View my bookings',
+        });
+      }
+      return json({ ok: true, series_id: seriesId });
+    }
+
+    if (action === 'handover_nominate') {
+      // TRU-225: book the 3-way M&G (owner + incoming carer + founder) on the lead's
+      // series. Validation (nominee active/verified/payouts-ready, matching priced
+      // service) and the booking insert live in the service_role-only RPC.
+      if (!(await isAdmin(user.id))) return json({ error: 'Not authorised' }, 403);
+      const reqId = String(payload.request_id || '');
+      const providerId = String(payload.provider_id || ''); // provider_profiles.id
+      const serviceId = String(payload.service_id || '');   // nominee's provider_services.id
+      const mgAt = String(payload.mg_scheduled_at || '');
+      if (!reqId || !providerId || !serviceId || !mgAt) return json({ error: 'Missing carer, service or meet & greet time' }, 400);
+
+      const { data: mgId, error: rpcErr } = await sb.rpc('admin_nominate_handover', {
+        p_request_id: reqId,
+        p_provider_profile_id: providerId,
+        p_service_id: serviceId,
+        p_mg_scheduled_at: mgAt,
+      });
+      if (rpcErr) return json({ error: rpcErr.message }, 400);
+
+      // Candid owner message: introduce the walker and quote THEIR listed rate up front
+      // (GTM: the number lands inside an expectation set on day one, confirmed at the M&G).
+      const { data: rq } = await sb.from('carer_requests').select('customer_id').eq('id', reqId).single();
+      const { data: pp } = await sb.from('provider_profiles').select('user_id').eq('id', providerId).single();
+      const { data: nu } = pp?.user_id ? await sb.from('users').select('first_name').eq('id', pp.user_id).single() : { data: null };
+      const { data: svc } = await sb.from('provider_services').select('price_cents').eq('id', serviceId).single();
+      const { data: cp } = rq?.customer_id ? await sb.from('customer_profiles').select('user_id').eq('id', rq.customer_id).single() : { data: null };
+      if (cp?.user_id) {
+        const rateStr = svc?.price_cents ? ` Their rate is $${(svc.price_cents / 100).toFixed(0)} per walk — we'll confirm everything together at the meet & greet.` : '';
+        await sb.from('system_messages').insert({
+          recipient_user_id: cp.user_id,
+          body: `Great news — we've found your permanent walker${nu?.first_name ? `, ${nu.first_name}` : ''}. We've booked a meet & greet so you can meet them together with Tom.${rateStr}`,
+          link_url: '/profile/',
+          link_label: 'View my bookings',
+        });
+      }
+      return json({ ok: true, mg_booking_id: mgId });
+    }
+
+    if (action === 'handover_complete') {
+      // TRU-225: after the 3-way meet — series + future walks move to the nominee at
+      // their listed rate, founder history preserved, lead → transitioned. Atomic in
+      // the service_role-only RPC.
+      if (!(await isAdmin(user.id))) return json({ error: 'Not authorised' }, 403);
+      const reqId = String(payload.request_id || '');
+      if (!reqId) return json({ error: 'Missing request id' }, 400);
+
+      const { data: rq } = await sb.from('carer_requests')
+        .select('customer_id,handover_provider_id,handover_service_id').eq('id', reqId).maybeSingle();
+      if (!rq) return json({ error: 'Request not found' }, 404);
+
+      const { data: moved, error: rpcErr } = await sb.rpc('admin_complete_handover', {
+        p_request_id: reqId,
+        p_resolved_by: user.id,
+      });
+      if (rpcErr) return json({ error: rpcErr.message }, 400);
+
+      const { data: pp } = rq.handover_provider_id ? await sb.from('provider_profiles').select('user_id').eq('id', rq.handover_provider_id).single() : { data: null };
+      const { data: nu } = pp?.user_id ? await sb.from('users').select('first_name').eq('id', pp.user_id).single() : { data: null };
+      const { data: svc } = rq.handover_service_id ? await sb.from('provider_services').select('price_cents').eq('id', rq.handover_service_id).single() : { data: null };
+      const { data: cp } = rq.customer_id ? await sb.from('customer_profiles').select('user_id').eq('id', rq.customer_id).single() : { data: null };
+      if (cp?.user_id) {
+        const rateStr = svc?.price_cents ? ` at $${(svc.price_cents / 100).toFixed(0)} per walk` : '';
+        await sb.from('system_messages').insert({
+          recipient_user_id: cp.user_id,
+          body: `It's official — ${nu?.first_name || 'your new walker'} takes over your walks from here${rateStr}. Everything we've learned about your dog goes with them, and Tom is always a message away.`,
+          link_url: '/profile/',
+          link_label: 'View my bookings',
+        });
+      }
+      return json({ ok: true, reassigned: moved });
+    }
+
     if (action === 'request_update') {
       if (!(await isAdmin(user.id))) return json({ error: 'Not authorised' }, 403);
       const reqId = String(payload.request_id || '');
       const status = String(payload.status || '');
       const adminNote = String(payload.admin_note || '').slice(0, 500);
-      if (!['open', 'onboarding', 'closed'].includes(status)) return json({ error: 'Invalid status' }, 400);
-      const resolved = status === 'closed';
+      if (!['captured', 'called', 'founder_walking', 'sourcing_walker', 'meet_greet_booked',
+            'transitioned', 'lost', 'closed'].includes(status)) return json({ error: 'Invalid status' }, 400);
+      const resolved = ['transitioned', 'lost', 'closed'].includes(status);
       const upd = await sb.from('carer_requests').update({
         status,
         admin_note: adminNote || null,

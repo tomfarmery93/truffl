@@ -245,22 +245,44 @@ async function creditRedeem(id) {
   } catch (e) { admMsg(e.message, 'error'); }
 }
 
-// ── Requests section (TRU-121: "can't find a carer") ──
+// ── Requests section (TRU-121 capture leads · TRU-221 pipeline view) ──
 const SVC_LABELS = { dog_walking:'Dog walking', dog_sitting:'Dog sitting', dog_boarding:'Dog boarding', dog_daycare:'Dog daycare', drop_in:'Drop-in visit', pet_sitting:'Pet sitting' };
 function svcLabel(t) { return t ? (SVC_LABELS[t] || t) : 'Any service'; }
+// Pipeline order drives the board grouping; terminal statuses only appear in the select.
+const LEAD_STATUSES = [
+  ['captured', 'Captured'], ['called', 'Called'], ['founder_walking', 'Founder walking'],
+  ['sourcing_walker', 'Sourcing walker'], ['meet_greet_booked', 'Meet & greet booked'],
+];
+const LEAD_TERMINAL = [['transitioned', 'Transitioned ✓'], ['lost', 'Lost'], ['closed', 'Closed']];
+const FREQ_LABELS = { one_off:'once', weekly:'weekly', few_per_week:'a few times a week', daily:'every weekday' };
 function reqWhen(rq) {
   const bits = [];
+  if (rq.frequency) bits.push(FREQ_LABELS[rq.frequency] || rq.frequency);
+  else if (rq.recurring) bits.push('recurring');
   if (rq.wanted_date) bits.push(rq.wanted_date);
-  else if (rq.recurring) bits.push('Recurring');
-  else bits.push('Flexible date');
   if (rq.window_start) bits.push(rq.window_start + (rq.window_end ? '–' + rq.window_end : ''));
-  return bits.join(' · ');
+  if (rq.preferred_times && rq.preferred_times.length) bits.push(rq.preferred_times.join('/'));
+  return bits.join(' · ') || 'Flexible';
+}
+// The 14-day sourcing clock (GTM two-week rule) — visible per lead, loud from day 10.
+function clockBadge(rq) {
+  const d = rq.days_in_status ?? 0;
+  if (rq.status === 'founder_walking') {
+    const cls = d >= 10 ? 'b-failed' : 'b-paid';
+    return `<span class="badge ${cls}">day ${d + 1} of 14</span>`;
+  }
+  return `<span class="badge b-refunded">${d === 0 ? 'today' : d + 'd in status'}</span>`;
 }
 function requestCard(rq) {
-  const dog = [rq.dog_size, rq.puppy ? 'puppy' : ''].filter(Boolean).join(' · ');
+  const dogBits = [rq.dog_name, rq.dog_breed, rq.dog_size, rq.puppy ? 'puppy' : ''].filter(Boolean).join(' · ');
   const acct = rq.can_assign ? '<span class="badge b-paid">assignable</span>'
     : rq.customer_id ? '<span class="badge b-refunded">no pet</span>'
     : '<span class="badge b-refunded">guest</span>';
+  // TRU-226: fit-gap leads (saw carers, none suited) get a loud badge — this is a supply
+  // QUALITY signal, not a coverage gap.
+  const trigBadge = rq.capture_trigger === 'browsed_unhappy'
+    ? `<span class="badge b-failed">saw ${rq.results_seen ?? '?'} carers</span>`
+    : rq.capture_trigger === 'filtered_out' ? '<span class="badge b-refunded">filtered out</span>' : '';
   const dtVal = rq.wanted_date ? (rq.wanted_date + 'T' + (rq.window_start || '09:00')) : '';
   const assignUi = rq.can_assign ? `
     <div class="actions">
@@ -269,35 +291,125 @@ function requestCard(rq) {
       <button class="btn" onclick="reqFindCarers('${rq.id}')">Find carers</button>
     </div>
     <div id="reqcarers-${rq.id}"></div>` : '';
+  const statusOpts = LEAD_STATUSES.concat(LEAD_TERMINAL)
+    .map(([v, l]) => `<option value="${v}"${rq.status === v ? ' selected' : ''}>${l}</option>`).join('');
+  // TRU-224: conversion controls. Guest leads get a one-click account link once the owner
+  // registers; linked leads get the founder stop-gap booking form (rate + schedule → M&G
+  // series via admin_create_lead_series). Real-carer assignment stays via "Find carers".
+  const linkUi = !rq.customer_id
+    ? (rq.account_exists
+        ? `<div class="actions"><button class="btn" onclick="reqLinkCustomer('${rq.id}')">Link account (${esc(rq.email)})</button></div>`
+        : `<div class="meta">No account yet — they register via the confirmation email, then a link button appears here.</div>`)
+    : '';
+  const founderUi = rq.customer_id && !rq.assigned_series_id ? `
+    <div class="meta" style="margin-top:8px;"><b>Founder stop-gap</b> — books you as the walker at an interim rate; free M&G first, card captured at proceed.</div>
+    <div class="actions" style="flex-wrap:wrap;">
+      <input class="reason" id="fRate-${rq.id}" type="number" min="1" step="1" placeholder="$/walk" style="flex:0 1 90px;min-width:0;">
+      <select class="reason" id="fDur-${rq.id}" style="flex:0 1 auto;"><option value="30">30 min</option><option value="60">60 min</option></select>
+      <input class="reason" id="fMg-${rq.id}" type="datetime-local" title="Meet & greet time" style="flex:0 1 auto;min-width:0;">
+      <input class="reason" id="fStart-${rq.id}" type="date" title="First walk date" style="flex:0 1 auto;min-width:0;">
+      <input class="reason" id="fTime-${rq.id}" type="time" value="09:00" title="Walk time" style="flex:0 1 auto;min-width:0;">
+    </div>
+    <div class="actions" style="flex-wrap:wrap;">
+      ${['Mon','Tue','Wed','Thu','Fri','Sat','Sun'].map((d, i) => `<button type="button" class="btn" data-d="${i + 1}" onclick="fDayToggle('${rq.id}', this)" style="background:#fff;color:var(--terracottaDark);">${d}</button>`).join('')}
+      <button class="btn" onclick="founderBook('${rq.id}','${esc(rq.service_type || 'dog_walking')}','${rq.pet_id || ''}')">Book me as stop-gap</button>
+    </div>` : '';
+  // TRU-225: handover state on the card. Once nominated, "Complete handover" runs the
+  // transition (marks the 3-way M&G complete, repoints the series + future walks at the
+  // nominee's rate, lead → transitioned).
+  const handoverUi = rq.handover_mg_booking_id
+    ? `<div class="meta"><b>Handover nominated</b> — 3-way M&G ${esc(rq.handover_mg_status || 'confirmed')}${rq.handover_mg_at ? ' · ' + when(rq.handover_mg_at) : ''}</div>
+       <div class="actions"><button class="btn" onclick="handoverComplete('${rq.id}')">Complete handover</button></div>`
+    : (rq.assigned_series_id
+        ? `<div class="meta">Sourcing the permanent walker? "Find carers" → nominate for handover (needs their payouts set up).</div>`
+        : '');
+  const seriesNote = rq.assigned_series_id && !rq.handover_mg_booking_id
+    ? `<div class="meta"><b>Series live</b> — M&G booked; owner proceeds in their profile (card capture) to activate.</div>` : '';
   return `<div class="card" id="reqcard-${rq.id}">
-    <div class="row-top"><div><b>${esc(svcLabel(rq.service_type))}</b> in ${esc(rq.suburb || '—')} ${acct}</div><div class="meta">${when(rq.created_at)}</div></div>
-    <div class="meta">${esc(rq.contact)}${rq.email ? ' · ' + esc(rq.email) : ''}${rq.pet ? ' · pet: ' + esc(rq.pet) : ''}</div>
-    <div class="meta">${esc(reqWhen(rq))}${dog ? ' · ' + esc(dog) : ''}</div>
+    <div class="row-top"><div><b>${esc(svcLabel(rq.service_type))}</b> in ${esc(rq.suburb || '—')} ${acct} ${trigBadge} ${clockBadge(rq)}</div><div class="meta">${when(rq.created_at)}</div></div>
+    <div class="meta"><b>${esc(rq.contact)}</b>${rq.contact_phone ? ` · <a href="tel:${esc(rq.contact_phone)}">${esc(rq.contact_phone)}</a>` : ' · ⚠ no phone'}${rq.email ? ' · ' + esc(rq.email) : ''}</div>
+    <div class="meta">${dogBits ? esc(dogBits) : 'Dog: —'}${rq.pet ? ' · pet on file: ' + esc(rq.pet) : ''}</div>
+    ${rq.dog_temperament_note ? `<div class="meta">Temperament: “${esc(rq.dog_temperament_note)}”</div>` : ''}
+    <div class="meta">${esc(reqWhen(rq))}</div>
     ${rq.note ? `<div class="meta">“${esc(rq.note)}”</div>` : ''}
-    ${rq.status === 'onboarding' ? '<div class="meta"><b>Onboarding a new carer</b></div>' : ''}
+    ${linkUi}
+    ${seriesNote}
+    ${handoverUi}
     ${assignUi}
+    ${founderUi}
     <div class="actions">
+      <select class="reason" id="reqstatus-${rq.id}" style="flex:0 1 auto;">${statusOpts}</select>
       <input class="reason" id="reqnote-${rq.id}" placeholder="Admin note (optional)" value="${esc(rq.admin_note || '')}">
-      <button class="btn" style="background:#fff;color:var(--terracottaDark);" onclick="reqUpdate('${rq.id}','onboarding')">Onboarding</button>
-      <button class="btn" style="background:#fff;color:var(--terracottaDark);" onclick="reqUpdate('${rq.id}','closed')">Close</button>
+      <button class="btn" onclick="reqUpdate('${rq.id}')">Save</button>
     </div>
   </div>`;
 }
+// TRU-224/225: per-lead context the candidate cards need (filled by renderRequests).
+const leadInfo = {};
+// TRU-224: founder stop-gap booking helpers.
+const founderDays = {}; // per-lead selected isodow set (Mon=1 … Sun=7)
+function fDayToggle(id, btn) {
+  const set = (founderDays[id] ||= new Set());
+  const d = +btn.dataset.d;
+  if (set.has(d)) { set.delete(d); btn.style.background = '#fff'; btn.style.color = 'var(--terracottaDark)'; }
+  else { set.add(d); btn.style.background = 'var(--terracotta)'; btn.style.color = '#fff'; }
+}
+async function reqLinkCustomer(id) {
+  admMsg('');
+  try {
+    const r = await sbFn('stripe-api', { action:'request_link_customer', request_id:id });
+    admMsg('Account linked ✓' + ((r.pets && r.pets.length) ? '' : ' — owner has no pets yet; they must add one before booking.'), 'ok');
+    renderRequests(document.getElementById('adm-content'));
+  } catch (e) { admMsg(e.message, 'error'); }
+}
+async function founderBook(rqId, serviceType, petId) {
+  const val = s => (document.getElementById(s + '-' + rqId) || {}).value || '';
+  const rate = Math.round(parseFloat(val('fRate')) * 100);
+  const mg = val('fMg'), start = val('fStart'), time = val('fTime');
+  const days = Array.from(founderDays[rqId] || []);
+  if (!(rate > 0)) { admMsg('Set the stop-gap rate first.', 'error'); return; }
+  if (!mg || !start || !time) { admMsg('Set the meet & greet time, start date and walk time.', 'error'); return; }
+  if (!days.length) { admMsg('Pick at least one walk day.', 'error'); return; }
+  if (!confirm(`Book yourself as the stop-gap walker at $${(rate / 100).toFixed(0)}/walk? This creates the free meet & greet and the recurring series.`)) return;
+  admMsg('');
+  try {
+    const r = await sbFn('stripe-api', { action:'founder_service_ensure', service_type:serviceType, duration_mins:+val('fDur') || 30, price_cents:rate });
+    await sbFn('stripe-api', {
+      action:'request_create_series', request_id:rqId, service_id:r.service_id,
+      mg_scheduled_at:new Date(mg).toISOString(), start_date:start, time_of_day:time,
+      days_of_week:days, frequency_type:'specific_days', pet_id: petId || null,
+    });
+    admMsg('Stop-gap series created ✓ — meet & greet booked and owner notified.', 'ok');
+    renderRequests(document.getElementById('adm-content'));
+  } catch (e) { admMsg(e.message, 'error'); }
+}
 function signalRow(s) {
-  return `<div class="meta">${esc(s.suburb)} · ${esc(svcLabel(s.service_type).toLowerCase())} <b>×${s.count}</b></div>`;
+  return `<tr><td class="meta">${esc(s.week_start)}</td><td class="meta">${esc(s.suburb)}${s.postcode ? ' ' + esc(s.postcode) : ''}</td><td class="meta">${esc(svcLabel(s.service_type).toLowerCase())}</td><td class="meta" style="text-align:right;"><b>×${s.misses}</b></td></tr>`;
 }
 async function renderRequests(c) {
   c.innerHTML = '<div id="adm-msg" class="msg"></div><p class="empty">Loading…</p>';
   try {
     const { requests, signal } = await sbFn('stripe-api', { action:'requests_list' });
-    const reqHtml = (requests && requests.length) ? requests.map(requestCard).join('') : '<p class="empty">No open requests.</p>';
-    const sigHtml = (signal && signal.length) ? signal.map(signalRow).join('') : '<p class="empty">No unmet searches in the last 30 days.</p>';
+    // Group the board by pipeline stage so the founder-walking clock is impossible to miss.
+    const byStatus = {};
+    (requests || []).forEach(r => {
+      leadInfo[r.id] = { hasSeries: !!r.assigned_series_id };
+      (byStatus[r.status] ||= []).push(r);
+    });
+    const reqHtml = (requests && requests.length)
+      ? LEAD_STATUSES.filter(([v]) => byStatus[v] && byStatus[v].length)
+          .map(([v, l]) => `<h1 style="font-size:1.05rem;margin:18px 0 6px;">${l} <span class="meta">(${byStatus[v].length})</span></h1>` + byStatus[v].map(requestCard).join(''))
+          .join('')
+      : '<p class="empty">No live leads.</p>';
+    const sigHtml = (signal && signal.length)
+      ? `<table style="width:100%;border-collapse:collapse;">${signal.map(signalRow).join('')}</table>`
+      : '<p class="empty">No unmet searches in the last 8 weeks.</p>';
     c.innerHTML = `
-      <p class="sub" style="margin-bottom:14px;">Customers who couldn't find a carer. "Find carers" surfaces nearby matches you can assign — this creates a pending booking request the carer accepts and messages the customer. Guest requests (no linked pet) can't be auto-assigned — reply by email, or mark onboarding/closed.</p>
+      <p class="sub" style="margin-bottom:14px;">Captured leads, grouped by pipeline stage. Same-day call is the bar; the 14-day sourcing clock runs while the founder walks. "Find carers" surfaces nearby matches you can assign — this creates a pending booking request and messages the customer.</p>
       <div id="adm-msg" class="msg"></div>
       ${reqHtml}
-      <h1 style="font-size:1.2rem;margin:22px 0 8px;">Unmet searches (30d)</h1>
-      <p class="sub" style="margin-bottom:10px;">Zero-result searches — demand even when nobody submitted a request.</p>
+      <h1 style="font-size:1.2rem;margin:22px 0 8px;">Unmet searches by week</h1>
+      <p class="sub" style="margin-bottom:10px;">Zero-result searches — the recruitment targeting map, even when nobody submitted.</p>
       ${sigHtml}`;
   } catch (e) {
     if (e.message === 'Not authenticated') return signOut();
@@ -307,14 +419,41 @@ async function renderRequests(c) {
 function carerCandidate(reqId, cr) {
   const dist = (cr.distance_km != null) ? cr.distance_km + ' km' : '';
   const rating = cr.avg_rating ? '★' + (+cr.avg_rating).toFixed(1) : 'new';
+  // TRU-225: when the lead already has a live (founder) series, candidates are handover
+  // nominees rather than direct assignments.
+  const handoverMode = !!(leadInfo[reqId] && leadInfo[reqId].hasSeries);
   const svcBtns = (cr.services || []).map(s => {
     const label = svcLabel(s.service_type) + (s.price_cents != null ? ' ' + money(s.price_cents) : '') + (s.duration_mins ? ' / ' + s.duration_mins + 'm' : '');
-    return `<button class="btn" onclick="reqAssign('${reqId}','${cr.provider_id}','${s.id}')">Assign · ${esc(label)}</button>`;
+    return handoverMode
+      ? `<button class="btn" onclick="handoverNominate('${reqId}','${cr.provider_id}','${s.id}')">Nominate · ${esc(label)}</button>`
+      : `<button class="btn" onclick="reqAssign('${reqId}','${cr.provider_id}','${s.id}')">Assign · ${esc(label)}</button>`;
   }).join(' ');
   return `<div class="card" style="margin:8px 0 0;background:var(--cream);">
     <div class="row-top"><div><b>${esc(cr.name)}</b>${cr.is_verified ? ' <span class="badge b-paid">verified</span>' : ''}</div><div class="meta">${esc(cr.suburb || '')}${dist ? ' · ' + dist : ''} · ${rating}</div></div>
     <div class="actions">${svcBtns || '<span class="meta">No matching service</span>'}</div>
   </div>`;
+}
+async function handoverNominate(reqId, providerId, serviceId) {
+  const dtEl = document.getElementById('reqdt-' + reqId);
+  const dt = dtEl && dtEl.value ? dtEl.value : '';
+  if (!dt) { admMsg('Set the 3-way meet & greet date/time first (the Start field).', 'error'); return; }
+  if (!confirm('Nominate this carer for handover? It books the 3-way meet & greet (you + owner + carer) and messages the owner with their rate.')) return;
+  admMsg('');
+  try {
+    const iso = new Date(dt).toISOString();
+    await sbFn('stripe-api', { action:'handover_nominate', request_id:reqId, provider_id:providerId, service_id:serviceId, mg_scheduled_at:iso });
+    admMsg('Handover nominated ✓ — 3-way meet & greet booked and owner introduced.', 'ok');
+    renderRequests(document.getElementById('adm-content'));
+  } catch (e) { admMsg(e.message, 'error'); }
+}
+async function handoverComplete(reqId) {
+  if (!confirm('Complete the handover? Future walks move to the new carer at THEIR listed rate; completed founder walks keep their history. This also marks the 3-way meet & greet done.')) return;
+  admMsg('');
+  try {
+    const r = await sbFn('stripe-api', { action:'handover_complete', request_id:reqId });
+    admMsg(`Handover complete ✓ — ${r.reassigned ?? 0} future walk(s) moved to the new carer. Lead transitioned.`, 'ok');
+    renderRequests(document.getElementById('adm-content'));
+  } catch (e) { admMsg(e.message, 'error'); }
 }
 async function reqFindCarers(id) {
   const box = document.getElementById('reqcarers-' + id);
@@ -339,13 +478,15 @@ async function reqAssign(reqId, providerId, serviceId) {
     renderRequests(document.getElementById('adm-content'));
   } catch (e) { admMsg(e.message, 'error'); }
 }
-async function reqUpdate(reqId, status) {
+async function reqUpdate(reqId) {
+  const status = (document.getElementById('reqstatus-' + reqId) || {}).value || '';
   const note = (document.getElementById('reqnote-' + reqId) || {}).value || '';
-  if (status === 'closed' && !confirm('Close this request?')) return;
+  const terminal = ['transitioned', 'lost', 'closed'].includes(status);
+  if (terminal && !confirm(`Mark this lead ${status}? It drops off the board.`)) return;
   admMsg('');
   try {
     await sbFn('stripe-api', { action:'request_update', request_id:reqId, status, admin_note:note });
-    admMsg(status === 'closed' ? 'Request closed ✓' : 'Marked onboarding ✓', 'ok');
+    admMsg('Lead updated ✓', 'ok');
     renderRequests(document.getElementById('adm-content'));
   } catch (e) { admMsg(e.message, 'error'); }
 }
