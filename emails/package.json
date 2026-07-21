@@ -13,7 +13,7 @@
     "@react-email/components": "^1.0.12",
     "@react-email/render": "^2.1.0",
     "react": "^19.1.0",
-    "react-dom": "^19.1.0"
+    "react-dom": "^19.2.8"
   },
   "devDependencies": {
     "react-email": "^6.8.1",
