@@ -71,6 +71,60 @@ jobs:
           done
           exit $status
 
+  email-tokens:
+    name: Email brand tokens in sync
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      # TRU-120: production transactional email renders in the edge function, not from
+      # the React Email workspace (nothing imports renderEmail — see emails/RUNBOOK.md),
+      # so the brand tokens exist in two runtimes that can't share a module. They had
+      # already drifted once (the edge function's body font lost 'DM Sans'). Keep them
+      # honest here instead of introducing a build step into a no-build repo.
+      - name: Compare emails/lib/theme.ts with _shared/email-theme.ts
+        run: |
+          python3 - <<'PY'
+          import pathlib, re, sys
+
+          FILES = {
+              'emails/lib/theme.ts': pathlib.Path('emails/lib/theme.ts'),
+              'supabase/functions/_shared/email-theme.ts': pathlib.Path('supabase/functions/_shared/email-theme.ts'),
+          }
+
+          def tokens(path):
+              src = path.read_text(encoding='utf-8')
+              colors = dict(re.findall(r"(\w+):\s*'(#[0-9A-Fa-f]{6})'", src))
+              fonts = {}
+              for name in ('fontHeading', 'fontBody'):
+                  m = re.search(rf'export const {name}\s*=\s*([\s\S]*?);', src)
+                  if not m:
+                      print(f'::error file={path}::missing export {name}')
+                      sys.exit(1)
+                  # Collapse the line break the formatter puts after `=`.
+                  fonts[name] = ' '.join(m.group(1).split())
+              return colors, fonts
+
+          (ca, fa), (cb, fb) = (tokens(p) for p in FILES.values())
+          a_name, b_name = FILES.keys()
+          failed = False
+
+          for key in sorted(set(ca) | set(cb)):
+              va, vb = ca.get(key), cb.get(key)
+              if va != vb:
+                  print(f'::error::colour "{key}" differs — {a_name}={va!r} vs {b_name}={vb!r}')
+                  failed = True
+
+          for key in ('fontHeading', 'fontBody'):
+              if fa[key] != fb[key]:
+                  print(f'::error::{key} differs\n  {a_name}: {fa[key]}\n  {b_name}: {fb[key]}')
+                  failed = True
+
+          if failed:
+              print('\nEmail brand tokens have drifted. Update both files so they match.')
+              sys.exit(1)
+          print(f'ok   {len(ca)} colours + 2 font stacks identical in both files')
+          PY
+
   migrations:
     name: Migration filename sanity
     runs-on: ubuntu-latest

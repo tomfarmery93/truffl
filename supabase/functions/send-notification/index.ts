@@ -10,11 +10,16 @@
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { timingSafeEqual } from '../_shared/secret.ts';
+import { colors, fontBody, fontHeading } from '../_shared/email-theme.ts';
+import { htmlToText } from '../_shared/email-text.ts';
 
 const RESEND_API_KEY = Deno.env.get('RESEND_API_KEY')!;
 const WEBHOOK_SECRET = Deno.env.get('WEBHOOK_SECRET')!;
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!;
 const SERVICE_ROLE = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+// TRU-120: extra addresses the QA sweep may send to, beyond site admins.
+// Comma-separated; unset in normal operation.
+const QA_EMAIL_ALLOWLIST = Deno.env.get('QA_EMAIL_ALLOWLIST') ?? '';
 
 const FROM = 'Truffl Pets <notifications@trufflpets.com>';
 const REPLY_TO = 'support@trufflpets.com'; // TRU-114 forwarding
@@ -45,10 +50,12 @@ function fmtWhen(iso: string | null, mins?: number | null): string {
 }
 
 // ── Branded layout (Deno port of TrufflEmailLayout; keep visually in sync) ──
+// Tokens come from _shared/email-theme.ts, which CI keeps identical to
+// emails/lib/theme.ts — see that file's header (TRU-120).
 function layout(opts: { preview: string; heading: string; body: string; cta?: { label: string; href: string }; footnote?: string }): string {
-  const C = { cream: '#F7F3EE', white: '#FFFFFF', border: '#E7DFD6', brown: '#5C4033', terracotta: '#C4866A', terracottaDark: '#B8795C', text: '#3A2E28', textMid: '#7A6860', textLight: '#A8978E' };
-  const headingFont = "'Cormorant Garamond', Georgia, 'Times New Roman', serif";
-  const bodyFont = "-apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif";
+  const C = colors;
+  const headingFont = fontHeading;
+  const bodyFont = fontBody;
   return `<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head>
 <body style="margin:0;padding:24px 0;background:${C.cream};font-family:${bodyFont};">
 <div style="display:none;max-height:0;overflow:hidden;opacity:0;">${esc(opts.preview)}</div>
@@ -419,13 +426,105 @@ async function buildMessages(type: string, payload: Record<string, unknown>) {
   return out;
 }
 
+// ── TRU-120: QA sweep ──
+// Fires every production message body at one allowlisted address so the
+// cross-client / deliverability pass can be done in a single sweep.
+//
+// Deliberately NOT a set of hand-written preview templates: it calls the real
+// buildMessages() against rows that already exist and only overrides the
+// recipient. That way the sweep exercises the true production renderer AND the
+// real data resolution — a preview with its own copy of the bodies would drift
+// from production and QA the wrong HTML, which is the whole trap this ticket
+// exists to avoid. It writes nothing, so there is no test data to clean up.
+
+async function previewAllowed(to: string): Promise<boolean> {
+  const addr = to.trim().toLowerCase();
+  if (!addr) return false;
+  if (QA_EMAIL_ALLOWLIST.split(',').map((a) => a.trim().toLowerCase()).filter(Boolean).includes(addr)) {
+    return true;
+  }
+  const { data } = await sb.from('users').select('email').eq('is_admin', true);
+  return (data ?? []).some((u: { email: string | null }) => (u.email ?? '').toLowerCase() === addr);
+}
+
+// Find one representative row per event type. Anything with no suitable row is
+// reported as skipped rather than failing the sweep.
+async function previewSources(): Promise<{ type: string; payload: Record<string, unknown> }[]> {
+  const out: { type: string; payload: Record<string, unknown> }[] = [];
+
+  const { data: booking } = await sb.from('bookings')
+    .select('id').eq('is_meet_and_greet', false).order('created_at', { ascending: false }).limit(1).maybeSingle();
+  if (booking) {
+    out.push({ type: 'booking_request', payload: { booking_id: booking.id } });
+    out.push({ type: 'booking_confirmed', payload: { booking_id: booking.id } });
+    out.push({ type: 'payment_failed', payload: { booking_id: booking.id } });
+  }
+
+  // Cover alerts need a booking that actually went through the cover flow.
+  const { data: covered } = await sb.from('bookings')
+    .select('id').neq('cover_status', 'none').order('created_at', { ascending: false }).limit(1).maybeSingle();
+  if (covered) out.push({ type: 'cover_cancellation', payload: { booking_id: covered.id } });
+
+  const { data: walk } = await sb.from('walk_sessions')
+    .select('id').order('created_at', { ascending: false }).limit(1).maybeSingle();
+  if (walk) {
+    out.push({ type: 'walk_started', payload: { walk_session_id: walk.id } });
+    out.push({ type: 'walk_completed', payload: { walk_session_id: walk.id } });
+  }
+
+  const { data: message } = await sb.from('messages')
+    .select('id').order('created_at', { ascending: false }).limit(1).maybeSingle();
+  if (message) out.push({ type: 'new_message', payload: { message_id: message.id } });
+
+  const { data: lead } = await sb.from('carer_requests')
+    .select('id').order('created_at', { ascending: false }).limit(1).maybeSingle();
+  if (lead) out.push({ type: 'carer_request', payload: { request_id: lead.id } });
+
+  return out;
+}
+
+async function runPreviewSweep(to: string) {
+  const sources = await previewSources();
+  const results: { type: string; subject: string; ok: boolean; status?: number; error?: unknown }[] = [];
+  const skipped: string[] = [];
+
+  for (const src of sources) {
+    let messages;
+    try {
+      messages = await buildMessages(src.type, src.payload);
+    } catch (e) {
+      skipped.push(`${src.type} (${String((e as Error)?.message || e)})`);
+      continue;
+    }
+    if (!messages.length) { skipped.push(`${src.type} (no recipients resolved)`); continue; }
+    for (const m of messages) {
+      // Recipient forced to the QA address; [QA] prefix so a sweep is never
+      // mistaken for real mail landing in an admin inbox.
+      const r = await sendEmail({ ...m, to, subject: `[QA] ${m.subject}` });
+      results.push({ type: src.type, subject: m.subject, ok: r.ok, status: r.status, error: r.error ?? undefined });
+    }
+  }
+
+  const expected = ['booking_request', 'booking_confirmed', 'payment_failed', 'cover_cancellation',
+    'walk_started', 'walk_completed', 'new_message', 'carer_request'];
+  for (const t of expected) {
+    if (!sources.some((s) => s.type === t) && !skipped.some((s) => s.startsWith(t))) {
+      skipped.push(`${t} (no source row in the database)`);
+    }
+  }
+
+  return { to, sent: results.length, allOk: results.every((r) => r.ok), skipped, results };
+}
+
 // ── Resend send with retry on 429 ──
 async function sendEmail(msg: { to: string; subject: string; html: string; replyTo?: string }) {
   for (let attempt = 0; attempt < 4; attempt++) {
     const res = await fetch('https://api.resend.com/emails', {
       method: 'POST',
       headers: { Authorization: `Bearer ${RESEND_API_KEY}`, 'Content-Type': 'application/json' },
-      body: JSON.stringify({ from: FROM, reply_to: msg.replyTo || REPLY_TO, to: msg.to, subject: msg.subject, html: msg.html }),
+      // TRU-120: always ship a text/plain alternative alongside the HTML —
+      // html-only mail scores worse with spam filters.
+      body: JSON.stringify({ from: FROM, reply_to: msg.replyTo || REPLY_TO, to: msg.to, subject: msg.subject, html: msg.html, text: htmlToText(msg.html) }),
     });
     if (res.status !== 429) {
       const data = await res.json().catch(() => ({}));
@@ -446,6 +545,20 @@ Deno.serve(async (req) => {
 
   const type = String(payload.type || '');
   try {
+    // TRU-120 QA sweep. Guarded by the shared secret above AND an address
+    // allowlist, so a leaked secret still can't turn this into an open relay.
+    if (type === 'preview') {
+      const to = String(payload.to || '');
+      if (!(await previewAllowed(to))) {
+        return new Response(JSON.stringify({ error: 'Recipient not allowlisted for QA previews' }),
+          { status: 400, headers: { 'Content-Type': 'application/json' } });
+      }
+      const summary = await runPreviewSweep(to);
+      return new Response(JSON.stringify(summary), {
+        status: summary.allOk ? 200 : 502, headers: { 'Content-Type': 'application/json' },
+      });
+    }
+
     const messages = await buildMessages(type, payload);
     if (!messages.length) {
       return new Response(JSON.stringify({ skipped: true, type }), { status: 200, headers: { 'Content-Type': 'application/json' } });
