@@ -1,5 +1,20 @@
 apply plugin: 'com.android.application'
 
+// Release signing (TRU-58). Play rejects unsigned artifacts, but the keystore and its
+// passwords must never enter the repo — so they live in android/keystore.properties,
+// which is gitignored. See keystore.properties.example and the signing section of
+// MOBILE.md for how to generate one.
+//
+// When that file is absent (a clean checkout, or CI) we skip the signing config
+// entirely rather than failing: debug builds and `assembleDebug` still work, and
+// `assembleRelease` produces an unsigned artifact exactly as it did before.
+def keystorePropertiesFile = rootProject.file('keystore.properties')
+def keystoreProperties = new Properties()
+def hasReleaseKeystore = keystorePropertiesFile.exists()
+if (hasReleaseKeystore) {
+    keystorePropertiesFile.withInputStream { keystoreProperties.load(it) }
+}
+
 android {
     namespace = "com.trufflpets.app"
     compileSdk = rootProject.ext.compileSdkVersion
@@ -7,8 +22,10 @@ android {
         applicationId "com.trufflpets.app"
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
+        // versionCode must increase on every upload to Play, even for a re-upload of
+        // the same versionName. 1 is correct for the first submission.
         versionCode 1
-        versionName "1.0"
+        versionName "1.0.0"
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
         aaptOptions {
              // Files and dirs to omit from the packaged assets dir, modified to accommodate modern web apps.
@@ -16,8 +33,21 @@ android {
             ignoreAssetsPattern = '!.svn:!.git:!.ds_store:!*.scc:.*:!CVS:!thumbs.db:!picasa.ini:!*~'
         }
     }
+    signingConfigs {
+        if (hasReleaseKeystore) {
+            release {
+                storeFile file(keystoreProperties['storeFile'])
+                storePassword keystoreProperties['storePassword']
+                keyAlias keystoreProperties['keyAlias']
+                keyPassword keystoreProperties['keyPassword']
+            }
+        }
+    }
     buildTypes {
         release {
+            if (hasReleaseKeystore) {
+                signingConfig signingConfigs.release
+            }
             minifyEnabled false
             proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
         }
