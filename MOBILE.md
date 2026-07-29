@@ -71,8 +71,21 @@ The app should boot straight into the live Truffl site.
 - **Bundle ID / app name** (`com.trufflpets.app`, "Truffl Pets") are placeholders
   pending **TRU-128**. Change `appId`/`appName` in `capacitor.config.json`, then
   `npx cap sync`, before any store submission.
-- **Background geolocation** on `/walk/` is **TRU-56** (separate plugin + native
-  permission setup) — out of scope here.
+- **Background geolocation** on `/walk/` is **TRU-56**, and is implemented natively on
+  both platforms rather than via a third-party plugin: `WalkTrackerPlugin` /
+  `WalkTrackingService` on Android, `TrufflWalkTracker.swift` on iOS. Both POST fixes
+  straight to `gps_pings` so tracking survives the JS being suspended.
+  `@capacitor-community/background-geolocation` was declared in `package.json` but linked
+  in neither build (absent from `CapApp-SPM/Package.swift` and `capacitor.settings.gradle`,
+  and `capacitor.build.gradle`'s dependency block was empty) — it was dead weight and has
+  been removed.
+- **Adding a native Swift file to the iOS target:** `npx cap sync` does *not* add source
+  files to `project.pbxproj`. A `.swift` file dropped into `ios/App/App/` will sit there
+  uncompiled and its plugin will be `undefined` in the WebView, failing silently. It needs
+  four entries in `project.pbxproj`: a `PBXFileReference`, a `PBXBuildFile`, membership of
+  the `App` `PBXGroup`, and the build-file ref in `PBXSourcesBuildPhase`. Adding the file
+  through Xcode's UI does all four. This is exactly how `TrufflWalkTracker.swift` came to
+  be committed but never built.
 - **Universal/App Links** (cold-opening a tapped `https://trufflpets.com/...` link
   from outside the app into the app) need an `apple-app-site-association` file and
   Android `assetlinks.json` hosted on the domain, plus associated-domains/intent
