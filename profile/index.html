@@ -1068,6 +1068,9 @@ function renderAccountTab() {
     <hr class="section-divider">
     <div class="section-heading">Backup cover</div>
     ${backupCoverHtml()}
+    <hr class="section-divider">
+    <div class="section-heading">Delete account</div>
+    ${deleteAccountHtml()}
     <button class="sign-out-btn" onclick="signOut()">Sign out</button>
   `;
   renderAvatar();
@@ -1181,6 +1184,9 @@ function renderProviderProfile() {
     <hr class="section-divider">
     <div class="section-heading">Service area</div>
     ${serviceAreaHtml()}
+    <hr class="section-divider">
+    <div class="section-heading">Delete account</div>
+    ${deleteAccountHtml()}
     <button class="sign-out-btn" onclick="signOut()">Sign out</button>
   `;
   renderAvatar();
@@ -1531,6 +1537,118 @@ async function uploadPetPhoto(input, petId) {
 function signOut() {
   localStorage.removeItem('truffl_session');
   window.location.href = '/';
+}
+
+/* ── Delete account (TRU-228) ──────────────────────────────────────────────────
+   Required by both stores: Apple guideline 5.1.1(v) wants deletion initiated AND
+   completed in-app. Rendered for both roles — a carer needs this as much as an owner.
+
+   Deliberately NOT a bare confirm(): this is irreversible, and a native dialog is both
+   too weak a speed bump and ugly in the app WebView. We reuse mgOverlay() and ask the
+   user to type DELETE, which the edge function also requires.                        */
+function deleteAccountHtml() {
+  return `
+    <div class="cover-card">
+      <p>Deleting your account is <b>permanent</b>. Your name, contact details, pet
+      details, photos, walk routes and message history are removed.</p>
+      <p>Records of bookings that already happened are kept, without your personal
+      details, because we're required to keep payment records — see our
+      <a href="/privacy/#rights" target="_blank" rel="noopener" style="color:var(--terracotta);">privacy policy</a>.</p>
+      <div class="bc-actions">
+        <button class="btn-ghost danger" onclick="openDeleteAccount()">Delete my account</button>
+      </div>
+    </div>
+  `;
+}
+
+async function openDeleteAccount() {
+  mgOverlay(`
+    <h2 style="margin-top:0;">Delete your account?</h2>
+    <p style="font-size:0.9rem;">Checking whether anything needs settling first…</p>
+    <div id="delMsg" class="msg"></div>
+  `);
+
+  // Pre-flight. Advisory only — the server re-checks inside the transaction — but it
+  // means we explain the blocker instead of failing at the last step.
+  let blockers;
+  try {
+    blockers = await sbRpc('account_deletion_blockers', {});
+  } catch (e) {
+    document.querySelector('#mgOverlay .form-card').innerHTML = `
+      <h2 style="margin-top:0;">Delete your account?</h2>
+      <p style="font-size:0.9rem;">We couldn't check your account just now: ${e.message}</p>
+      <div style="display:flex;gap:10px;justify-content:flex-end;">
+        <button class="btn-ghost" onclick="closeMgOverlay()">Close</button>
+      </div>`;
+    return;
+  }
+
+  const reasons = [];
+  if (blockers.future_bookings > 0) {
+    reasons.push(`${blockers.future_bookings} booking${blockers.future_bookings === 1 ? '' : 's'} still scheduled — please cancel ${blockers.future_bookings === 1 ? 'it' : 'them'} first, so nobody is left without care.`);
+  }
+  if (blockers.unpaid_completed > 0) {
+    reasons.push(`${blockers.unpaid_completed} completed booking${blockers.unpaid_completed === 1 ? '' : 's'} still to settle. Please contact us and we'll sort it out.`);
+  }
+
+  if (reasons.length) {
+    document.querySelector('#mgOverlay .form-card').innerHTML = `
+      <h2 style="margin-top:0;">Not just yet</h2>
+      <p style="font-size:0.9rem;">Before you can delete your account:</p>
+      <ul style="font-size:0.9rem;line-height:1.6;padding-left:1.1rem;margin:0 0 1rem;">
+        ${reasons.map(r => `<li>${r}</li>`).join('')}
+      </ul>
+      <div style="display:flex;gap:10px;justify-content:flex-end;">
+        <button class="btn-ghost" onclick="closeMgOverlay()">Close</button>
+      </div>`;
+    return;
+  }
+
+  document.querySelector('#mgOverlay .form-card').innerHTML = `
+    <h2 style="margin-top:0;">Delete your account?</h2>
+    <p style="font-size:0.9rem;">This cannot be undone. Your personal details, pets, photos,
+    walk routes and messages are removed, and you'll be signed out immediately.</p>
+    <p style="font-size:0.9rem;">Type <b>DELETE</b> to confirm.</p>
+    <div class="cover-field">
+      <input type="text" id="delConfirm" autocomplete="off" autocapitalize="characters" placeholder="DELETE">
+    </div>
+    <div id="delMsg" class="msg"></div>
+    <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:1rem;">
+      <button class="btn-ghost" onclick="closeMgOverlay()">Keep my account</button>
+      <button class="btn-ghost danger" id="delGo" onclick="confirmDeleteAccount()">Delete permanently</button>
+    </div>`;
+  document.getElementById('delConfirm').focus();
+}
+
+async function confirmDeleteAccount() {
+  const box = document.getElementById('delConfirm');
+  const msg = document.getElementById('delMsg');
+  const btn = document.getElementById('delGo');
+  const typed = (box.value || '').trim().toUpperCase();
+
+  if (typed !== 'DELETE') {
+    msg.textContent = 'Please type DELETE to confirm.';
+    msg.className = 'msg error';
+    return;
+  }
+
+  btn.disabled = true;
+  btn.textContent = 'Deleting…';
+  msg.className = 'msg';
+  msg.textContent = '';
+
+  try {
+    await sbFn('delete-account', { confirm: 'DELETE' });
+    // The auth user is gone, so the stored session is dead — clear it before leaving or
+    // session.js will keep trying to refresh a token that no longer exists.
+    localStorage.removeItem('truffl_session');
+    window.location.href = '/?deleted=1';
+  } catch (e) {
+    btn.disabled = false;
+    btn.textContent = 'Delete permanently';
+    msg.textContent = e.message;
+    msg.className = 'msg error';
+  }
 }
 
 /* ── Unread message badges (customer header + per-booking-card) ── */
