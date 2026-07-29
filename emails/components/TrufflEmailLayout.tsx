@@ -94,6 +94,10 @@ export function TrufflEmailLayout({
                 Trust &amp; safety
               </Link>
               {'  ·  '}
+              <Link href={`${SITE_URL}/terms/`} style={footerLink}>
+                Terms
+              </Link>
+              {'  ·  '}
               <Link href={`${SITE_URL}/privacy/`} style={footerLink}>
                 Privacy
               </Link>

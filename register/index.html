@@ -262,6 +262,13 @@
     color: var(--text-muted);
     margin-top: 4px;
   }
+  .consent-note {
+    font-size: 0.78rem;
+    color: var(--text-muted);
+    line-height: 1.5;
+    margin-top: 18px;
+  }
+  .consent-note a { color: var(--terracotta); text-decoration: underline; }
 
   /* ─── Service-area mode toggle (TRU-157, mirrors the profile editor) ─── */
   .sa-seg { display: flex; padding: 3px; background: var(--cream); border: 1px solid var(--border); border-radius: 999px; margin: 4px 0 10px; max-width: 320px; }
@@ -510,6 +517,8 @@
         <label>Confirm password</label>
         <input type="password" id="passwordConfirm" placeholder="Re-enter your password" required>
       </div>
+
+      <div class="consent-note">By continuing you agree to our <a href="/terms/" target="_blank" rel="noopener">Terms of service</a> and <a href="/privacy/" target="_blank" rel="noopener">Privacy policy</a>.</div>
 
       <div class="btn-row">
         <button class="btn btn-primary" onclick="submitStep1()">Continue</button>
