@@ -4,6 +4,7 @@
   <url><loc>https://trufflpets.com/about-us/</loc><changefreq>monthly</changefreq><priority>0.7</priority></url>
   <url><loc>https://trufflpets.com/register/</loc><changefreq>monthly</changefreq><priority>0.8</priority></url>
   <url><loc>https://trufflpets.com/search/</loc><changefreq>weekly</changefreq><priority>0.6</priority></url>
+  <url><loc>https://trufflpets.com/terms/</loc><changefreq>yearly</changefreq><priority>0.3</priority></url>
   <url><loc>https://trufflpets.com/privacy/</loc><changefreq>yearly</changefreq><priority>0.3</priority></url>
 
   <url><loc>https://trufflpets.com/trust-and-safety/</loc><changefreq>monthly</changefreq><priority>0.7</priority></url>

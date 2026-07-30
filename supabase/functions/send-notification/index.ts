@@ -77,7 +77,7 @@ function layout(opts: { preview: string; heading: string; body: string; cta?: { 
   <tr><td style="padding:18px 0;"><hr style="border:none;border-top:1px solid ${C.border};margin:0;"></td></tr>
   <tr><td style="text-align:center;">
     <p style="font-size:13px;color:${C.textMid};margin:0 0 6px;"><a href="${SITE}" style="color:${C.terracottaDark};text-decoration:none;">Truffl Pets</a> · Sydney's trusted pet care</p>
-    <p style="font-size:12px;color:${C.textLight};margin:0 0 6px;"><a href="${SITE}/trust-and-safety/" style="color:${C.terracottaDark};text-decoration:none;">Trust &amp; safety</a> &nbsp;·&nbsp; <a href="${SITE}/privacy/" style="color:${C.terracottaDark};text-decoration:none;">Privacy</a></p>
+    <p style="font-size:12px;color:${C.textLight};margin:0 0 6px;"><a href="${SITE}/trust-and-safety/" style="color:${C.terracottaDark};text-decoration:none;">Trust &amp; safety</a> &nbsp;·&nbsp; <a href="${SITE}/terms/" style="color:${C.terracottaDark};text-decoration:none;">Terms</a> &nbsp;·&nbsp; <a href="${SITE}/privacy/" style="color:${C.terracottaDark};text-decoration:none;">Privacy</a></p>
     <p style="font-size:12px;color:${C.textLight};margin:0;">© Truffl Pets · Sydney, NSW</p>
   </td></tr>
 </table></body></html>`;

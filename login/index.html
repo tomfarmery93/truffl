@@ -123,6 +123,8 @@
   .text-link { color: var(--terracotta); font-size: 0.82rem; font-weight: 500; text-decoration: none; }
   .text-link:hover { text-decoration: underline; }
   .field-hint { font-size: 0.78rem; color: var(--text-muted); margin-top: 4px; }
+  .consent-note { font-size: 0.78rem; color: var(--text-muted); line-height: 1.5; margin-top: 18px; }
+  .consent-note a { color: var(--terracotta); text-decoration: underline; }
 
   .btn-row { display: flex; gap: 12px; margin-top: 1.5rem; }
   .btn {
@@ -404,6 +406,7 @@
         <div class="field"><label>Phone number</label><input type="tel" id="cPhone" placeholder="0412 345 678"></div>
         <div class="field"><label>Password</label><input type="password" id="cPassword" placeholder="At least 8 characters"><div class="field-hint">Minimum 8 characters</div></div>
         <div class="field"><label>Confirm password</label><input type="password" id="cPasswordConfirm" placeholder="Re-enter your password"></div>
+        <div class="consent-note">By continuing you agree to our <a href="/terms/" target="_blank" rel="noopener">Terms of service</a> and <a href="/privacy/" target="_blank" rel="noopener">Privacy policy</a>.</div>
         <div class="btn-row"><button class="btn btn-primary" onclick="custStep1()">Continue</button></div>
       </div>
     </div>
@@ -513,6 +516,7 @@
         <div class="field"><label>Phone number</label><input type="tel" id="pPhone" placeholder="0412 345 678"></div>
         <div class="field"><label>Password</label><input type="password" id="pPassword" placeholder="At least 8 characters"><div class="field-hint">Minimum 8 characters</div></div>
         <div class="field"><label>Confirm password</label><input type="password" id="pPasswordConfirm" placeholder="Re-enter your password"></div>
+        <div class="consent-note">By continuing you agree to our <a href="/terms/" target="_blank" rel="noopener">Terms of service</a> and <a href="/privacy/" target="_blank" rel="noopener">Privacy policy</a>.</div>
         <div class="btn-row"><button class="btn btn-primary" onclick="provStep1()">Continue</button></div>
       </div>
     </div>
