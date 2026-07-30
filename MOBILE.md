@@ -66,6 +66,49 @@ The app should boot straight into the live Truffl site.
 - Offline behaviour: with no network, the bundled `www/index.html` fallback shows
   a retry; reconnecting returns to the live site.
 
+## Android release signing (TRU-58)
+
+Play rejects unsigned artifacts. The signing config is wired up, but the keystore
+itself is deliberately **not** in the repo — `android/.gitignore` blocks `*.jks`,
+`*.keystore` and `keystore.properties`.
+
+> **Losing this keystore means you can never update the app on Play under the same
+> listing again.** Back it up somewhere durable (password manager / encrypted backup),
+> not just on this Mac.
+
+```bash
+# 1. Generate the release key. Keep the .jks OUTSIDE the repo.
+keytool -genkeypair -v \
+  -keystore ~/truffl-release.jks \
+  -alias truffl -keyalg RSA -keysize 2048 -validity 10000
+
+# 2. Point the build at it
+cp android/keystore.properties.example android/keystore.properties
+#    then edit it: storeFile (absolute path), storePassword, keyAlias, keyPassword
+
+# 3. Build the artifact Play wants (AAB, not APK)
+cd android && ./gradlew :app:bundleRelease
+#    → android/app/build/outputs/bundle/release/app-release.aab
+
+# 4. Confirm it really is signed
+jarsigner -verify -certs app/build/outputs/bundle/release/app-release.aab
+#    "jar verified." — the self-signed warnings are expected and fine
+```
+
+For an APK instead (`./gradlew :app:assembleRelease`), verify with
+`$ANDROID_HOME/build-tools/<ver>/apksigner verify --print-certs <apk>`.
+
+Without `keystore.properties` the signing config is skipped rather than failing, so a
+clean checkout and CI still build normally — `assembleRelease` just produces an
+unsigned artifact, as it did before.
+
+`versionCode` must increase on **every** upload to Play, even when re-uploading the
+same `versionName`. Bump it in `android/app/build.gradle` alongside iOS's
+`CURRENT_PROJECT_VERSION`.
+
+If Gradle can't find a JDK, Android Studio ships one:
+`export JAVA_HOME="/Applications/Android Studio.app/Contents/jbr/Contents/Home"`.
+
 ## Notes / follow-ups
 
 - **Bundle ID / app name** (`com.trufflpets.app`, "Truffl Pets") are placeholders
