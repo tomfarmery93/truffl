@@ -55,5 +55,9 @@
 	<array>
 		<string>location</string>
 	</array>
+	<key>NSCameraUsageDescription</key>
+	<string>Truffl uses your camera so you can take photos during a walk and add pictures to your profile and your pets.</string>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>Truffl needs access to your photos so you can choose an existing picture for your profile, your pets, or a walk update.</string>
 </dict>
 </plist>
