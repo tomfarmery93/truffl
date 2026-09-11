@@ -1,0 +1,651 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <!-- Google tag (gtag.js) -->
+<script async src="https://www.googletagmanager.com/gtag/js?id=G-T2CPSDBJ1L"></script>
+<script>
+  window.dataLayer = window.dataLayer || [];
+  function gtag(){dataLayer.push(arguments);}
+  gtag('js', new Date());
+
+  gtag('config', 'G-T2CPSDBJ1L');
+</script>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="robots" content="noindex,nofollow">
+<title>Clients — Truffl Pets</title>
+<link rel="icon" type="image/svg+xml" href="/favicon.svg">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,500;0,600;1,400;1,500&family=DM+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+  <link rel="preconnect" href="https://gadflsntbnbnnxbpiral.supabase.co" crossorigin>
+  <script src="/session.js"></script>
+<style>
+  :root {
+    --cream: #FAF7F2; --warm-white: #FFFDF9; --sage: #8B9E7E; --sage-light: #C2D1B5;
+    --sage-dark: #6B7E5E; --terracotta: #C4755B; --terracotta-light: #D4917B;
+    --blush: #E8C4B8; --brown: #3D2B1F; --brown-light: #5C4033; --brown-muted: #8B7355;
+    --text-primary: #3D2B1F; --text-secondary: #6B5B4E; --text-muted: #9B8B7E;
+    --border: #E8E0D6; --border-focus: #C4755B;
+    --error: #C0392B; --error-bg: #FDF0EE; --success: #5B8C5A; --success-bg: #EDF5ED;
+    --warning: #C0862B; --warning-bg: #FEF3E2;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: 'DM Sans', sans-serif; background: var(--cream); color: var(--text-primary); min-height: 100vh; -webkit-font-smoothing: antialiased; }
+  button, input, select, textarea { font-family: inherit; }
+
+  .nav { position: sticky; top: 0; z-index: 100; background: var(--warm-white); border-bottom: 1px solid var(--border); padding: 0 2rem; height: 64px; display: flex; align-items: center; justify-content: space-between; }
+  .nav-logo { display: flex; align-items: center; text-decoration: none; }
+  .nav-right { display: flex; align-items: center; gap: 18px; font-size: 13px; }
+  .nav-right a { color: var(--text-secondary); text-decoration: none; transition: color 0.2s; }
+  .nav-right a:hover, .nav-right a.active { color: var(--terracotta); }
+  .nav-user { display: flex; align-items: center; gap: 8px; }
+  .nav-avatar { width: 32px; height: 32px; border-radius: 50%; background: var(--blush); display: flex; align-items: center; justify-content: center; font-size: 0.75rem; font-weight: 600; color: var(--brown); }
+  .nav-name { font-size: 0.85rem; font-weight: 500; color: var(--text-primary); }
+  @media (max-width: 640px) { .nav { padding: 0 1rem; } .nav-right { gap: 12px; } .nav-name, .nav-hide-sm { display: none; } }
+
+  .page-wrapper { max-width: 800px; margin: 0 auto; padding: 1.5rem 1.25rem 4rem; }
+  .welcome { display: flex; align-items: flex-end; justify-content: space-between; gap: 12px; flex-wrap: wrap; margin-bottom: 1.25rem; }
+  .welcome h1 { font-family: 'Cormorant Garamond', serif; font-weight: 500; font-size: 1.8rem; color: var(--brown); }
+  .welcome p { color: var(--text-muted); font-size: 0.9rem; margin-top: 2px; }
+  .welcome-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+
+  .btn { display: inline-flex; align-items: center; gap: 6px; padding: 9px 16px; border-radius: 999px; font-size: 0.85rem; font-weight: 600; cursor: pointer; border: 1px solid transparent; text-decoration: none; transition: all .15s; white-space: nowrap; }
+  .btn.primary { background: var(--terracotta); color: #fff; }
+  .btn.primary:hover { background: #B3684F; }
+  .btn.secondary { background: var(--warm-white); color: var(--brown); border-color: var(--border); }
+  .btn.secondary:hover { border-color: var(--terracotta); color: var(--terracotta); }
+  .btn.ghost { background: transparent; color: var(--text-secondary); }
+  .btn.ghost:hover { color: var(--terracotta); }
+  .btn.danger { background: var(--error-bg); color: var(--error); }
+  .btn.sm { padding: 6px 12px; font-size: 0.78rem; }
+  .btn:disabled { opacity: .55; cursor: default; }
+
+  .msg { display: none; padding: 12px 16px; border-radius: 10px; font-size: 0.85rem; margin-bottom: 1rem; }
+  .msg.error { display: block; background: var(--error-bg); color: var(--error); }
+  .msg.success { display: block; background: var(--success-bg); color: var(--success); }
+  .msg.info { display: block; background: var(--warning-bg); color: var(--warning); }
+
+  .toolbar { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; margin-bottom: 1rem; }
+  .search { flex: 1; min-width: 200px; position: relative; }
+  .search input { width: 100%; padding: 11px 14px 11px 38px; border: 1px solid var(--border); border-radius: 999px; background: var(--warm-white); font-size: 0.9rem; color: var(--text-primary); outline: none; }
+  .search input:focus { border-color: var(--border-focus); }
+  .search svg { position: absolute; left: 13px; top: 50%; transform: translateY(-50%); color: var(--text-muted); }
+  .chips { display: flex; gap: 6px; flex-wrap: wrap; }
+  .chip { padding: 7px 12px; border-radius: 999px; font-size: 0.78rem; font-weight: 500; border: 1px solid var(--border); background: var(--warm-white); color: var(--text-secondary); cursor: pointer; }
+  .chip.active { background: var(--brown); color: #fff; border-color: var(--brown); }
+
+  .client-card { background: var(--warm-white); border: 1px solid var(--border); border-radius: 14px; padding: 14px 16px; margin-bottom: 10px; display: flex; gap: 14px; align-items: flex-start; cursor: pointer; transition: box-shadow .2s, transform .15s; }
+  .client-card:hover { box-shadow: 0 6px 18px -8px rgba(61,43,31,.2); transform: translateY(-1px); }
+  .cc-avatar { width: 44px; height: 44px; border-radius: 50%; background: var(--blush); display: flex; align-items: center; justify-content: center; font-weight: 600; color: var(--brown); font-size: 0.9rem; flex-shrink: 0; }
+  .cc-avatar.truffl { background: var(--sage-light); color: var(--sage-dark); }
+  .cc-body { flex: 1; min-width: 0; }
+  .cc-name { font-weight: 600; font-size: 1rem; color: var(--brown); display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+  .cc-dogs { font-size: 0.86rem; color: var(--text-secondary); margin-top: 2px; }
+  .cc-meta { font-size: 0.78rem; color: var(--text-muted); margin-top: 3px; display: flex; gap: 10px; flex-wrap: wrap; }
+  .cc-actions { display: flex; gap: 4px; flex-shrink: 0; }
+  .tag { display: inline-block; font-size: 0.62rem; font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase; padding: 2px 8px; border-radius: 20px; vertical-align: middle; }
+  .tag.truffl { color: var(--sage-dark); background: var(--success-bg); }
+  .tag.import { color: var(--warning); background: var(--warning-bg); }
+  .tag.archived { color: var(--text-muted); background: var(--cream); border: 1px solid var(--border); }
+  .tag.user { color: var(--brown-light); background: var(--cream); border: 1px solid var(--border); text-transform: none; letter-spacing: 0; font-weight: 500; }
+
+  .icon-btn { width: 34px; height: 34px; border-radius: 50%; border: 1px solid var(--border); background: var(--warm-white); display: inline-flex; align-items: center; justify-content: center; color: var(--text-secondary); text-decoration: none; transition: all .15s; }
+  .icon-btn:hover { color: var(--terracotta); border-color: var(--terracotta); }
+  .icon-btn svg { width: 16px; height: 16px; }
+  .icon-btn.wa:hover { color: #25D366; border-color: #25D366; }
+
+  .empty { text-align: center; padding: 3rem 1.5rem; color: var(--text-muted); font-size: 0.9rem; background: var(--warm-white); border: 1px dashed var(--border); border-radius: 14px; line-height: 1.6; }
+  .empty h3 { font-family: 'Cormorant Garamond', serif; font-weight: 500; font-size: 1.3rem; color: var(--brown); margin-bottom: 6px; }
+  .empty .btn { margin-top: 12px; }
+
+  /* Sheet / modal */
+  .overlay { position: fixed; inset: 0; background: rgba(61,43,31,.45); z-index: 200; display: flex; align-items: flex-end; justify-content: center; padding: 0; }
+  .sheet { background: var(--cream); width: 100%; max-width: 640px; max-height: 92vh; overflow-y: auto; border-radius: 18px 18px 0 0; padding: 1.25rem 1.25rem 2rem; animation: up .2s ease; }
+  @media (min-width: 700px) { .overlay { align-items: center; padding: 2rem; } .sheet { border-radius: 18px; max-height: 88vh; } }
+  @keyframes up { from { transform: translateY(24px); opacity: 0; } to { transform: none; opacity: 1; } }
+  .sheet-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 1rem; }
+  .sheet-head h2 { font-family: 'Cormorant Garamond', serif; font-weight: 500; font-size: 1.5rem; color: var(--brown); }
+  .close { width: 34px; height: 34px; border-radius: 50%; border: 1px solid var(--border); background: var(--warm-white); cursor: pointer; color: var(--text-secondary); font-size: 1.1rem; }
+
+  .card { background: var(--warm-white); border: 1px solid var(--border); border-radius: 14px; padding: 1.1rem 1.2rem; margin-bottom: 0.9rem; }
+  .card-title { font-family: 'Cormorant Garamond', serif; font-weight: 500; font-size: 1.1rem; color: var(--brown); margin-bottom: 0.6rem; display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+  .kv { font-size: 0.86rem; color: var(--text-secondary); line-height: 1.7; }
+  .kv b { color: var(--brown); font-weight: 500; }
+  .actions-row { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 10px; }
+  .pet-row { display: flex; gap: 12px; align-items: flex-start; padding: 8px 0; border-top: 1px solid var(--border); }
+  .pet-row:first-of-type { border-top: none; }
+  .pet-avatar { width: 36px; height: 36px; border-radius: 50%; background: var(--cream); border: 1px solid var(--border); display: flex; align-items: center; justify-content: center; font-weight: 600; color: var(--brown); font-size: 0.8rem; flex-shrink: 0; }
+  .pet-name { font-weight: 600; color: var(--brown); font-size: 0.92rem; }
+  .pet-meta { font-size: 0.78rem; color: var(--text-muted); }
+  .pet-notes { font-size: 0.82rem; color: var(--text-secondary); margin-top: 3px; line-height: 1.5; }
+  .job-line { display: flex; justify-content: space-between; gap: 10px; font-size: 0.84rem; padding: 7px 0; border-top: 1px solid var(--border); color: var(--text-secondary); }
+  .job-line:first-of-type { border-top: none; }
+  .job-line b { color: var(--brown); font-weight: 500; }
+  .status-pill { font-size: 0.68rem; font-weight: 600; padding: 2px 8px; border-radius: 20px; text-transform: uppercase; letter-spacing: .03em; }
+  .st-scheduled, .st-confirmed { background: var(--success-bg); color: var(--success); }
+  .st-completed { background: var(--cream); color: var(--text-muted); border: 1px solid var(--border); }
+  .st-cancelled { background: var(--error-bg); color: var(--error); }
+  .st-pending { background: var(--warning-bg); color: var(--warning); }
+  .st-unpaid { background: var(--warning-bg); color: var(--warning); }
+
+  /* Forms */
+  .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  .form-grid .full { grid-column: 1 / -1; }
+  @media (max-width: 520px) { .form-grid { grid-template-columns: 1fr; } }
+  .field label { display: block; font-size: 0.76rem; font-weight: 600; color: var(--text-secondary); margin-bottom: 4px; letter-spacing: .02em; }
+  .field input, .field select, .field textarea { width: 100%; padding: 10px 12px; border: 1px solid var(--border); border-radius: 10px; background: var(--warm-white); font-size: 0.9rem; color: var(--text-primary); outline: none; }
+  .field input:focus, .field select:focus, .field textarea:focus { border-color: var(--border-focus); }
+  .field textarea { resize: vertical; min-height: 64px; }
+  .field .hint { font-size: 0.74rem; color: var(--text-muted); margin-top: 3px; }
+  .section-label { font-size: 0.78rem; font-weight: 600; letter-spacing: .05em; text-transform: uppercase; color: var(--text-muted); margin: 1.1rem 0 .5rem; display: flex; justify-content: space-between; align-items: center; }
+  .pet-form { background: var(--warm-white); border: 1px solid var(--border); border-radius: 12px; padding: 12px; margin-bottom: 8px; }
+  .pet-form-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; font-size: 0.8rem; color: var(--text-muted); }
+  .link-btn { background: none; border: none; color: var(--terracotta); font-size: 0.8rem; font-weight: 600; cursor: pointer; padding: 0; }
+  .form-actions { display: flex; gap: 8px; justify-content: flex-end; margin-top: 1.1rem; flex-wrap: wrap; }
+
+  /* CSV import */
+  .drop { border: 2px dashed var(--border); border-radius: 14px; padding: 1.5rem; text-align: center; color: var(--text-muted); font-size: 0.86rem; background: var(--warm-white); }
+  .drop input { display: none; }
+  .drop.over { border-color: var(--terracotta); }
+  .preview { overflow-x: auto; margin-top: 10px; }
+  .preview table { border-collapse: collapse; font-size: 0.76rem; width: 100%; }
+  .preview th, .preview td { padding: 6px 8px; border-bottom: 1px solid var(--border); text-align: left; white-space: nowrap; }
+  .preview th { color: var(--text-muted); font-weight: 600; }
+  .login-prompt { text-align: center; padding: 3rem 1rem; }
+  .login-prompt h2 { font-family: 'Cormorant Garamond', serif; font-weight: 500; font-size: 1.5rem; color: var(--brown); margin-bottom: 8px; }
+  .login-prompt p { color: var(--text-muted); font-size: 0.9rem; margin-bottom: 14px; }
+  .login-prompt a { color: var(--terracotta); font-weight: 600; text-decoration: none; }
+</style>
+</head>
+<body>
+
+<nav class="nav">
+  <a href="/" class="nav-logo" aria-label="Truffl Pets home">
+    <svg width="150" height="48" viewBox="0 0 180 56" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <circle cx="20" cy="5.5" r="6" fill="none" stroke="#C4866A" stroke-width="2.5"/>
+      <circle cx="20" cy="5.5" r="2.8" fill="#FFFDF9"/>
+      <rect x="16.5" y="10.5" width="7" height="9" rx="3" fill="#C4866A"/>
+      <circle cx="20" cy="33" r="20" fill="#C4866A"/>
+      <circle cx="20" cy="33" r="15.5" fill="none" stroke="#B8795C" stroke-width="0.6" opacity="0.45"/>
+      <line x1="7" y1="33" x2="33" y2="33" stroke="#FFFDF9" stroke-width="0.5" opacity="0.3"/>
+      <text x="20" y="35.5" font-family="'Cormorant Garamond', Georgia, serif" font-size="14" font-style="italic" font-weight="400" fill="#FFFDF9" text-anchor="middle" letter-spacing="-0.3">truffl</text>
+      <text x="52" y="30" font-family="'Cormorant Garamond', Georgia, serif" font-size="32" font-style="italic" font-weight="400" fill="#3D2B1F" letter-spacing="-0.5">truffl</text>
+      <text x="52" y="50" font-family="'DM Sans', sans-serif" font-size="12" font-weight="600" fill="#B0A090" letter-spacing="4">PETS</text>
+    </svg>
+  </a>
+  <div class="nav-right">
+    <a href="/dashboard/" class="nav-hide-sm">Dashboard</a>
+    <a href="/schedule/">Schedule</a>
+    <a href="/clients/" class="active">Clients</a>
+    <a href="/messages/" class="nav-hide-sm">Messages</a>
+    <div class="nav-user" id="navUser"></div>
+  </div>
+</nav>
+
+<div class="page-wrapper">
+  <div id="pageMsg" class="msg"></div>
+  <div id="content">
+    <div style="text-align:center;padding:3rem;color:var(--text-muted);font-size:0.85rem;">Loading your clients...</div>
+  </div>
+</div>
+
+<div id="modalRoot"></div>
+
+<script>
+/* Client book (GitHub #147, #148, #149). Standalone page, same conventions as /dashboard/:
+   inline script, PostgREST under RLS, session.js handles token refresh. */
+const SUPABASE_URL = 'https://gadflsntbnbnnxbpiral.supabase.co';
+const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImdhZGZsc250Ym5ibm54YnBpcmFsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzUwNjcwNTcsImV4cCI6MjA5MDY0MzA1N30.g5ZrqeAX9U5l7oDZEbQFrU5j10828dUF0QuJ0ZlHXK8';
+
+const SERVICE_LABELS = { dog_walking:'Walk', dog_sitting:'Sitting', dog_boarding:'Boarding', pet_sitting:'Visit' };
+
+let authToken = null, authUid = null, userData = null;
+let clients = [];            // [{...client, client_pets:[...]}]
+let filter = 'all';          // all | truffl | own | archived
+let query = '';
+let jobsByClient = {};       // client_id -> schedule rows (loaded on demand)
+
+/* ── Supabase helpers (same shape as the dashboard) ── */
+function headers() {
+  const h = { 'Content-Type':'application/json', 'apikey':SUPABASE_ANON_KEY, 'Authorization':`Bearer ${SUPABASE_ANON_KEY}` };
+  if (authToken) h['Authorization'] = `Bearer ${authToken}`;
+  return h;
+}
+async function sbGet(table, params) {
+  const r = await fetch(`${SUPABASE_URL}/rest/v1/${table}?${params}`, { headers: headers() });
+  if (!r.ok) { const e = await r.json().catch(() => ({})); throw new Error(e.message || `Request failed (${r.status})`); }
+  return await r.json();
+}
+async function sbInsert(table, rows) {
+  const r = await fetch(`${SUPABASE_URL}/rest/v1/${table}`, { method:'POST', headers: { ...headers(), 'Prefer':'return=representation' }, body: JSON.stringify(rows) });
+  if (!r.ok) { const e = await r.json().catch(() => ({})); throw new Error(e.message || 'Insert failed'); }
+  return await r.json();
+}
+async function sbPatch(table, col, val, updates) {
+  const r = await fetch(`${SUPABASE_URL}/rest/v1/${table}?${col}=eq.${val}`, { method:'PATCH', headers: { ...headers(), 'Prefer':'return=representation' }, body: JSON.stringify(updates) });
+  if (!r.ok) { const e = await r.json().catch(() => ({})); throw new Error(e.message || 'Update failed'); }
+  const data = await r.json();
+  if (Array.isArray(data) && data.length === 0) throw new Error("Couldn't save. You may not have permission, or the item no longer exists.");
+  return data;
+}
+async function sbDelete(table, col, val) {
+  const r = await fetch(`${SUPABASE_URL}/rest/v1/${table}?${col}=eq.${val}`, { method:'DELETE', headers: headers() });
+  if (!r.ok) { const e = await r.json().catch(() => ({})); throw new Error(e.message || 'Delete failed'); }
+}
+
+/* ── Utilities ── */
+function esc(s) { return (s == null ? '' : s.toString()).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+function attr(s) { return esc(s).replace(/'/g, '&#39;'); }
+function showMsg(t, type) { const el = document.getElementById('pageMsg'); el.textContent = t; el.className = `msg ${type}`; if (type === 'success') setTimeout(() => { if (el.textContent === t) el.className = 'msg'; }, 4000); window.scrollTo({ top: 0, behavior: 'smooth' }); }
+function fullName(c) { return `${c.first_name || ''} ${c.last_name || ''}`.trim() || 'Client'; }
+function initials(c) { return (((c.first_name || '')[0] || '') + ((c.last_name || '')[0] || '')).toUpperCase() || '?'; }
+function activePets(c) { return (c.client_pets || []).filter(p => p.is_active !== false); }
+function petLine(c) { const ps = activePets(c); if (!ps.length) return 'No dogs added yet'; return ps.map(p => p.name + (p.breed ? ` (${p.breed})` : '')).join(', '); }
+// Australian mobile/landline to E.164 for WhatsApp; other formats pass through as digits.
+function e164(phone) {
+  let d = (phone || '').replace(/[^\d+]/g, '');
+  if (!d) return '';
+  if (d.startsWith('+')) return d;
+  if (d.startsWith('0') && d.length === 10) return '+61' + d.slice(1);
+  if (d.startsWith('61') && d.length === 11) return '+' + d;
+  return '+' + d;
+}
+function ageFromDob(dob) {
+  if (!dob) return '';
+  const d = new Date(dob + 'T00:00:00'); if (isNaN(d)) return '';
+  const months = (Date.now() - d.getTime()) / (1000 * 60 * 60 * 24 * 30.44);
+  if (months < 12) return `${Math.max(1, Math.round(months))} mo`;
+  return `${Math.floor(months / 12)} yr${Math.floor(months / 12) === 1 ? '' : 's'}`;
+}
+function fmtDateTime(iso) { const d = new Date(iso); return d.toLocaleDateString('en-AU', { weekday:'short', day:'numeric', month:'short' }) + ' · ' + d.toLocaleTimeString('en-AU', { hour:'numeric', minute:'2-digit' }); }
+function money(c) { return '$' + ((c || 0) / 100).toFixed(2).replace(/\.00$/, ''); }
+
+const ICONS = {
+  phone: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72c.13.96.36 1.9.7 2.81a2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45c.91.34 1.85.57 2.81.7A2 2 0 0 1 22 16.92z"/></svg>',
+  sms: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>',
+  wa: '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M17.5 14.4c-.3-.1-1.8-.9-2-1-.3-.1-.5-.1-.7.1-.2.3-.8 1-.9 1.2-.2.2-.3.2-.6.1-.3-.1-1.3-.5-2.4-1.5-.9-.8-1.5-1.8-1.7-2.1-.2-.3 0-.5.1-.6l.4-.5c.1-.2.2-.3.3-.5.1-.2 0-.4 0-.5l-.9-2.2c-.2-.6-.5-.5-.7-.5h-.6c-.2 0-.5.1-.8.4-.3.3-1 1-1 2.5s1.1 2.9 1.2 3.1c.1.2 2.1 3.2 5.1 4.5.7.3 1.3.5 1.7.6.7.2 1.4.2 1.9.1.6-.1 1.8-.7 2-1.4.2-.7.2-1.3.2-1.4-.1-.2-.3-.3-.6-.4zM12 2a10 10 0 0 0-8.6 15.1L2 22l5-1.3A10 10 0 1 0 12 2zm0 18.2c-1.5 0-3-.4-4.3-1.2l-.3-.2-3 .8.8-2.9-.2-.3A8.2 8.2 0 1 1 12 20.2z"/></svg>',
+  mail: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg>',
+  map: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>',
+  search: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg>',
+  plus: '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>',
+  upload: '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>',
+};
+
+// Quick action icons for a client or a phone/email pair (GitHub #148).
+function quickActionsHtml(c, size) {
+  const out = [];
+  const ph = (c.phone || '').trim();
+  const stop = 'onclick="event.stopPropagation()"';
+  if (ph) {
+    out.push(`<a class="icon-btn" href="tel:${attr(ph)}" title="Call" ${stop}>${ICONS.phone}</a>`);
+    out.push(`<a class="icon-btn" href="sms:${attr(ph)}" title="Text" ${stop}>${ICONS.sms}</a>`);
+    out.push(`<a class="icon-btn wa" href="https://wa.me/${attr(e164(ph).replace('+',''))}" target="_blank" rel="noopener" title="WhatsApp" ${stop}>${ICONS.wa}</a>`);
+  }
+  if ((c.email || '').trim()) out.push(`<a class="icon-btn" href="mailto:${attr(c.email.trim())}" title="Email" ${stop}>${ICONS.mail}</a>`);
+  const addr = [c.address, c.suburb, c.postcode].filter(Boolean).join(', ');
+  if (addr) out.push(`<a class="icon-btn" href="https://maps.google.com/?q=${encodeURIComponent(addr)}" target="_blank" rel="noopener" title="Directions" ${stop}>${ICONS.map}</a>`);
+  return out.join('');
+}
+
+/* ── Rendering ── */
+function renderPage() {
+  const total = clients.filter(c => !c.is_archived).length;
+  document.getElementById('content').innerHTML = `
+    <div class="welcome">
+      <div><h1>Clients</h1><p>${total} active client${total === 1 ? '' : 's'}${clients.some(c => c.source === 'truffl') ? ' · Truffl owners are added automatically' : ''}</p></div>
+      <div class="welcome-actions">
+        <button class="btn secondary" onclick="openImport()">${ICONS.upload} Import CSV</button>
+        <button class="btn primary" onclick="openClientForm()">${ICONS.plus} Add client</button>
+      </div>
+    </div>
+    <div class="toolbar">
+      <div class="search">${ICONS.search}<input id="q" type="search" placeholder="Search by name, dog, suburb or phone" value="${attr(query)}" oninput="query=this.value;renderList()"></div>
+      <div class="chips">
+        ${['all','own','truffl','archived'].map(f => `<button class="chip ${filter === f ? 'active' : ''}" onclick="filter='${f}';renderList()">${{all:'All',own:'Own clients',truffl:'From Truffl',archived:'Archived'}[f]}</button>`).join('')}
+      </div>
+    </div>
+    <div id="list"></div>`;
+  renderList();
+}
+
+function visibleClients() {
+  const q = query.trim().toLowerCase();
+  return clients.filter(c => {
+    if (filter === 'archived') { if (!c.is_archived) return false; }
+    else if (c.is_archived) return false;
+    if (filter === 'truffl' && c.source !== 'truffl') return false;
+    if (filter === 'own' && c.source === 'truffl') return false;
+    if (!q) return true;
+    const hay = [fullName(c), c.suburb, c.phone, c.email, ...activePets(c).map(p => p.name + ' ' + (p.breed || ''))].join(' ').toLowerCase();
+    return hay.includes(q);
+  }).sort((a, b) => fullName(a).localeCompare(fullName(b)));
+}
+
+function renderList() {
+  const list = document.getElementById('list'); if (!list) return;
+  const rows = visibleClients();
+  if (!rows.length) {
+    list.innerHTML = clients.length === 0
+      ? `<div class="empty"><h3>Your client book is empty</h3>Add the people and dogs you already walk, or import them from a spreadsheet. Anyone who books you through Truffl appears here automatically.<br><button class="btn primary" onclick="openClientForm()">${ICONS.plus} Add your first client</button> <button class="btn secondary" onclick="openImport()">${ICONS.upload} Import CSV</button></div>`
+      : `<div class="empty">No clients match.</div>`;
+    return;
+  }
+  list.innerHTML = rows.map(c => `
+    <div class="client-card" onclick="openClient('${c.id}')">
+      <div class="cc-avatar ${c.source === 'truffl' ? 'truffl' : ''}">${esc(initials(c))}</div>
+      <div class="cc-body">
+        <div class="cc-name">${esc(fullName(c))}${c.source === 'truffl' ? '<span class="tag truffl">Truffl</span>' : ''}${c.source === 'import' ? '<span class="tag import">Imported</span>' : ''}${c.is_archived ? '<span class="tag archived">Archived</span>' : ''}${(c.tags || []).map(t => `<span class="tag user">${esc(t)}</span>`).join('')}</div>
+        <div class="cc-dogs">${esc(petLine(c))}</div>
+        <div class="cc-meta">${c.suburb ? `<span>${esc(c.suburb)}</span>` : ''}${c.phone ? `<span>${esc(c.phone)}</span>` : ''}</div>
+      </div>
+      <div class="cc-actions">${quickActionsHtml(c)}</div>
+    </div>`).join('');
+}
+
+/* ── Client detail sheet ── */
+function closeModal() { document.getElementById('modalRoot').innerHTML = ''; document.body.style.overflow = ''; if (location.search.includes('id=') || location.search.includes('new=')) history.replaceState(null, '', location.pathname); }
+function modal(html) {
+  document.getElementById('modalRoot').innerHTML = `<div class="overlay" onclick="if(event.target===this)closeModal()"><div class="sheet">${html}</div></div>`;
+  document.body.style.overflow = 'hidden';
+}
+
+async function openClient(id) {
+  const c = clients.find(x => x.id === id); if (!c) return;
+  history.replaceState(null, '', `/clients/?id=${id}`);
+  renderClientSheet(c);
+  if (!jobsByClient[id]) {
+    try {
+      const since = new Date(Date.now() - 60 * 864e5).toISOString();
+      jobsByClient[id] = await sbGet('provider_schedule', `client_id=eq.${id}&starts_at=gte.${since}&select=kind,id,client_name,pet_names,service_type,starts_at,ends_at,status,price_cents,is_paid,source,is_meet_and_greet&order=starts_at.asc&limit=40`);
+    } catch (e) { jobsByClient[id] = []; }
+    if (document.getElementById(`jobs-${id}`)) renderClientSheet(c);
+  }
+}
+
+function renderClientSheet(c) {
+  const pets = activePets(c);
+  const jobs = jobsByClient[c.id];
+  const now = Date.now();
+  const upcoming = (jobs || []).filter(j => new Date(j.starts_at).getTime() >= now && j.status !== 'cancelled');
+  const recent = (jobs || []).filter(j => new Date(j.starts_at).getTime() < now).slice(-6).reverse();
+  const owed = (jobs || []).filter(j => j.kind === 'job' && j.status === 'completed' && !j.is_paid && j.price_cents).reduce((s, j) => s + j.price_cents, 0);
+  const jobLine = j => `<div class="job-line"><span><b>${esc(fmtDateTime(j.starts_at))}</b> · ${esc(SERVICE_LABELS[j.service_type] || j.service_type)}${j.pet_names ? ` · ${esc(j.pet_names)}` : ''}${j.kind === 'booking' ? ' <span class="tag truffl">Truffl</span>' : ''}</span><span><span class="status-pill st-${esc(j.status)}">${esc(j.status)}</span>${j.kind === 'job' && j.status === 'completed' && !j.is_paid && j.price_cents ? ' <span class="status-pill st-unpaid">unpaid</span>' : ''}</span></div>`;
+  modal(`
+    <div class="sheet-head"><h2>${esc(fullName(c))}</h2><button class="close" onclick="closeModal()" aria-label="Close">×</button></div>
+    <div class="card">
+      <div class="card-title">Contact ${c.source === 'truffl' ? '<span class="tag truffl">Truffl owner</span>' : ''}</div>
+      <div class="kv">
+        ${c.phone ? `<div><b>Phone</b> ${esc(c.phone)}</div>` : ''}
+        ${c.email ? `<div><b>Email</b> ${esc(c.email)}</div>` : ''}
+        ${(c.address || c.suburb) ? `<div><b>Address</b> ${esc([c.address, c.suburb, c.postcode].filter(Boolean).join(', '))}</div>` : ''}
+        ${!c.phone && !c.email && !c.address && !c.suburb ? '<div style="color:var(--text-muted)">No contact details yet.</div>' : ''}
+        ${c.notes ? `<div style="margin-top:6px;white-space:pre-wrap;">${esc(c.notes)}</div>` : ''}
+      </div>
+      <div class="actions-row">${quickActionsHtml(c)}</div>
+      <div class="actions-row">
+        <a class="btn primary sm" href="/schedule/?new=1&client=${c.id}">${ICONS.plus} Add a walk</a>
+        <button class="btn secondary sm" onclick="openClientForm('${c.id}')">Edit</button>
+        ${c.is_archived ? `<button class="btn secondary sm" onclick="archiveClient('${c.id}', false)">Restore</button>` : `<button class="btn ghost sm" onclick="archiveClient('${c.id}', true)">Archive</button>`}
+      </div>
+    </div>
+    <div class="card">
+      <div class="card-title">Dogs <button class="link-btn" onclick="openClientForm('${c.id}', true)">${pets.length ? 'Edit' : 'Add a dog'}</button></div>
+      ${pets.length ? pets.map(p => `
+        <div class="pet-row">
+          <div class="pet-avatar">${esc((p.name || '?')[0].toUpperCase())}</div>
+          <div>
+            <div class="pet-name">${esc(p.name)}</div>
+            <div class="pet-meta">${esc([p.breed, p.sex && p.sex !== 'unknown' ? p.sex : null, ageFromDob(p.dob), p.weight_kg ? p.weight_kg + ' kg' : null].filter(Boolean).join(' · '))}</div>
+            ${p.behaviour_notes ? `<div class="pet-notes">${esc(p.behaviour_notes)}</div>` : ''}
+            ${p.medical_notes ? `<div class="pet-notes"><b>Medical:</b> ${esc(p.medical_notes)}</div>` : ''}
+            ${p.vet_name || p.vet_phone ? `<div class="pet-notes"><b>Vet:</b> ${esc([p.vet_name, p.vet_phone].filter(Boolean).join(' · '))}</div>` : ''}
+          </div>
+        </div>`).join('') : '<div class="kv" style="color:var(--text-muted)">No dogs on file.</div>'}
+    </div>
+    <div class="card" id="jobs-${c.id}">
+      <div class="card-title">Schedule ${owed ? `<span class="status-pill st-unpaid">${money(owed)} owed</span>` : ''}</div>
+      ${jobs == null ? '<div class="kv" style="color:var(--text-muted)">Loading…</div>' : (upcoming.length || recent.length) ? `
+        ${upcoming.length ? `<div class="section-label" style="margin-top:0">Upcoming</div>${upcoming.slice(0, 8).map(jobLine).join('')}` : ''}
+        ${recent.length ? `<div class="section-label">Recent</div>${recent.map(jobLine).join('')}` : ''}
+      ` : '<div class="kv" style="color:var(--text-muted)">Nothing scheduled in the last two months. <a href="/schedule/?new=1&client=' + c.id + '" style="color:var(--terracotta)">Add a walk</a>.</div>'}
+    </div>`);
+}
+
+async function archiveClient(id, archive) {
+  try {
+    const rows = await sbPatch('clients', 'id', id, { is_archived: archive });
+    const c = clients.find(x => x.id === id); Object.assign(c, rows[0]);
+    closeModal(); renderPage();
+    showMsg(archive ? 'Client archived. You can find them under the Archived filter.' : 'Client restored.', 'success');
+  } catch (e) { showMsg(e.message, 'error'); }
+}
+
+/* ── Add / edit form ── */
+let petCounter = 0;
+function petFormHtml(p) {
+  const n = ++petCounter;
+  return `<div class="pet-form" data-pet="${n}" data-id="${attr(p && p.id || '')}">
+    <div class="pet-form-head"><span>Dog</span><button type="button" class="link-btn" onclick="this.closest('.pet-form').remove()">Remove</button></div>
+    <div class="form-grid">
+      <div class="field"><label>Name</label><input name="pet_name" value="${attr(p && p.name || '')}" placeholder="Rex"></div>
+      <div class="field"><label>Breed</label><input name="pet_breed" value="${attr(p && p.breed || '')}" placeholder="Kelpie"></div>
+      <div class="field"><label>Sex</label><select name="pet_sex"><option value="">Not set</option><option value="male" ${p && p.sex === 'male' ? 'selected' : ''}>Male</option><option value="female" ${p && p.sex === 'female' ? 'selected' : ''}>Female</option></select></div>
+      <div class="field"><label>Date of birth</label><input type="date" name="pet_dob" value="${attr(p && p.dob || '')}"></div>
+      <div class="field full"><label>Behaviour and handling notes</label><textarea name="pet_behaviour" placeholder="Pulls on lead near cafes, fine with other dogs, loves the beach">${esc(p && p.behaviour_notes || '')}</textarea></div>
+      <div class="field full"><label>Medical notes</label><input name="pet_medical" value="${attr(p && p.medical_notes || '')}" placeholder="Allergies, medication, anything a vet should know"></div>
+      <div class="field"><label>Vet</label><input name="pet_vet" value="${attr(p && p.vet_name || '')}"></div>
+      <div class="field"><label>Vet phone</label><input name="pet_vet_phone" value="${attr(p && p.vet_phone || '')}"></div>
+    </div></div>`;
+}
+function addPetForm() { document.getElementById('pets').insertAdjacentHTML('beforeend', petFormHtml(null)); }
+
+function openClientForm(id, focusPets) {
+  const c = id ? clients.find(x => x.id === id) : null;
+  const pets = c ? activePets(c) : [];
+  modal(`
+    <div class="sheet-head"><h2>${c ? 'Edit client' : 'New client'}</h2><button class="close" onclick="closeModal()" aria-label="Close">×</button></div>
+    <form id="clientForm" onsubmit="saveClient(event, '${c ? c.id : ''}')">
+      <div class="form-grid">
+        <div class="field"><label>First name</label><input name="first_name" required value="${attr(c && c.first_name || '')}"></div>
+        <div class="field"><label>Last name</label><input name="last_name" value="${attr(c && c.last_name || '')}"></div>
+        <div class="field"><label>Mobile</label><input name="phone" type="tel" value="${attr(c && c.phone || '')}" placeholder="04xx xxx xxx"><div class="hint">Used for call, text and WhatsApp buttons.</div></div>
+        <div class="field"><label>Email</label><input name="email" type="email" value="${attr(c && c.email || '')}"></div>
+        <div class="field full"><label>Street address</label><input name="address" value="${attr(c && c.address || '')}"></div>
+        <div class="field"><label>Suburb</label><input name="suburb" value="${attr(c && c.suburb || '')}"></div>
+        <div class="field"><label>Postcode</label><input name="postcode" value="${attr(c && c.postcode || '')}" inputmode="numeric"></div>
+        <div class="field full"><label>Tags</label><input name="tags" value="${attr((c && c.tags || []).join(', '))}" placeholder="weekday, pack walk, key holder"><div class="hint">Comma separated. Handy for filtering later.</div></div>
+        <div class="field full"><label>Notes</label><textarea name="notes" placeholder="Gate code, where the lead lives, anything you'd want a cover walker to know">${esc(c && c.notes || '')}</textarea></div>
+      </div>
+      <div class="section-label"><span>Dogs</span><button type="button" class="link-btn" onclick="addPetForm()">+ Add a dog</button></div>
+      <div id="pets">${pets.length ? pets.map(petFormHtml).join('') : petFormHtml(null)}</div>
+      <div class="form-actions">
+        <button type="button" class="btn ghost" onclick="closeModal()">Cancel</button>
+        <button type="submit" class="btn primary" id="saveBtn">${c ? 'Save changes' : 'Add client'}</button>
+      </div>
+    </form>`);
+  if (focusPets) { const el = document.getElementById('pets'); if (el) el.scrollIntoView({ block: 'start' }); }
+}
+
+function readPetForms() {
+  return [...document.querySelectorAll('#pets .pet-form')].map(f => {
+    const g = n => (f.querySelector(`[name="${n}"]`).value || '').trim();
+    return { id: f.dataset.id || null, name: g('pet_name'), breed: g('pet_breed') || null, sex: g('pet_sex') || null, dob: g('pet_dob') || null,
+             behaviour_notes: g('pet_behaviour') || null, medical_notes: g('pet_medical') || null, vet_name: g('pet_vet') || null, vet_phone: g('pet_vet_phone') || null };
+  }).filter(p => p.name);
+}
+
+async function saveClient(ev, id) {
+  ev.preventDefault();
+  const f = ev.target; const g = n => (f.querySelector(`[name="${n}"]`).value || '').trim();
+  const row = { first_name: g('first_name'), last_name: g('last_name') || null, phone: g('phone') || null, email: g('email') || null,
+                address: g('address') || null, suburb: g('suburb') || null, postcode: g('postcode') || null, notes: g('notes') || null,
+                tags: g('tags').split(',').map(t => t.trim()).filter(Boolean) };
+  if (!row.first_name) return;
+  const btn = document.getElementById('saveBtn'); btn.disabled = true; btn.textContent = 'Saving…';
+  try {
+    let client;
+    if (id) {
+      const rows = await sbPatch('clients', 'id', id, row); client = rows[0];
+    } else {
+      const rows = await sbInsert('clients', { ...row, provider_user_id: authUid, source: 'manual' }); client = rows[0];
+    }
+    // Pets: patch the ones that still exist, insert new ones, deactivate the removed (keeps job history intact).
+    const existing = id ? activePets(clients.find(x => x.id === id)) : [];
+    const forms = readPetForms();
+    const keep = new Set(forms.filter(p => p.id).map(p => p.id));
+    const toInsert = forms.filter(p => !p.id).map(({ id: _i, ...p }) => ({ ...p, client_id: client.id }));
+    const ops = [];
+    for (const p of forms.filter(p => p.id)) { const { id: pid, ...upd } = p; ops.push(sbPatch('client_pets', 'id', pid, upd)); }
+    for (const p of existing.filter(p => !keep.has(p.id))) ops.push(sbPatch('client_pets', 'id', p.id, { is_active: false }));
+    if (toInsert.length) ops.push(sbInsert('client_pets', toInsert));
+    await Promise.all(ops);
+    client.client_pets = await sbGet('client_pets', `client_id=eq.${client.id}&select=*&order=created_at.asc`);
+    const idx = clients.findIndex(x => x.id === client.id);
+    if (idx >= 0) clients[idx] = client; else clients.push(client);
+    delete jobsByClient[client.id];
+    closeModal(); renderPage();
+    showMsg(id ? 'Client updated.' : `${fullName(client)} added to your client book.`, 'success');
+    if (!id) openClient(client.id);
+  } catch (e) { btn.disabled = false; btn.textContent = id ? 'Save changes' : 'Add client'; alert(e.message); }
+}
+
+/* ── CSV import (GitHub #149) ── */
+let csvRows = null, csvHeaders = null;
+const TEMPLATE_CSV = 'first_name,last_name,phone,email,address,suburb,postcode,dog_name,dog_breed,notes\nSam,Taylor,0412 345 678,sam@example.com,12 Example St,Newtown,2042,Rex,Kelpie,Gate code 1234\n';
+function downloadTemplate() {
+  const blob = new Blob([TEMPLATE_CSV], { type: 'text/csv' });
+  const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = 'truffl-clients-template.csv'; a.click();
+}
+function parseCsv(text) {
+  const rows = []; let row = [], cell = '', q = false;
+  for (let i = 0; i < text.length; i++) {
+    const ch = text[i];
+    if (q) { if (ch === '"') { if (text[i + 1] === '"') { cell += '"'; i++; } else q = false; } else cell += ch; }
+    else if (ch === '"') q = true;
+    else if (ch === ',') { row.push(cell); cell = ''; }
+    else if (ch === '\n' || ch === '\r') { if (ch === '\r' && text[i + 1] === '\n') i++; row.push(cell); rows.push(row); row = []; cell = ''; }
+    else cell += ch;
+  }
+  if (cell.length || row.length) { row.push(cell); rows.push(row); }
+  return rows.filter(r => r.some(c => c.trim() !== ''));
+}
+// Map a header to one of our fields. Tolerant of the exports carers actually have.
+const HEADER_MAP = [
+  ['first_name', /^(first[ _]?name|first|given|owner[ _]?first)$/i],
+  ['last_name', /^(last[ _]?name|last|surname|family|owner[ _]?last)$/i],
+  ['name', /^(name|full[ _]?name|client|owner|owner[ _]?name|customer|contact)$/i],
+  ['phone', /^(phone|mobile|mobile[ _]?number|phone[ _]?number|cell|tel|telephone)$/i],
+  ['email', /^(e-?mail|email[ _]?address)$/i],
+  ['address', /^(address|street|street[ _]?address|address[ _]?1)$/i],
+  ['suburb', /^(suburb|city|town|locality)$/i],
+  ['postcode', /^(post[ _]?code|zip|zip[ _]?code|postal[ _]?code)$/i],
+  ['dog_name', /^(dog|dog[ _]?name|pet|pet[ _]?name|dogs|pets)$/i],
+  ['dog_breed', /^(breed|dog[ _]?breed|pet[ _]?breed)$/i],
+  ['notes', /^(notes?|comments?|remarks?)$/i],
+];
+function mapHeader(h) { const t = (h || '').trim(); for (const [k, re] of HEADER_MAP) if (re.test(t)) return k; return null; }
+
+function openImport() {
+  csvRows = null; csvHeaders = null;
+  modal(`
+    <div class="sheet-head"><h2>Import clients</h2><button class="close" onclick="closeModal()" aria-label="Close">×</button></div>
+    <p style="font-size:0.86rem;color:var(--text-secondary);line-height:1.6;margin-bottom:12px;">Upload a CSV from a spreadsheet or another platform. We recognise columns like name, phone, email, address, suburb, dog and breed. Rows matching an existing client's phone or email update that client instead of duplicating them. <button class="link-btn" onclick="downloadTemplate()">Download a template</button></p>
+    <label class="drop" id="drop" ondragover="event.preventDefault();this.classList.add('over')" ondragleave="this.classList.remove('over')" ondrop="event.preventDefault();this.classList.remove('over');onCsvFile(event.dataTransfer.files[0])">
+      <input type="file" accept=".csv,text/csv" onchange="onCsvFile(this.files[0])">
+      <div>Tap to choose a .csv file, or drop it here</div>
+    </label>
+    <div id="csvPreview"></div>`);
+}
+async function onCsvFile(file) {
+  if (!file) return;
+  const text = await file.text();
+  const rows = parseCsv(text);
+  if (rows.length < 2) { document.getElementById('csvPreview').innerHTML = '<div class="msg error" style="display:block;margin-top:10px;">That file has no data rows.</div>'; return; }
+  csvHeaders = rows[0].map(h => ({ raw: h, key: mapHeader(h) }));
+  csvRows = rows.slice(1);
+  const known = csvHeaders.filter(h => h.key);
+  const hasName = known.some(h => h.key === 'name' || h.key === 'first_name');
+  document.getElementById('csvPreview').innerHTML = `
+    <div class="kv" style="margin-top:12px;">${csvRows.length} row${csvRows.length === 1 ? '' : 's'}. Recognised columns: ${known.length ? known.map(h => `<b>${esc(h.raw)}</b>`).join(', ') : '<span style="color:var(--error)">none</span>'}.${hasName ? '' : ' <span style="color:var(--error)">A name column is required.</span>'}</div>
+    <div class="preview"><table><thead><tr>${csvHeaders.map(h => `<th>${esc(h.raw)}${h.key ? '' : ' <span style="color:var(--text-muted);font-weight:400">(ignored)</span>'}</th>`).join('')}</tr></thead>
+      <tbody>${csvRows.slice(0, 5).map(r => `<tr>${csvHeaders.map((h, i) => `<td>${esc(r[i] || '')}</td>`).join('')}</tr>`).join('')}</tbody></table></div>
+    <div class="form-actions"><button class="btn ghost" onclick="closeModal()">Cancel</button><button class="btn primary" id="importBtn" ${hasName ? '' : 'disabled'} onclick="runImport()">Import ${csvRows.length} client${csvRows.length === 1 ? '' : 's'}</button></div>`;
+}
+function normPhone(p) { return (p || '').replace(/\D/g, '').replace(/^61/, '0'); }
+async function runImport() {
+  const btn = document.getElementById('importBtn'); btn.disabled = true; btn.textContent = 'Importing…';
+  const byPhone = {}, byEmail = {};
+  clients.forEach(c => { if (c.phone) byPhone[normPhone(c.phone)] = c; if (c.email) byEmail[c.email.trim().toLowerCase()] = c; });
+  let created = 0, updated = 0, skipped = 0;
+  const inserts = [], insertPets = [];
+  try {
+    for (const r of csvRows) {
+      const v = {}; csvHeaders.forEach((h, i) => { if (h.key) v[h.key] = (r[i] || '').trim(); });
+      let first = v.first_name || '', last = v.last_name || '';
+      if (!first && v.name) { const parts = v.name.split(/\s+/); first = parts.shift(); last = parts.join(' '); }
+      if (!first) { skipped++; continue; }
+      const row = { first_name: first, last_name: last || null, phone: v.phone || null, email: v.email || null, address: v.address || null, suburb: v.suburb || null, postcode: v.postcode || null, notes: v.notes || null };
+      const match = (v.phone && byPhone[normPhone(v.phone)]) || (v.email && byEmail[v.email.toLowerCase()]);
+      const dogs = (v.dog_name || '').split(/[;,&]| and /i).map(s => s.trim()).filter(Boolean).map((name, i) => ({ name, breed: i === 0 ? (v.dog_breed || null) : null }));
+      if (match) {
+        const upd = {}; Object.entries(row).forEach(([k, val]) => { if (val && !match[k]) upd[k] = val; });
+        if (Object.keys(upd).length) { const rows = await sbPatch('clients', 'id', match.id, upd); Object.assign(match, rows[0]); }
+        const have = new Set(activePets(match).map(p => p.name.toLowerCase()));
+        const newDogs = dogs.filter(d => !have.has(d.name.toLowerCase())).map(d => ({ ...d, client_id: match.id }));
+        if (newDogs.length) { const ins = await sbInsert('client_pets', newDogs); match.client_pets = (match.client_pets || []).concat(ins); }
+        updated++;
+      } else {
+        inserts.push({ ...row, provider_user_id: authUid, source: 'import', _dogs: dogs });
+      }
+    }
+    if (inserts.length) {
+      const payload = inserts.map(({ _dogs, ...rest }) => rest);
+      const rows = await sbInsert('clients', payload);
+      rows.forEach((c, i) => { c.client_pets = []; clients.push(c); inserts[i]._dogs.forEach(d => insertPets.push({ ...d, client_id: c.id })); });
+      created = rows.length;
+      if (insertPets.length) {
+        const pets = await sbInsert('client_pets', insertPets);
+        pets.forEach(p => { const c = clients.find(x => x.id === p.client_id); if (c) c.client_pets.push(p); });
+      }
+    }
+    closeModal(); renderPage();
+    showMsg(`Import done: ${created} added, ${updated} updated, ${skipped} skipped (no name).`, 'success');
+  } catch (e) { btn.disabled = false; btn.textContent = 'Import'; alert('Import stopped: ' + e.message); await loadClients(); renderPage(); }
+}
+
+/* ── Boot ── */
+async function loadClients() {
+  clients = await sbGet('clients', `provider_user_id=eq.${authUid}&select=*,client_pets(*)&order=first_name.asc`);
+}
+
+async function init() {
+  const area = document.getElementById('content');
+  const stored = localStorage.getItem('truffl_session');
+  if (stored) { try { const s = JSON.parse(stored); authToken = s.access_token; authUid = s.user_id; } catch (e) {} }
+  if (!authToken) {
+    area.innerHTML = `<div class="login-prompt"><h2>Sign in to see your clients</h2><p>Your client book lives in your carer account.</p><a href="/login/?redirect=/clients/">Sign in</a></div>`;
+    return;
+  }
+  try {
+    const users = await sbGet('users', `id=eq.${authUid}&select=first_name,last_name,role`);
+    if (!users.length) { localStorage.removeItem('truffl_session'); location.href = '/login/?redirect=/clients/'; return; }
+    userData = users[0];
+    if (userData.role !== 'provider') {
+      area.innerHTML = `<div class="login-prompt"><h2>This is the carer client book</h2><p>You're signed in as an owner. <a href="/profile/">Go to your profile</a></p></div>`;
+      return;
+    }
+    const ini = ((userData.first_name || '')[0] || '') + ((userData.last_name || '')[0] || '');
+    document.getElementById('navUser').innerHTML = `<a href="/profile/" title="Your profile" style="display:flex;align-items:center;gap:8px;text-decoration:none;color:inherit;"><div class="nav-avatar">${esc(ini)}</div><span class="nav-name">${esc(userData.first_name)}</span></a>`;
+    await loadClients();
+    renderPage();
+    const params = new URLSearchParams(location.search);
+    if (params.get('new')) openClientForm();
+    else if (params.get('id')) openClient(params.get('id'));
+  } catch (e) {
+    area.innerHTML = `<div class="login-prompt"><h2>Something went wrong</h2><p>${esc(e.message)}</p><a href="/login/?redirect=/clients/">Try signing in again</a></div>`;
+  }
+}
+document.addEventListener('DOMContentLoaded', init);
+</script>
+</body>
+</html>

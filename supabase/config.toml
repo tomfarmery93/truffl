@@ -8,3 +8,8 @@ project_id = "truffl"
 port = 54322
 shadow_port = 54320
 major_version = 17
+
+# Calendar apps poll the ICS feed with no auth header; the per-carer token in the query
+# string is the credential (GitHub #158). Deploy with --no-verify-jwt, as for the others.
+[functions.calendar-feed]
+verify_jwt = false
