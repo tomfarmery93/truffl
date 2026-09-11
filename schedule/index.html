@@ -1,0 +1,768 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <!-- Google tag (gtag.js) -->
+<script async src="https://www.googletagmanager.com/gtag/js?id=G-T2CPSDBJ1L"></script>
+<script>
+  window.dataLayer = window.dataLayer || [];
+  function gtag(){dataLayer.push(arguments);}
+  gtag('js', new Date());
+
+  gtag('config', 'G-T2CPSDBJ1L');
+</script>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="robots" content="noindex,nofollow">
+<title>Schedule — Truffl Pets</title>
+<link rel="icon" type="image/svg+xml" href="/favicon.svg">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,500;0,600;1,400;1,500&family=DM+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+  <link rel="preconnect" href="https://gadflsntbnbnnxbpiral.supabase.co" crossorigin>
+  <script src="/session.js"></script>
+<style>
+  :root {
+    --cream: #FAF7F2; --warm-white: #FFFDF9; --sage: #8B9E7E; --sage-light: #C2D1B5;
+    --sage-dark: #6B7E5E; --terracotta: #C4755B; --terracotta-light: #D4917B;
+    --blush: #E8C4B8; --brown: #3D2B1F; --brown-light: #5C4033; --brown-muted: #8B7355;
+    --text-primary: #3D2B1F; --text-secondary: #6B5B4E; --text-muted: #9B8B7E;
+    --border: #E8E0D6; --border-focus: #C4755B;
+    --error: #C0392B; --error-bg: #FDF0EE; --success: #5B8C5A; --success-bg: #EDF5ED;
+    --warning: #C0862B; --warning-bg: #FEF3E2;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: 'DM Sans', sans-serif; background: var(--cream); color: var(--text-primary); min-height: 100vh; -webkit-font-smoothing: antialiased; }
+  button, input, select, textarea { font-family: inherit; }
+
+  .nav { position: sticky; top: 0; z-index: 100; background: var(--warm-white); border-bottom: 1px solid var(--border); padding: 0 2rem; height: 64px; display: flex; align-items: center; justify-content: space-between; }
+  .nav-logo { display: flex; align-items: center; text-decoration: none; }
+  .nav-right { display: flex; align-items: center; gap: 18px; font-size: 13px; }
+  .nav-right a { color: var(--text-secondary); text-decoration: none; transition: color 0.2s; }
+  .nav-right a:hover, .nav-right a.active { color: var(--terracotta); }
+  .nav-user { display: flex; align-items: center; gap: 8px; }
+  .nav-avatar { width: 32px; height: 32px; border-radius: 50%; background: var(--blush); display: flex; align-items: center; justify-content: center; font-size: 0.75rem; font-weight: 600; color: var(--brown); }
+  .nav-name { font-size: 0.85rem; font-weight: 500; color: var(--text-primary); }
+  @media (max-width: 640px) { .nav { padding: 0 1rem; } .nav-right { gap: 12px; } .nav-name, .nav-hide-sm { display: none; } }
+
+  .page-wrapper { max-width: 860px; margin: 0 auto; padding: 1.5rem 1.25rem 4rem; }
+  .welcome { display: flex; align-items: flex-end; justify-content: space-between; gap: 12px; flex-wrap: wrap; margin-bottom: 1rem; }
+  .welcome h1 { font-family: 'Cormorant Garamond', serif; font-weight: 500; font-size: 1.8rem; color: var(--brown); }
+  .welcome p { color: var(--text-muted); font-size: 0.9rem; margin-top: 2px; }
+  .welcome-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+
+  .btn { display: inline-flex; align-items: center; gap: 6px; padding: 9px 16px; border-radius: 999px; font-size: 0.85rem; font-weight: 600; cursor: pointer; border: 1px solid transparent; text-decoration: none; transition: all .15s; white-space: nowrap; }
+  .btn.primary { background: var(--terracotta); color: #fff; }
+  .btn.primary:hover { background: #B3684F; }
+  .btn.secondary { background: var(--warm-white); color: var(--brown); border-color: var(--border); }
+  .btn.secondary:hover { border-color: var(--terracotta); color: var(--terracotta); }
+  .btn.ghost { background: transparent; color: var(--text-secondary); }
+  .btn.ghost:hover { color: var(--terracotta); }
+  .btn.danger { background: var(--error-bg); color: var(--error); }
+  .btn.success { background: var(--success-bg); color: var(--success); }
+  .btn.sm { padding: 6px 12px; font-size: 0.78rem; }
+  .btn:disabled { opacity: .55; cursor: default; }
+
+  .msg { display: none; padding: 12px 16px; border-radius: 10px; font-size: 0.85rem; margin-bottom: 1rem; }
+  .msg.error { display: block; background: var(--error-bg); color: var(--error); }
+  .msg.success { display: block; background: var(--success-bg); color: var(--success); }
+  .msg.info { display: block; background: var(--warning-bg); color: var(--warning); }
+
+  /* Week navigation */
+  .weeknav { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 10px; }
+  .weeknav .label { font-weight: 600; color: var(--brown); font-size: 0.95rem; }
+  .weeknav .nav-btns { display: flex; gap: 6px; }
+  .nb { width: 34px; height: 34px; border-radius: 50%; border: 1px solid var(--border); background: var(--warm-white); cursor: pointer; color: var(--text-secondary); display: inline-flex; align-items: center; justify-content: center; }
+  .nb:hover { color: var(--terracotta); border-color: var(--terracotta); }
+  .nb.today { width: auto; padding: 0 12px; border-radius: 999px; font-size: 0.78rem; font-weight: 600; }
+  .daystrip { display: grid; grid-template-columns: repeat(7, 1fr); gap: 6px; margin-bottom: 12px; }
+  .day { background: var(--warm-white); border: 1px solid var(--border); border-radius: 12px; padding: 8px 4px; text-align: center; cursor: pointer; transition: all .15s; }
+  .day:hover { border-color: var(--terracotta); }
+  .day.sel { background: var(--brown); border-color: var(--brown); color: #fff; }
+  .day.istoday:not(.sel) { border-color: var(--terracotta); }
+  .day .dn { font-size: 0.68rem; text-transform: uppercase; letter-spacing: .05em; opacity: .75; }
+  .day .dd { font-size: 1.05rem; font-weight: 600; margin: 2px 0; }
+  .day .dc { font-size: 0.68rem; opacity: .8; min-height: 1em; }
+  .viewtoggle { display: flex; gap: 4px; background: var(--warm-white); border: 1px solid var(--border); border-radius: 999px; padding: 3px; }
+  .viewtoggle button { border: none; background: transparent; padding: 6px 12px; border-radius: 999px; font-size: 0.78rem; font-weight: 600; color: var(--text-muted); cursor: pointer; }
+  .viewtoggle button.active { background: var(--brown); color: #fff; }
+  .toolbar { display: flex; justify-content: space-between; align-items: center; gap: 8px; flex-wrap: wrap; margin-bottom: 12px; }
+  .summary { font-size: 0.82rem; color: var(--text-muted); }
+
+  .day-head { font-family: 'Cormorant Garamond', serif; font-weight: 500; font-size: 1.2rem; color: var(--brown); margin: 1.1rem 0 .5rem; display: flex; justify-content: space-between; align-items: baseline; }
+  .day-head:first-child { margin-top: 0; }
+  .day-head small { font-family: 'DM Sans', sans-serif; font-size: 0.78rem; color: var(--text-muted); }
+  .nothing { font-size: 0.82rem; color: var(--text-muted); padding: 6px 0 2px; }
+
+  .job { background: var(--warm-white); border: 1px solid var(--border); border-radius: 14px; padding: 12px 14px; margin-bottom: 8px; display: flex; gap: 12px; align-items: flex-start; border-left: 4px solid var(--sage); }
+  .job.booking { border-left-color: var(--terracotta); }
+  .job.done { opacity: .75; border-left-color: var(--border); }
+  .job.cancelled { opacity: .55; border-left-color: var(--border); }
+  .job.cancelled .j-title { text-decoration: line-through; }
+  .j-time { width: 72px; flex-shrink: 0; font-size: 0.8rem; color: var(--text-secondary); line-height: 1.5; }
+  .j-time b { display: block; color: var(--brown); font-size: 0.92rem; }
+  .j-body { flex: 1; min-width: 0; }
+  .j-title { font-weight: 600; color: var(--brown); font-size: 0.97rem; display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
+  .j-sub { font-size: 0.82rem; color: var(--text-secondary); margin-top: 2px; }
+  .j-meta { font-size: 0.76rem; color: var(--text-muted); margin-top: 3px; display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+  .j-actions { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 8px; align-items: center; }
+  .tag { display: inline-block; font-size: 0.62rem; font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase; padding: 2px 8px; border-radius: 20px; vertical-align: middle; }
+  .tag.truffl { color: var(--terracotta); background: #F7E9E3; }
+  .tag.recurring { color: var(--sage-dark); background: var(--success-bg); }
+  .tag.import { color: var(--warning); background: var(--warning-bg); }
+  .tag.mg { color: var(--brown-light); background: var(--cream); border: 1px solid var(--border); }
+  .pill { font-size: 0.68rem; font-weight: 600; padding: 2px 8px; border-radius: 20px; text-transform: uppercase; letter-spacing: .03em; }
+  .p-paid { background: var(--success-bg); color: var(--success); }
+  .p-unpaid { background: var(--warning-bg); color: var(--warning); }
+  .p-done { background: var(--cream); color: var(--text-muted); border: 1px solid var(--border); }
+  .p-pending { background: var(--warning-bg); color: var(--warning); }
+  .p-cancelled { background: var(--error-bg); color: var(--error); }
+  .icon-btn { width: 30px; height: 30px; border-radius: 50%; border: 1px solid var(--border); background: var(--warm-white); display: inline-flex; align-items: center; justify-content: center; color: var(--text-secondary); text-decoration: none; }
+  .icon-btn:hover { color: var(--terracotta); border-color: var(--terracotta); }
+  .icon-btn svg { width: 14px; height: 14px; }
+  .icon-btn.wa:hover { color: #25D366; border-color: #25D366; }
+  .paychoice { display: inline-flex; gap: 4px; flex-wrap: wrap; align-items: center; font-size: 0.78rem; color: var(--text-muted); }
+
+  .empty { text-align: center; padding: 2.5rem 1.5rem; color: var(--text-muted); font-size: 0.9rem; background: var(--warm-white); border: 1px dashed var(--border); border-radius: 14px; line-height: 1.6; margin-top: 8px; }
+  .empty h3 { font-family: 'Cormorant Garamond', serif; font-weight: 500; font-size: 1.3rem; color: var(--brown); margin-bottom: 6px; }
+  .empty .steps { display: grid; gap: 6px; max-width: 360px; margin: 12px auto 0; text-align: left; }
+  .empty .steps a { color: var(--terracotta); text-decoration: none; font-weight: 600; }
+
+  .card { background: var(--warm-white); border: 1px solid var(--border); border-radius: 14px; padding: 1.1rem 1.2rem; margin-bottom: 0.9rem; }
+  .card-title { font-family: 'Cormorant Garamond', serif; font-weight: 500; font-size: 1.15rem; color: var(--brown); margin-bottom: 0.6rem; display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+  .series-row { display: flex; justify-content: space-between; gap: 10px; align-items: center; padding: 8px 0; border-top: 1px solid var(--border); font-size: 0.85rem; flex-wrap: wrap; }
+  .series-row:first-of-type { border-top: none; }
+  .series-row b { color: var(--brown); font-weight: 600; }
+  .series-row .sub { color: var(--text-muted); font-size: 0.78rem; }
+  .kv { font-size: 0.86rem; color: var(--text-secondary); line-height: 1.7; }
+  .urlbox { display: flex; gap: 6px; align-items: center; margin: 8px 0; }
+  .urlbox input { flex: 1; min-width: 0; font-size: 0.78rem; padding: 9px 10px; border: 1px solid var(--border); border-radius: 10px; background: var(--cream); color: var(--text-secondary); }
+
+  /* Sheet / modal */
+  .overlay { position: fixed; inset: 0; background: rgba(61,43,31,.45); z-index: 200; display: flex; align-items: flex-end; justify-content: center; }
+  .sheet { background: var(--cream); width: 100%; max-width: 640px; max-height: 92vh; overflow-y: auto; border-radius: 18px 18px 0 0; padding: 1.25rem 1.25rem 2rem; animation: up .2s ease; }
+  @media (min-width: 700px) { .overlay { align-items: center; padding: 2rem; } .sheet { border-radius: 18px; max-height: 88vh; } }
+  @keyframes up { from { transform: translateY(24px); opacity: 0; } to { transform: none; opacity: 1; } }
+  .sheet-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 1rem; }
+  .sheet-head h2 { font-family: 'Cormorant Garamond', serif; font-weight: 500; font-size: 1.5rem; color: var(--brown); }
+  .close { width: 34px; height: 34px; border-radius: 50%; border: 1px solid var(--border); background: var(--warm-white); cursor: pointer; color: var(--text-secondary); font-size: 1.1rem; }
+  .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  .form-grid .full { grid-column: 1 / -1; }
+  @media (max-width: 520px) { .form-grid { grid-template-columns: 1fr; } }
+  .field label { display: block; font-size: 0.76rem; font-weight: 600; color: var(--text-secondary); margin-bottom: 4px; letter-spacing: .02em; }
+  .field input, .field select, .field textarea { width: 100%; padding: 10px 12px; border: 1px solid var(--border); border-radius: 10px; background: var(--warm-white); font-size: 0.9rem; color: var(--text-primary); outline: none; }
+  .field input:focus, .field select:focus, .field textarea:focus { border-color: var(--border-focus); }
+  .field textarea { resize: vertical; min-height: 56px; }
+  .field .hint { font-size: 0.74rem; color: var(--text-muted); margin-top: 3px; }
+  .chips { display: flex; gap: 6px; flex-wrap: wrap; }
+  .chip { padding: 7px 12px; border-radius: 999px; font-size: 0.78rem; font-weight: 500; border: 1px solid var(--border); background: var(--warm-white); color: var(--text-secondary); cursor: pointer; }
+  .chip.active { background: var(--brown); color: #fff; border-color: var(--brown); }
+  .checks { display: flex; gap: 8px; flex-wrap: wrap; }
+  .checks label { display: inline-flex; align-items: center; gap: 6px; padding: 7px 12px; border: 1px solid var(--border); border-radius: 999px; background: var(--warm-white); font-size: 0.82rem; cursor: pointer; }
+  .switch { display: flex; align-items: center; gap: 10px; padding: 10px 12px; border: 1px solid var(--border); border-radius: 10px; background: var(--warm-white); font-size: 0.88rem; cursor: pointer; }
+  .form-actions { display: flex; gap: 8px; justify-content: flex-end; margin-top: 1.1rem; flex-wrap: wrap; align-items: center; }
+  .form-actions .left { margin-right: auto; }
+  .section-label { font-size: 0.78rem; font-weight: 600; letter-spacing: .05em; text-transform: uppercase; color: var(--text-muted); margin: 1rem 0 .5rem; }
+  .drop { border: 2px dashed var(--border); border-radius: 14px; padding: 1.5rem; text-align: center; color: var(--text-muted); font-size: 0.86rem; background: var(--warm-white); display: block; cursor: pointer; }
+  .drop input { display: none; }
+  .ev-row { display: grid; grid-template-columns: auto 1fr auto; gap: 10px; align-items: center; padding: 8px 0; border-top: 1px solid var(--border); font-size: 0.84rem; }
+  .ev-row:first-of-type { border-top: none; }
+  .ev-row select { font-size: 0.78rem; padding: 6px 8px; border: 1px solid var(--border); border-radius: 8px; background: var(--warm-white); max-width: 160px; }
+  .ev-row .t { color: var(--text-muted); font-size: 0.76rem; }
+  .login-prompt { text-align: center; padding: 3rem 1rem; }
+  .login-prompt h2 { font-family: 'Cormorant Garamond', serif; font-weight: 500; font-size: 1.5rem; color: var(--brown); margin-bottom: 8px; }
+  .login-prompt p { color: var(--text-muted); font-size: 0.9rem; margin-bottom: 14px; }
+  .login-prompt a { color: var(--terracotta); font-weight: 600; text-decoration: none; }
+  .link-btn { background: none; border: none; color: var(--terracotta); font-size: 0.8rem; font-weight: 600; cursor: pointer; padding: 0; }
+</style>
+</head>
+<body>
+
+<nav class="nav">
+  <a href="/" class="nav-logo" aria-label="Truffl Pets home">
+    <svg width="150" height="48" viewBox="0 0 180 56" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <circle cx="20" cy="5.5" r="6" fill="none" stroke="#C4866A" stroke-width="2.5"/>
+      <circle cx="20" cy="5.5" r="2.8" fill="#FFFDF9"/>
+      <rect x="16.5" y="10.5" width="7" height="9" rx="3" fill="#C4866A"/>
+      <circle cx="20" cy="33" r="20" fill="#C4866A"/>
+      <circle cx="20" cy="33" r="15.5" fill="none" stroke="#B8795C" stroke-width="0.6" opacity="0.45"/>
+      <line x1="7" y1="33" x2="33" y2="33" stroke="#FFFDF9" stroke-width="0.5" opacity="0.3"/>
+      <text x="20" y="35.5" font-family="'Cormorant Garamond', Georgia, serif" font-size="14" font-style="italic" font-weight="400" fill="#FFFDF9" text-anchor="middle" letter-spacing="-0.3">truffl</text>
+      <text x="52" y="30" font-family="'Cormorant Garamond', Georgia, serif" font-size="32" font-style="italic" font-weight="400" fill="#3D2B1F" letter-spacing="-0.5">truffl</text>
+      <text x="52" y="50" font-family="'DM Sans', sans-serif" font-size="12" font-weight="600" fill="#B0A090" letter-spacing="4">PETS</text>
+    </svg>
+  </a>
+  <div class="nav-right">
+    <a href="/dashboard/" class="nav-hide-sm">Dashboard</a>
+    <a href="/schedule/" class="active">Schedule</a>
+    <a href="/clients/">Clients</a>
+    <a href="/messages/" class="nav-hide-sm">Messages</a>
+    <div class="nav-user" id="navUser"></div>
+  </div>
+</nav>
+
+<div class="page-wrapper">
+  <div id="pageMsg" class="msg"></div>
+  <div id="content">
+    <div style="text-align:center;padding:3rem;color:var(--text-muted);font-size:0.85rem;">Loading your schedule...</div>
+  </div>
+</div>
+<div id="modalRoot"></div>
+
+<script>
+/* Schedule (GitHub #153, #154, #158, #159, #165). One calendar for own-client jobs and Truffl
+   bookings, read from the provider_schedule view. Own jobs are edited here; Truffl bookings
+   keep their actions on /dashboard/ (accept, decline, walk) and are shown read-only. */
+const SUPABASE_URL = 'https://gadflsntbnbnnxbpiral.supabase.co';
+const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImdhZGZsc250Ym5ibm54YnBpcmFsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzUwNjcwNTcsImV4cCI6MjA5MDY0MzA1N30.g5ZrqeAX9U5l7oDZEbQFrU5j10828dUF0QuJ0ZlHXK8';
+
+const SERVICE_LABELS = { dog_walking:'Walk', dog_sitting:'Sitting', dog_boarding:'Boarding', pet_sitting:'Visit' };
+const DAY_SHORT = ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
+const DURATIONS = [30, 45, 60, 90, 120, 180];
+
+let authToken = null, authUid = null, userData = null, providerProfile = null;
+let clients = [];
+let series = [];
+let rows = [];               // provider_schedule rows for the visible week
+let weekStart = null;        // Date at local midnight, Monday
+let selected = null;         // 'YYYY-MM-DD'
+let view = window.innerWidth < 700 ? 'day' : 'week';
+let payChoice = null;        // job id showing the payment-method chooser
+
+/* ── Supabase helpers ── */
+function headers(extra) {
+  const h = { 'Content-Type':'application/json', 'apikey':SUPABASE_ANON_KEY, 'Authorization':`Bearer ${SUPABASE_ANON_KEY}` };
+  if (authToken) h['Authorization'] = `Bearer ${authToken}`;
+  return Object.assign(h, extra || {});
+}
+async function sbGet(table, params) {
+  const r = await fetch(`${SUPABASE_URL}/rest/v1/${table}?${params}`, { headers: headers() });
+  if (!r.ok) { const e = await r.json().catch(() => ({})); throw new Error(e.message || `Request failed (${r.status})`); }
+  return await r.json();
+}
+async function sbInsert(table, rows, extraParams, extraHeaders) {
+  const r = await fetch(`${SUPABASE_URL}/rest/v1/${table}${extraParams ? '?' + extraParams : ''}`, { method:'POST', headers: headers({ 'Prefer':'return=representation', ...(extraHeaders || {}) }), body: JSON.stringify(rows) });
+  if (!r.ok) { const e = await r.json().catch(() => ({})); throw new Error(e.message || 'Insert failed'); }
+  return await r.json();
+}
+async function sbPatch(table, col, val, updates) {
+  const r = await fetch(`${SUPABASE_URL}/rest/v1/${table}?${col}=eq.${val}`, { method:'PATCH', headers: headers({ 'Prefer':'return=representation' }), body: JSON.stringify(updates) });
+  if (!r.ok) { const e = await r.json().catch(() => ({})); throw new Error(e.message || 'Update failed'); }
+  const data = await r.json();
+  if (Array.isArray(data) && data.length === 0) throw new Error("Couldn't save. You may not have permission, or the item no longer exists.");
+  return data;
+}
+async function sbDelete(table, params) {
+  const r = await fetch(`${SUPABASE_URL}/rest/v1/${table}?${params}`, { method:'DELETE', headers: headers() });
+  if (!r.ok) { const e = await r.json().catch(() => ({})); throw new Error(e.message || 'Delete failed'); }
+}
+async function sbRpc(fn, args) {
+  const r = await fetch(`${SUPABASE_URL}/rest/v1/rpc/${fn}`, { method:'POST', headers: headers(), body: JSON.stringify(args || {}) });
+  if (!r.ok) { const e = await r.json().catch(() => ({})); throw new Error(e.message || 'Request failed'); }
+  return await r.json();
+}
+
+/* ── Utilities ── */
+function esc(s) { return (s == null ? '' : s.toString()).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+function attr(s) { return esc(s).replace(/'/g, '&#39;'); }
+function showMsg(t, type) { const el = document.getElementById('pageMsg'); el.textContent = t; el.className = `msg ${type}`; if (type === 'success') setTimeout(() => { if (el.textContent === t) el.className = 'msg'; }, 4000); window.scrollTo({ top: 0, behavior: 'smooth' }); }
+function pad(n) { return String(n).padStart(2, '0'); }
+function ymd(d) { return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`; }
+function fromYmd(s) { const [y, m, d] = s.split('-').map(Number); return new Date(y, m - 1, d); }
+function mondayOf(d) { const x = new Date(d.getFullYear(), d.getMonth(), d.getDate()); const wd = (x.getDay() + 6) % 7; x.setDate(x.getDate() - wd); return x; }
+function addDays(d, n) { const x = new Date(d); x.setDate(x.getDate() + n); return x; }
+function fmtTime(iso) { return new Date(iso).toLocaleTimeString('en-AU', { hour:'numeric', minute:'2-digit' }).replace(' ', '').toLowerCase(); }
+function fmtDay(d) { return d.toLocaleDateString('en-AU', { weekday:'long', day:'numeric', month:'long' }); }
+function money(c) { return '$' + ((c || 0) / 100).toFixed(2).replace(/\.00$/, ''); }
+function dollarsToCents(s) { const t = (s || '').toString().replace(/[^0-9.]/g, ''); if (!t) return null; const n = Math.round(parseFloat(t) * 100); return isNaN(n) || n < 0 ? null : n; }
+function minutesBetween(a, b) { return Math.round((new Date(b) - new Date(a)) / 60000); }
+function durText(m) { if (m >= 60 * 24) return `${Math.round(m / 60 / 24)}d`; if (m >= 60) return `${Math.floor(m / 60)}h${m % 60 ? ' ' + (m % 60) + 'm' : ''}`; return `${m}m`; }
+function clientName(c) { return `${c.first_name || ''} ${c.last_name || ''}`.trim() || 'Client'; }
+function activePets(c) { return (c.client_pets || []).filter(p => p.is_active !== false); }
+function e164(phone) { let d = (phone || '').replace(/[^\d+]/g, ''); if (!d) return ''; if (d.startsWith('+')) return d; if (d.startsWith('0') && d.length === 10) return '+61' + d.slice(1); if (d.startsWith('61') && d.length === 11) return '+' + d; return '+' + d; }
+function guessService(text) { const t = (text || '').toLowerCase(); if (/board|overnight|stay/.test(t)) return 'dog_boarding'; if (/sit|visit|drop.?in|feed/.test(t)) return 'dog_sitting'; return 'dog_walking'; }
+
+const ICONS = {
+  phone: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72c.13.96.36 1.9.7 2.81a2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45c.91.34 1.85.57 2.81.7A2 2 0 0 1 22 16.92z"/></svg>',
+  sms: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>',
+  wa: '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M17.5 14.4c-.3-.1-1.8-.9-2-1-.3-.1-.5-.1-.7.1-.2.3-.8 1-.9 1.2-.2.2-.3.2-.6.1-.3-.1-1.3-.5-2.4-1.5-.9-.8-1.5-1.8-1.7-2.1-.2-.3 0-.5.1-.6l.4-.5c.1-.2.2-.3.3-.5.1-.2 0-.4 0-.5l-.9-2.2c-.2-.6-.5-.5-.7-.5h-.6c-.2 0-.5.1-.8.4-.3.3-1 1-1 2.5s1.1 2.9 1.2 3.1c.1.2 2.1 3.2 5.1 4.5.7.3 1.3.5 1.7.6.7.2 1.4.2 1.9.1.6-.1 1.8-.7 2-1.4.2-.7.2-1.3.2-1.4-.1-.2-.3-.3-.6-.4zM12 2a10 10 0 0 0-8.6 15.1L2 22l5-1.3A10 10 0 1 0 12 2zm0 18.2c-1.5 0-3-.4-4.3-1.2l-.3-.2-3 .8.8-2.9-.2-.3A8.2 8.2 0 1 1 12 20.2z"/></svg>',
+  plus: '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>',
+  cal: '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg>',
+  upload: '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>',
+  left: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="m15 18-6-6 6-6"/></svg>',
+  right: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"/></svg>',
+};
+
+/* ── Data ── */
+async function loadWeek() {
+  const from = weekStart.toISOString();
+  const to = addDays(weekStart, 7).toISOString();
+  rows = await sbGet('provider_schedule', `starts_at=gte.${from}&starts_at=lt.${to}&select=*&order=starts_at.asc`);
+}
+async function loadSeries() {
+  series = await sbGet('job_series', `provider_user_id=eq.${authUid}&status=in.(active,paused)&select=*,job_series_pets(client_pet_id)&order=created_at.desc`);
+}
+async function loadClients() {
+  clients = await sbGet('clients', `provider_user_id=eq.${authUid}&is_archived=eq.false&select=id,first_name,last_name,phone,suburb,client_pets(id,name,is_active)&order=first_name.asc`);
+}
+
+/* ── Rendering ── */
+function rowsOn(dateStr) { return rows.filter(r => ymd(new Date(r.starts_at)) === dateStr).sort((a, b) => new Date(a.starts_at) - new Date(b.starts_at)); }
+function summaryFor(list) {
+  const live = list.filter(r => r.status !== 'cancelled');
+  const mins = live.reduce((s, r) => s + Math.max(0, minutesBetween(r.starts_at, r.ends_at)), 0);
+  const cents = live.reduce((s, r) => s + (r.price_cents || 0), 0);
+  return `${live.length} job${live.length === 1 ? '' : 's'}${mins ? ' · ' + durText(mins) : ''}${cents ? ' · ' + money(cents) : ''}`;
+}
+
+function renderPage() {
+  const end = addDays(weekStart, 6);
+  const label = `${weekStart.toLocaleDateString('en-AU', { day:'numeric', month:'short' })} to ${end.toLocaleDateString('en-AU', { day:'numeric', month:'short', year:'numeric' })}`;
+  document.getElementById('content').innerHTML = `
+    <div class="welcome">
+      <div><h1>Schedule</h1><p>${rows.length ? summaryFor(rows) + ' this week' : 'Everything you have on, in one place.'}</p></div>
+      <div class="welcome-actions">
+        <button class="btn secondary" onclick="openSubscribe()">${ICONS.cal} Subscribe</button>
+        <button class="btn secondary" onclick="openIcsImport()">${ICONS.upload} Import .ics</button>
+        <button class="btn primary" onclick="openJobForm()">${ICONS.plus} Add job</button>
+      </div>
+    </div>
+    <div class="weeknav">
+      <div class="nav-btns"><button class="nb" onclick="shiftWeek(-1)" aria-label="Previous week">${ICONS.left}</button><button class="nb today" onclick="goToday()">Today</button><button class="nb" onclick="shiftWeek(1)" aria-label="Next week">${ICONS.right}</button></div>
+      <div class="label">${esc(label)}</div>
+      <div class="viewtoggle"><button class="${view === 'day' ? 'active' : ''}" onclick="view='day';renderPage()">Day</button><button class="${view === 'week' ? 'active' : ''}" onclick="view='week';renderPage()">Week</button></div>
+    </div>
+    <div class="daystrip">${[0,1,2,3,4,5,6].map(i => { const d = addDays(weekStart, i); const s = ymd(d); const n = rowsOn(s).filter(r => r.status !== 'cancelled').length; return `<div class="day ${s === selected ? 'sel' : ''} ${s === ymd(new Date()) ? 'istoday' : ''}" onclick="selectDay('${s}')"><div class="dn">${DAY_SHORT[i]}</div><div class="dd">${d.getDate()}</div><div class="dc">${n ? n + (n === 1 ? ' job' : ' jobs') : ''}</div></div>`; }).join('')}</div>
+    <div id="body"></div>
+    <div id="seriesCard"></div>`;
+  renderBody();
+  renderSeries();
+}
+
+function renderBody() {
+  const body = document.getElementById('body'); if (!body) return;
+  if (!rows.length && !clients.length && !series.length) {
+    body.innerHTML = `<div class="empty"><h3>Nothing scheduled yet</h3>Three things to do in your first five minutes:
+      <div class="steps">
+        <div>1. <a href="/clients/?new=1">Add a client</a> and their dog.</div>
+        <div>2. <a href="javascript:void(0)" onclick="openJobForm()">Add a walk</a>, one-off or repeating.</div>
+        <div>3. <a href="javascript:void(0)" onclick="openSubscribe()">Subscribe</a> so it shows in your phone's calendar.</div>
+      </div>
+      <p style="margin-top:12px;">Already have a calendar full of walks? <a href="javascript:void(0)" onclick="openIcsImport()" style="color:var(--terracotta);font-weight:600;text-decoration:none;">Import an .ics file</a>.</p></div>`;
+    return;
+  }
+  const days = view === 'day' ? [selected] : [0,1,2,3,4,5,6].map(i => ymd(addDays(weekStart, i)));
+  body.innerHTML = days.map(s => {
+    const list = rowsOn(s);
+    const d = fromYmd(s);
+    return `<div class="day-head"><span>${s === ymd(new Date()) ? 'Today, ' : ''}${esc(fmtDay(d))}</span><small>${list.length ? esc(summaryFor(list)) : ''}</small></div>
+      ${list.length ? list.map(jobCardHtml).join('') : `<div class="nothing">Nothing on. <button class="link-btn" onclick="openJobForm(null, '${s}')">Add a job</button></div>`}`;
+  }).join('');
+}
+
+function jobCardHtml(r) {
+  const own = r.kind === 'job';
+  const done = r.status === 'completed';
+  const cancelled = r.status === 'cancelled';
+  const mins = minutesBetween(r.starts_at, r.ends_at);
+  const tags = [
+    !own ? '<span class="tag truffl">Truffl</span>' : '',
+    r.is_meet_and_greet ? '<span class="tag mg">Meet &amp; greet</span>' : '',
+    own && r.source === 'series' ? '<span class="tag recurring">Recurring</span>' : '',
+    own && r.source === 'import' ? '<span class="tag import">Imported</span>' : '',
+  ].join('');
+  const status = cancelled ? '<span class="pill p-cancelled">Cancelled</span>'
+    : !own && r.status === 'pending' ? '<span class="pill p-pending">Request</span>'
+    : done ? (r.price_cents ? (r.is_paid ? '<span class="pill p-paid">Paid</span>' : (own ? '<span class="pill p-unpaid">Unpaid</span>' : '<span class="pill p-done">Done</span>')) : '<span class="pill p-done">Done</span>')
+    : '';
+  const contact = r.client_phone ? `<a class="icon-btn" href="tel:${attr(r.client_phone)}" title="Call">${ICONS.phone}</a><a class="icon-btn" href="sms:${attr(r.client_phone)}" title="Text">${ICONS.sms}</a><a class="icon-btn wa" href="https://wa.me/${attr(e164(r.client_phone).replace('+',''))}" target="_blank" rel="noopener" title="WhatsApp">${ICONS.wa}</a>` : '';
+  let actions = '';
+  if (own) {
+    if (cancelled) actions = `<button class="btn ghost sm" onclick="setStatus('${r.id}','scheduled')">Restore</button>`;
+    else if (!done) actions = `<button class="btn success sm" onclick="setStatus('${r.id}','completed')">Done</button><button class="btn secondary sm" onclick="openJobForm('${r.id}')">Edit</button>`;
+    else if (r.price_cents && !r.is_paid) actions = payChoice === r.id
+      ? `<span class="paychoice">Paid by ${['cash','bank_transfer','card','other'].map(m => `<button class="btn secondary sm" onclick="markPaid('${r.id}','${m}')">${{cash:'Cash',bank_transfer:'Transfer',card:'Card',other:'Other'}[m]}</button>`).join('')}<button class="btn ghost sm" onclick="payChoice=null;renderBody()">×</button></span>`
+      : `<button class="btn success sm" onclick="payChoice='${r.id}';renderBody()">Mark paid</button><button class="btn ghost sm" onclick="openJobForm('${r.id}')">Edit</button>`;
+    else actions = `<button class="btn ghost sm" onclick="openJobForm('${r.id}')">Edit</button>`;
+  } else {
+    actions = `<a class="btn secondary sm" href="/dashboard/">Open in dashboard</a><a class="btn ghost sm" href="/messages/?booking=${r.id}">Message</a>`;
+  }
+  return `<div class="job ${own ? '' : 'booking'} ${done ? 'done' : ''} ${cancelled ? 'cancelled' : ''}">
+    <div class="j-time"><b>${esc(fmtTime(r.starts_at))}</b>${mins > 0 && mins < 60 * 24 ? esc(durText(mins)) : esc(fmtTime(r.ends_at))}</div>
+    <div class="j-body">
+      <div class="j-title">${esc(r.client_name || r.title || 'Job')}${tags}</div>
+      <div class="j-sub">${esc(SERVICE_LABELS[r.service_type] || r.service_type)}${r.pet_names ? ' · ' + esc(r.pet_names) : ''}${r.title && r.client_name ? ' · ' + esc(r.title) : ''}</div>
+      <div class="j-meta">${r.suburb ? `<span>${esc(r.suburb)}</span>` : ''}${r.price_cents ? `<span>${money(r.price_cents)}</span>` : ''}${status}${r.notes ? `<span title="${attr(r.notes)}">📝</span>` : ''}</div>
+      <div class="j-actions">${actions}${contact}</div>
+    </div>
+  </div>`;
+}
+
+function renderSeries() {
+  const el = document.getElementById('seriesCard'); if (!el) return;
+  if (!series.length) { el.innerHTML = ''; return; }
+  const cmap = Object.fromEntries(clients.map(c => [c.id, c]));
+  el.innerHTML = `<div class="card" style="margin-top:1.25rem;"><div class="card-title">Repeating jobs</div>
+    ${series.map(s => {
+      const c = cmap[s.client_id];
+      const pattern = s.frequency_type === 'daily' ? 'Every day' : s.frequency_type === 'weekdays' ? 'Every weekday' : 'Every ' + (s.days_of_week || []).slice().sort((a, b) => a - b).map(n => DAY_SHORT[n - 1]).join(', ');
+      const [h, m] = (s.time_of_day || '00:00').split(':').map(Number);
+      const t = `${(h % 12) || 12}:${pad(m)}${h < 12 ? 'am' : 'pm'}`;
+      return `<div class="series-row">
+        <div><b>${esc(c ? clientName(c) : (s.title || 'Job'))}</b> · ${esc(SERVICE_LABELS[s.service_type] || s.service_type)} ${s.duration_mins}m${s.price_cents ? ' · ' + money(s.price_cents) : ''}<div class="sub">${esc(pattern)} at ${t}${s.end_date ? ' until ' + fromYmd(s.end_date).toLocaleDateString('en-AU', { day:'numeric', month:'short' }) : ''}${s.status === 'paused' ? ' · paused' : ''}</div></div>
+        <div style="display:flex;gap:6px;">${s.status === 'active' ? `<button class="btn secondary sm" onclick="setSeries('${s.id}','paused')">Pause</button>` : `<button class="btn success sm" onclick="setSeries('${s.id}','active')">Resume</button>`}<button class="btn ghost sm" onclick="endSeries('${s.id}')">End</button></div>
+      </div>`; }).join('')}
+    <p class="kv" style="margin-top:8px;color:var(--text-muted);font-size:0.78rem;">Repeating jobs are created four weeks ahead and topped up nightly. Cancel a single day from its card; end the series here.</p>
+  </div>`;
+}
+
+/* ── Navigation ── */
+function selectDay(s) { selected = s; if (view === 'week') view = 'day'; history.replaceState(null, '', `/schedule/?d=${s}`); renderPage(); }
+async function setWeek(d) { weekStart = mondayOf(d); await refresh(); }
+async function shiftWeek(n) { weekStart = addDays(weekStart, n * 7); selected = ymd(weekStart); history.replaceState(null, '', `/schedule/?d=${selected}`); await refresh(); }
+async function goToday() { const t = new Date(); weekStart = mondayOf(t); selected = ymd(t); history.replaceState(null, '', '/schedule/'); await refresh(); }
+async function refresh() { try { await loadWeek(); } catch (e) { showMsg(e.message, 'error'); } renderPage(); }
+
+/* ── Job actions ── */
+async function setStatus(id, status) {
+  try {
+    const upd = { status }; if (status === 'completed') upd.completed_at = new Date().toISOString(); if (status === 'scheduled') upd.completed_at = null;
+    await sbPatch('jobs', 'id', id, upd);
+    await refresh();
+  } catch (e) { showMsg(e.message, 'error'); }
+}
+async function markPaid(id, method) {
+  try { await sbPatch('jobs', 'id', id, { paid_at: new Date().toISOString(), payment_method: method }); payChoice = null; await refresh(); }
+  catch (e) { showMsg(e.message, 'error'); }
+}
+async function setSeries(id, status) {
+  try { await sbPatch('job_series', 'id', id, { status }); if (status === 'active') await sbRpc('generate_job_occurrences', { p_series_id: id, p_weeks_ahead: 4 }); await loadSeries(); await refresh(); }
+  catch (e) { showMsg(e.message, 'error'); }
+}
+async function endSeries(id) {
+  if (!confirm('End this repeating job? Future walks that have not happened yet will be cancelled. Completed walks stay in your history.')) return;
+  try {
+    await sbPatch('job_series', 'id', id, { status: 'ended', end_date: ymd(new Date()) });
+    await fetch(`${SUPABASE_URL}/rest/v1/jobs?series_id=eq.${id}&status=eq.scheduled&starts_at=gt.${new Date().toISOString()}`, { method:'PATCH', headers: headers(), body: JSON.stringify({ status: 'cancelled' }) });
+    await loadSeries(); await refresh();
+  } catch (e) { showMsg(e.message, 'error'); }
+}
+
+/* ── Modal plumbing ── */
+function closeModal() { document.getElementById('modalRoot').innerHTML = ''; document.body.style.overflow = ''; if (/[?&]new=/.test(location.search)) history.replaceState(null, '', '/schedule/' + (selected ? '?d=' + selected : '')); }
+function modal(html) { document.getElementById('modalRoot').innerHTML = `<div class="overlay" onclick="if(event.target===this)closeModal()"><div class="sheet">${html}</div></div>`; document.body.style.overflow = 'hidden'; }
+
+/* ── Job editor (one-off or repeating) ── */
+let formState = null;
+function openJobForm(jobId, dateStr, presetClient) {
+  const existing = jobId ? rows.find(r => r.kind === 'job' && r.id === jobId) : null;
+  const start = existing ? new Date(existing.starts_at) : (() => { const d = fromYmd(dateStr || selected || ymd(new Date())); d.setHours(9, 0, 0, 0); return d; })();
+  formState = {
+    id: existing ? existing.id : null,
+    client_id: existing ? existing.client_id : (presetClient || (clients.length === 1 ? clients[0].id : '')),
+    pets: new Set(),
+    service_type: existing ? existing.service_type : 'dog_walking',
+    date: ymd(start), time: `${pad(start.getHours())}:${pad(start.getMinutes())}`,
+    duration: existing ? Math.max(5, minutesBetween(existing.starts_at, existing.ends_at)) : 60,
+    price: existing && existing.price_cents != null ? (existing.price_cents / 100).toFixed(2).replace(/\.00$/, '') : '',
+    notes: existing ? (existing.notes || '') : '', title: existing ? (existing.title || '') : '',
+    repeat: false, freq: 'specific_days', days: new Set([(start.getDay() + 6) % 7 + 1]), end_date: '',
+    source: existing ? existing.source : 'manual', series_id: existing ? existing.series_id : null,
+  };
+  if (existing) {
+    // Pet ids are not on the view; resolve by matching names against the client's pets.
+    const c = clients.find(x => x.id === existing.client_id);
+    const names = (existing.pet_names || '').split(',').map(s => s.trim().toLowerCase()).filter(Boolean);
+    if (c) activePets(c).forEach(p => { if (names.includes(p.name.toLowerCase())) formState.pets.add(p.id); });
+  } else {
+    const c = clients.find(x => x.id === formState.client_id);
+    if (c) activePets(c).forEach(p => formState.pets.add(p.id));
+  }
+  renderJobForm();
+}
+
+function renderJobForm() {
+  const f = formState;
+  const c = clients.find(x => x.id === f.client_id);
+  const pets = c ? activePets(c) : [];
+  const isEdit = !!f.id;
+  modal(`
+    <div class="sheet-head"><h2>${isEdit ? 'Edit job' : 'Add a job'}</h2><button class="close" onclick="closeModal()" aria-label="Close">×</button></div>
+    <form onsubmit="saveJob(event)">
+      <div class="form-grid">
+        <div class="field full"><label>Client</label>
+          <select onchange="onClientChange(this.value)">
+            <option value="">No client (just a label)</option>
+            ${clients.map(x => `<option value="${x.id}" ${x.id === f.client_id ? 'selected' : ''}>${esc(clientName(x))}${x.suburb ? ' · ' + esc(x.suburb) : ''}</option>`).join('')}
+          </select>
+          <div class="hint">${clients.length ? '' : 'No clients yet. '}<a href="/clients/?new=1" style="color:var(--terracotta)">Add a client</a></div>
+        </div>
+        ${pets.length ? `<div class="field full"><label>Dogs</label><div class="checks">${pets.map(p => `<label><input type="checkbox" ${f.pets.has(p.id) ? 'checked' : ''} onchange="this.checked?formState.pets.add('${p.id}'):formState.pets.delete('${p.id}')"> ${esc(p.name)}</label>`).join('')}</div></div>` : ''}
+        ${!c ? `<div class="field full"><label>Label</label><input value="${attr(f.title)}" oninput="formState.title=this.value" placeholder="e.g. Rover walk, Bella (Rover)"></div>` : `<div class="field full"><label>Label (optional)</label><input value="${attr(f.title)}" oninput="formState.title=this.value" placeholder="e.g. Beach day"></div>`}
+        <div class="field"><label>Service</label><select onchange="formState.service_type=this.value">${Object.entries(SERVICE_LABELS).map(([k, v]) => `<option value="${k}" ${k === f.service_type ? 'selected' : ''}>${v}</option>`).join('')}</select></div>
+        <div class="field"><label>Price ($)</label><input inputmode="decimal" value="${attr(f.price)}" oninput="formState.price=this.value" placeholder="35"></div>
+        <div class="field"><label>Date</label><input type="date" value="${attr(f.date)}" onchange="formState.date=this.value" required></div>
+        <div class="field"><label>Start time</label><input type="time" value="${attr(f.time)}" onchange="formState.time=this.value" required></div>
+        <div class="field full"><label>Length</label><div class="chips">${DURATIONS.map(m => `<button type="button" class="chip ${f.duration === m ? 'active' : ''}" onclick="formState.duration=${m};renderJobForm()">${durText(m)}</button>`).join('')}<input type="number" min="5" step="5" value="${f.duration}" style="width:80px;padding:6px 10px;border:1px solid var(--border);border-radius:999px;font-size:0.8rem;" onchange="formState.duration=Math.max(5,parseInt(this.value,10)||60);renderJobForm()"><span style="font-size:0.78rem;color:var(--text-muted);align-self:center;">min</span></div></div>
+        <div class="field full"><label>Notes</label><textarea oninput="formState.notes=this.value" placeholder="Anything for the day">${esc(f.notes)}</textarea></div>
+        ${!isEdit ? `<div class="field full"><label class="switch"><input type="checkbox" ${f.repeat ? 'checked' : ''} onchange="formState.repeat=this.checked;renderJobForm()"> Repeats</label></div>` : ''}
+        ${!isEdit && f.repeat ? `
+          <div class="field full"><label>How often</label><div class="chips">${[['daily','Every day'],['weekdays','Weekdays'],['specific_days','Specific days']].map(([k, v]) => `<button type="button" class="chip ${f.freq === k ? 'active' : ''}" onclick="formState.freq='${k}';renderJobForm()">${v}</button>`).join('')}</div></div>
+          ${f.freq === 'specific_days' ? `<div class="field full"><label>Days</label><div class="chips">${DAY_SHORT.map((d, i) => `<button type="button" class="chip ${f.days.has(i + 1) ? 'active' : ''}" onclick="formState.days.has(${i + 1})?formState.days.delete(${i + 1}):formState.days.add(${i + 1});renderJobForm()">${d}</button>`).join('')}</div></div>` : ''}
+          <div class="field full"><label>Until (optional)</label><input type="date" value="${attr(f.end_date)}" onchange="formState.end_date=this.value"><div class="hint">Leave empty for ongoing. Walks are created four weeks ahead and topped up nightly.</div></div>
+        ` : ''}
+      </div>
+      <div class="form-actions">
+        ${isEdit ? `<button type="button" class="btn danger sm left" onclick="removeJob('${f.id}')">${f.series_id ? 'Cancel this one' : 'Delete'}</button>` : ''}
+        <button type="button" class="btn ghost" onclick="closeModal()">Close</button>
+        <button type="submit" class="btn primary" id="saveJobBtn">${isEdit ? 'Save' : (f.repeat ? 'Create repeating job' : 'Add job')}</button>
+      </div>
+    </form>`);
+}
+function onClientChange(id) {
+  formState.client_id = id; formState.pets = new Set();
+  const c = clients.find(x => x.id === id); if (c) activePets(c).forEach(p => formState.pets.add(p.id));
+  renderJobForm();
+}
+
+async function saveJob(ev) {
+  ev.preventDefault();
+  const f = formState;
+  const btn = document.getElementById('saveJobBtn'); btn.disabled = true; btn.textContent = 'Saving…';
+  const start = new Date(`${f.date}T${f.time}:00`);
+  if (isNaN(start)) { btn.disabled = false; btn.textContent = 'Save'; return alert('Pick a date and time.'); }
+  const price = dollarsToCents(f.price);
+  const petIds = [...f.pets];
+  try {
+    if (!f.id && f.repeat) {
+      if (f.freq === 'specific_days' && !f.days.size) throw new Error('Pick at least one day.');
+      const s = await sbInsert('job_series', {
+        provider_user_id: authUid, client_id: f.client_id || null, title: f.title.trim() || null, service_type: f.service_type,
+        duration_mins: f.duration, frequency_type: f.freq, days_of_week: f.freq === 'specific_days' ? [...f.days].sort() : [],
+        time_of_day: f.time, start_date: f.date, end_date: f.end_date || null, price_cents: price, notes: f.notes.trim() || null, status: 'active',
+      });
+      const sid = s[0].id;
+      if (petIds.length) await sbInsert('job_series_pets', petIds.map(p => ({ series_id: sid, client_pet_id: p })));
+      // The insert trigger created the occurrences; this second pass attaches the pets to them.
+      await sbRpc('generate_job_occurrences', { p_series_id: sid, p_weeks_ahead: 4 });
+      await loadSeries();
+    } else {
+      const row = { client_id: f.client_id || null, title: f.title.trim() || null, service_type: f.service_type,
+                    starts_at: start.toISOString(), ends_at: new Date(start.getTime() + f.duration * 60000).toISOString(),
+                    price_cents: price, notes: f.notes.trim() || null };
+      let jobId = f.id;
+      if (jobId) {
+        await sbPatch('jobs', 'id', jobId, row);
+        await sbDelete('job_pets', `job_id=eq.${jobId}`);
+      } else {
+        const ins = await sbInsert('jobs', { ...row, provider_user_id: authUid, source: 'manual' }); jobId = ins[0].id;
+      }
+      if (petIds.length) await sbInsert('job_pets', petIds.map(p => ({ job_id: jobId, client_pet_id: p })));
+    }
+    closeModal();
+    // Jump to the week of the job so the carer sees it land.
+    weekStart = mondayOf(start); selected = f.date;
+    await refresh();
+    showMsg(f.id ? 'Job updated.' : (f.repeat ? 'Repeating job created for the next four weeks.' : 'Job added.'), 'success');
+  } catch (e) { btn.disabled = false; btn.textContent = 'Save'; alert(e.message); }
+}
+async function removeJob(id) {
+  const r = rows.find(x => x.id === id);
+  try {
+    if (r && r.series_id) { await sbPatch('jobs', 'id', id, { status: 'cancelled' }); }
+    else { if (!confirm('Delete this job?')) return; await sbDelete('jobs', `id=eq.${id}`); }
+    closeModal(); await refresh();
+  } catch (e) { alert(e.message); }
+}
+
+/* ── Subscribe (ICS feed, GitHub #158) ── */
+function feedUrl() { return `${SUPABASE_URL}/functions/v1/calendar-feed?token=${providerProfile.calendar_token}`; }
+function openSubscribe() {
+  const url = feedUrl();
+  modal(`
+    <div class="sheet-head"><h2>Subscribe in your calendar</h2><button class="close" onclick="closeModal()" aria-label="Close">×</button></div>
+    <div class="card"><div class="kv">Add this private link to the calendar you already use. Your Truffl bookings and your own jobs will show up there and stay in sync (calendar apps refresh every few hours).</div>
+      <div class="urlbox"><input id="feedUrl" readonly value="${attr(url)}" onclick="this.select()"><button class="btn secondary sm" onclick="copyFeed()">Copy</button></div>
+      <div class="kv" style="font-size:0.8rem;">
+        <div><b>iPhone / Mac:</b> <a href="${attr(url.replace(/^https:/, 'webcal:'))}" style="color:var(--terracotta)">tap to subscribe</a>, or Calendar → File → New Calendar Subscription.</div>
+        <div><b>Google Calendar:</b> on a computer, Other calendars → + → From URL, paste the link.</div>
+        <div><b>Outlook:</b> Add calendar → Subscribe from web.</div>
+      </div>
+    </div>
+    <div class="kv" style="font-size:0.8rem;color:var(--text-muted);">Anyone with this link can see your schedule. If it leaks, <button class="link-btn" onclick="rotateToken()">generate a new link</button>; old subscriptions stop working.</div>`);
+}
+async function copyFeed() { try { await navigator.clipboard.writeText(feedUrl()); showMsg('Calendar link copied.', 'success'); } catch (e) { document.getElementById('feedUrl').select(); document.execCommand('copy'); } }
+async function rotateToken() {
+  if (!confirm('Generate a new link? Calendars using the old one will stop updating until you re-add it.')) return;
+  try { providerProfile.calendar_token = await sbRpc('rotate_calendar_token', {}); openSubscribe(); showMsg('New calendar link generated.', 'success'); }
+  catch (e) { alert(e.message); }
+}
+
+/* ── ICS import (GitHub #159) ── */
+let icsEvents = [];
+function openIcsImport() {
+  icsEvents = [];
+  modal(`
+    <div class="sheet-head"><h2>Import a calendar</h2><button class="close" onclick="closeModal()" aria-label="Close">×</button></div>
+    <p style="font-size:0.86rem;color:var(--text-secondary);line-height:1.6;margin-bottom:12px;">Export your walks from Google Calendar, Apple Calendar, Rover or Mad Paws as an <b>.ics</b> file and drop it here. Repeating events are expanded eight weeks ahead. Importing the same file twice updates rather than duplicates.</p>
+    <label class="drop"><input type="file" accept=".ics,text/calendar" onchange="onIcsFile(this.files[0])">Tap to choose an .ics file</label>
+    <div id="icsPreview"></div>`);
+}
+function unfoldIcs(text) { return text.replace(/\r\n[ \t]/g, '').replace(/\n[ \t]/g, '').split(/\r?\n/); }
+function parseIcsDate(val, params) {
+  const p = params || {};
+  if (/^\d{8}$/.test(val)) return { d: new Date(+val.slice(0, 4), +val.slice(4, 6) - 1, +val.slice(6, 8), 9, 0), allDay: true };
+  const m = val.match(/^(\d{4})(\d{2})(\d{2})T(\d{2})(\d{2})(\d{2})?(Z)?$/);
+  if (!m) return null;
+  if (m[7] === 'Z') return { d: new Date(Date.UTC(+m[1], +m[2] - 1, +m[3], +m[4], +m[5], +(m[6] || 0))), allDay: false };
+  // Floating or TZID: treated as local time (carers and their calendars are on Sydney time).
+  return { d: new Date(+m[1], +m[2] - 1, +m[3], +m[4], +m[5], +(m[6] || 0)), allDay: false, tzid: p.TZID || null };
+}
+function parseDuration(s) { const m = (s || '').match(/^-?P(?:(\d+)D)?(?:T(?:(\d+)H)?(?:(\d+)M)?(?:(\d+)S)?)?$/); if (!m) return null; return ((+m[1] || 0) * 1440 + (+m[2] || 0) * 60 + (+m[3] || 0)); }
+function parseIcs(text) {
+  const lines = unfoldIcs(text);
+  const events = []; let cur = null;
+  for (const line of lines) {
+    if (line === 'BEGIN:VEVENT') { cur = { exdates: new Set() }; continue; }
+    if (line === 'END:VEVENT') { if (cur) events.push(cur); cur = null; continue; }
+    if (!cur) continue;
+    const idx = line.indexOf(':'); if (idx < 0) continue;
+    const head = line.slice(0, idx), val = line.slice(idx + 1);
+    const [name, ...paramParts] = head.split(';');
+    const params = {}; paramParts.forEach(pp => { const [k, v] = pp.split('='); params[k] = v; });
+    const key = name.toUpperCase();
+    if (key === 'DTSTART') cur.start = parseIcsDate(val, params);
+    else if (key === 'DTEND') cur.end = parseIcsDate(val, params);
+    else if (key === 'DURATION') cur.duration = parseDuration(val);
+    else if (key === 'SUMMARY') cur.summary = val.replace(/\\,/g, ',').replace(/\\;/g, ';').replace(/\\n/g, ' ');
+    else if (key === 'DESCRIPTION') cur.description = val.replace(/\\,/g, ',').replace(/\\;/g, ';').replace(/\\n/g, '\n');
+    else if (key === 'LOCATION') cur.location = val.replace(/\\,/g, ',');
+    else if (key === 'UID') cur.uid = val;
+    else if (key === 'RRULE') cur.rrule = Object.fromEntries(val.split(';').map(p => p.split('=')));
+    else if (key === 'EXDATE') val.split(',').forEach(v => { const d = parseIcsDate(v, params); if (d) cur.exdates.add(ymd(d.d) + 'T' + pad(d.d.getHours()) + pad(d.d.getMinutes())); });
+    else if (key === 'RECURRENCE-ID') cur.recurrenceId = val;
+    else if (key === 'STATUS') cur.status = val.toUpperCase();
+  }
+  // Expand into occurrences.
+  const out = [];
+  const horizon = addDays(new Date(), 56);
+  const floor = addDays(new Date(), -14);
+  const DAYMAP = { MO:1, TU:2, WE:3, TH:4, FR:5, SA:6, SU:7 };
+  for (const ev of events) {
+    if (!ev.start || ev.status === 'CANCELLED') continue;
+    const durMin = ev.end ? Math.max(5, Math.round((ev.end.d - ev.start.d) / 60000)) : (ev.duration || 60);
+    const base = { summary: ev.summary || 'Imported event', description: ev.description || '', location: ev.location || '', uid: ev.uid || ('gen-' + Math.random().toString(36).slice(2)), durMin: ev.start.allDay ? 60 : durMin, allDay: ev.start.allDay };
+    if (!ev.rrule) {
+      if (ev.start.d >= floor) out.push({ ...base, start: ev.start.d, key: base.uid + (ev.recurrenceId ? ':' + ev.recurrenceId : '') });
+      continue;
+    }
+    const freq = (ev.rrule.FREQ || '').toUpperCase();
+    if (freq !== 'WEEKLY' && freq !== 'DAILY') { if (ev.start.d >= floor) out.push({ ...base, start: ev.start.d, key: base.uid, note: 'repeat rule not supported, first occurrence only' }); continue; }
+    const interval = Math.max(1, parseInt(ev.rrule.INTERVAL || '1', 10));
+    const until = ev.rrule.UNTIL ? (parseIcsDate(ev.rrule.UNTIL, {}) || {}).d : null;
+    let count = ev.rrule.COUNT ? parseInt(ev.rrule.COUNT, 10) : Infinity;
+    const byday = freq === 'WEEKLY' ? (ev.rrule.BYDAY ? ev.rrule.BYDAY.split(',').map(x => DAYMAP[x.slice(-2)]).filter(Boolean) : [(ev.start.d.getDay() + 6) % 7 + 1]) : null;
+    let d = new Date(ev.start.d); let produced = 0; let guard = 0;
+    const weekAnchor = mondayOf(ev.start.d);
+    while (d <= horizon && produced < count && guard++ < 2000) {
+      const dow = (d.getDay() + 6) % 7 + 1;
+      let ok = true;
+      if (freq === 'WEEKLY') { const weeksFrom = Math.round((mondayOf(d) - weekAnchor) / (7 * 864e5)); ok = byday.includes(dow) && weeksFrom % interval === 0; }
+      else { const daysFrom = Math.round((new Date(d.getFullYear(), d.getMonth(), d.getDate()) - new Date(ev.start.d.getFullYear(), ev.start.d.getMonth(), ev.start.d.getDate())) / 864e5); ok = daysFrom % interval === 0; }
+      if (ok && d >= ev.start.d) {
+        if (until && d > until) break;
+        produced++;
+        const k = ymd(d) + 'T' + pad(d.getHours()) + pad(d.getMinutes());
+        if (d >= floor && !ev.exdates.has(k)) out.push({ ...base, start: new Date(d), key: base.uid + ':' + k });
+      }
+      d = addDays(d, 1);
+    }
+  }
+  out.sort((a, b) => a.start - b.start);
+  return out;
+}
+function matchClient(text) {
+  const t = (text || '').toLowerCase();
+  let best = null;
+  for (const c of clients) {
+    const names = [clientName(c).toLowerCase(), (c.first_name || '').toLowerCase(), ...activePets(c).map(p => p.name.toLowerCase())].filter(s => s.length >= 3);
+    if (names.some(n => t.includes(n))) { if (!best || clientName(c).length > clientName(best).length) best = c; }
+  }
+  return best;
+}
+async function onIcsFile(file) {
+  if (!file) return;
+  const text = await file.text();
+  try { icsEvents = parseIcs(text); } catch (e) { document.getElementById('icsPreview').innerHTML = `<div class="msg error" style="display:block;margin-top:10px;">Could not read that file: ${esc(e.message)}</div>`; return; }
+  if (!icsEvents.length) { document.getElementById('icsPreview').innerHTML = '<div class="msg info" style="display:block;margin-top:10px;">No events found between two weeks ago and eight weeks ahead.</div>'; return; }
+  const today = new Date(); today.setHours(0, 0, 0, 0);
+  icsEvents.forEach(ev => { ev.selected = ev.start >= today; const c = matchClient(ev.summary + ' ' + ev.description); ev.client_id = c ? c.id : ''; ev.service_type = guessService(ev.summary); });
+  document.getElementById('icsPreview').innerHTML = `
+    <div class="kv" style="margin:12px 0 4px;">${icsEvents.length} event${icsEvents.length === 1 ? '' : 's'} found. Untick anything that is not a job. Past events are unticked by default.</div>
+    <div id="icsList">${icsEvents.map((ev, i) => `<div class="ev-row">
+      <input type="checkbox" ${ev.selected ? 'checked' : ''} onchange="icsEvents[${i}].selected=this.checked">
+      <div><div><b>${esc(ev.summary)}</b>${ev.note ? ` <span class="tag import">${esc(ev.note)}</span>` : ''}</div><div class="t">${esc(ev.start.toLocaleDateString('en-AU', { weekday:'short', day:'numeric', month:'short' }))} ${esc(fmtTime(ev.start))} · ${esc(durText(ev.durMin))}${ev.allDay ? ' · all-day, set to 9am' : ''}</div></div>
+      <select onchange="icsEvents[${i}].client_id=this.value"><option value="">No client</option>${clients.map(c => `<option value="${c.id}" ${c.id === ev.client_id ? 'selected' : ''}>${esc(clientName(c))}</option>`).join('')}</select>
+    </div>`).join('')}</div>
+    <div class="form-actions"><button class="btn ghost" onclick="closeModal()">Cancel</button><button class="btn primary" id="icsBtn" onclick="runIcsImport()">Import selected</button></div>`;
+}
+async function runIcsImport() {
+  const sel = icsEvents.filter(e => e.selected);
+  if (!sel.length) return alert('Nothing selected.');
+  const btn = document.getElementById('icsBtn'); btn.disabled = true; btn.textContent = 'Importing…';
+  try {
+    const payload = sel.map(ev => ({
+      provider_user_id: authUid, client_id: ev.client_id || null,
+      title: ev.summary.slice(0, 200), service_type: ev.service_type,
+      starts_at: ev.start.toISOString(), ends_at: new Date(ev.start.getTime() + ev.durMin * 60000).toISOString(),
+      notes: [ev.description, ev.location].filter(Boolean).join('\n').slice(0, 2000) || null,
+      source: 'import', external_uid: ev.key.slice(0, 500),
+    }));
+    // Upsert on (provider_user_id, external_uid): a re-import refreshes times and titles instead of duplicating.
+    for (let i = 0; i < payload.length; i += 100) {
+      await sbInsert('jobs', payload.slice(i, i + 100), 'on_conflict=provider_user_id,external_uid', { 'Prefer': 'return=representation,resolution=merge-duplicates' });
+    }
+    closeModal();
+    const first = sel[0].start; weekStart = mondayOf(first >= new Date() ? first : new Date()); selected = ymd(weekStart);
+    await refresh();
+    showMsg(`Imported ${sel.length} event${sel.length === 1 ? '' : 's'}. Open a job to attach dogs or set a price.`, 'success');
+  } catch (e) { btn.disabled = false; btn.textContent = 'Import selected'; alert('Import stopped: ' + e.message); }
+}
+
+/* ── Boot ── */
+async function init() {
+  const area = document.getElementById('content');
+  const stored = localStorage.getItem('truffl_session');
+  if (stored) { try { const s = JSON.parse(stored); authToken = s.access_token; authUid = s.user_id; } catch (e) {} }
+  if (!authToken) {
+    area.innerHTML = `<div class="login-prompt"><h2>Sign in to see your schedule</h2><p>Your calendar lives in your carer account.</p><a href="/login/?redirect=/schedule/">Sign in</a></div>`;
+    return;
+  }
+  try {
+    const users = await sbGet('users', `id=eq.${authUid}&select=first_name,last_name,role`);
+    if (!users.length) { localStorage.removeItem('truffl_session'); location.href = '/login/?redirect=/schedule/'; return; }
+    userData = users[0];
+    if (userData.role !== 'provider') {
+      area.innerHTML = `<div class="login-prompt"><h2>This is the carer schedule</h2><p>You're signed in as an owner. <a href="/profile/">Go to your profile</a></p></div>`;
+      return;
+    }
+    const ini = ((userData.first_name || '')[0] || '') + ((userData.last_name || '')[0] || '');
+    document.getElementById('navUser').innerHTML = `<a href="/profile/" title="Your profile" style="display:flex;align-items:center;gap:8px;text-decoration:none;color:inherit;"><div class="nav-avatar">${esc(ini)}</div><span class="nav-name">${esc(userData.first_name)}</span></a>`;
+
+    const params = new URLSearchParams(location.search);
+    const d = params.get('d') && /^\d{4}-\d{2}-\d{2}$/.test(params.get('d')) ? fromYmd(params.get('d')) : new Date();
+    weekStart = mondayOf(d); selected = ymd(d);
+
+    const [profiles] = await Promise.all([
+      sbGet('provider_profiles', `user_id=eq.${authUid}&select=id,calendar_token`),
+      loadClients(), loadSeries(), loadWeek(),
+    ]);
+    providerProfile = profiles[0] || {};
+    renderPage();
+    if (params.get('new')) openJobForm(null, selected, params.get('client') || '');
+  } catch (e) {
+    area.innerHTML = `<div class="login-prompt"><h2>Something went wrong</h2><p>${esc(e.message)}</p><a href="/login/?redirect=/schedule/">Try signing in again</a></div>`;
+  }
+}
+document.addEventListener('DOMContentLoaded', init);
+</script>
+</body>
+</html>

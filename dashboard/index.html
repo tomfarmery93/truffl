@@ -62,6 +62,7 @@
     font-size: 0.75rem; font-weight: 600; color: var(--brown);
   }
   .nav-name { font-size: 0.85rem; font-weight: 500; color: var(--text-primary); }
+  @media (max-width: 640px) { .nav-hide-sm { display: none; } }
 
   .page-wrapper { max-width: 800px; margin: 0 auto; padding: 2rem 1.5rem 4rem; }
 
@@ -325,7 +326,9 @@
     </svg>
   </a>
   <div class="nav-right">
-    <a href="/carer-guidelines/">Guidelines</a>
+    <a href="/schedule/">Schedule</a>
+    <a href="/clients/">Clients</a>
+    <a href="/carer-guidelines/" class="nav-hide-sm">Guidelines</a>
     <a href="/messages/" class="nav-msg" id="navMsg" title="Messages" aria-label="Messages">
       <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/></svg>
       <span class="nav-msg-badge" id="navMsgBadge" style="display:none;">0</span>
@@ -1343,6 +1346,8 @@ function renderDashboard() {
 
     ${activeWalkBarHtml()}
 
+    <div id="todayCard"></div>
+
     ${setupChecklistHtml()}
 
     <div class="tabs">
@@ -1663,6 +1668,7 @@ async function init() {
     }
 
     renderDashboard();
+    loadTodayCard();
     // TRU-157: deep-link a tab (Stripe onboarding returns to ?tab=earnings so the
     // carer lands on the payout confirmation instead of the default bookings view).
     if (tabParam && document.querySelector(`.tab[data-tab="${tabParam}"]`)) switchTab(tabParam);
@@ -1671,6 +1677,26 @@ async function init() {
   } catch(e) {
     area.innerHTML = `<div class="login-prompt"><h2>Something went wrong</h2><p>${e.message}</p><a href="/login/">Try signing in again</a></div>`;
   }
+}
+
+/* Today card: the carer's whole day (own jobs + Truffl bookings) from provider_schedule,
+   with links into the schedule and client book. Enhancement only: hidden on any error. */
+async function loadTodayCard() {
+  const el = document.getElementById('todayCard'); if (!el) return;
+  try {
+    const start = new Date(); start.setHours(0, 0, 0, 0);
+    const end = new Date(start); end.setDate(end.getDate() + 1);
+    const rows = await sbGet('provider_schedule', `starts_at=gte.${start.toISOString()}&starts_at=lt.${end.toISOString()}&status=neq.cancelled&select=kind,client_name,pet_names,service_type,starts_at,status&order=starts_at.asc`);
+    const next = rows.find(r => new Date(r.starts_at) > new Date() && r.status !== 'completed');
+    const fmt = iso => new Date(iso).toLocaleTimeString('en-AU', { hour:'numeric', minute:'2-digit' });
+    const line = rows.length
+      ? `${rows.length} on today${rows.filter(r => r.kind === 'booking').length ? ` (${rows.filter(r => r.kind === 'booking').length} via Truffl)` : ''}${next ? ` · next up ${fmt(next.starts_at)}, ${esc(next.client_name || 'job')}${next.pet_names ? ' with ' + esc(next.pet_names) : ''}` : ''}`
+      : 'Nothing on today. Your own clients and Truffl bookings share one calendar now.';
+    el.innerHTML = `<a href="/schedule/" class="active-walk-bar" style="border-left-color:var(--sage);">
+      <div class="awb-text"><strong>Today</strong><span class="awb-sub">${line}</span></div>
+      <span class="awb-resume" style="background:var(--sage-dark);">Open schedule</span>
+    </a>`;
+  } catch (e) { el.innerHTML = ''; }
 }
 
 async function refreshMsgBadge() {
