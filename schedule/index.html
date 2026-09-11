@@ -109,6 +109,12 @@
   .tag.truffl { color: var(--terracotta); background: #F7E9E3; }
   .tag.recurring { color: var(--sage-dark); background: var(--success-bg); }
   .tag.import { color: var(--warning); background: var(--warning-bg); }
+  .tag.google { color: #1a73e8; background: #e8f0fe; }
+  .gcal-head { display: flex; align-items: center; gap: 10px; margin-bottom: 8px; flex-wrap: wrap; }
+  .gcal-logo { width: 28px; height: 28px; border-radius: 8px; background: #fff; border: 1px solid var(--border); display: inline-flex; align-items: center; justify-content: center; font-weight: 700; color: #1a73e8; font-family: Arial, sans-serif; }
+  .gcal-status { font-size: 0.82rem; color: var(--text-secondary); margin: 6px 0 10px; line-height: 1.5; }
+  .gcal-status.err { color: var(--error, #b3261e); }
+  .tag.beta { color: var(--sage-dark); background: var(--success-bg); }
   .tag.mg { color: var(--brown-light); background: var(--cream); border: 1px solid var(--border); }
   .pill { font-size: 0.68rem; font-weight: 600; padding: 2px 8px; border-radius: 20px; text-transform: uppercase; letter-spacing: .03em; }
   .p-paid { background: var(--success-bg); color: var(--success); }
@@ -246,6 +252,7 @@ let view = window.innerWidth < 700 ? 'day' : 'week';
 let payChoice = null;        // job id showing the payment-method chooser
 let hasAnyJob = false;       // any job ever (the week's rows are not enough to know)
 let welcomeDismissedLocal = false;
+let gcal = null;                // google_calendar_connections row for this carer, or null (GitHub #160)
 
 /* ── Supabase helpers ── */
 function headers(extra) {
@@ -328,6 +335,10 @@ async function loadClients() {
    Three steps that make the page useful: a client, a walk, the calendar on their phone. The
    first two are inferred from data; the third and a dismissal are stored on the profile
    (provider_profiles.onboarding, jsonb) so progress follows the carer across devices. */
+async function loadGcal() {
+  try { gcal = (await sbGet('google_calendar_connections', `provider_user_id=eq.${authUid}&select=google_email,read_primary,status,last_error,last_synced_at,scopes`))[0] || null; }
+  catch (e) { gcal = null; }
+}
 async function loadHasAnyJob() {
   try { const r = await sbGet('jobs', `provider_user_id=eq.${authUid}&select=id&limit=1`); hasAnyJob = r.length > 0; } catch (e) { hasAnyJob = false; }
 }
@@ -342,7 +353,7 @@ function welcomeSteps() {
   return [
     { key: 'client', ok: clients.length > 0, label: 'Add a client and their dog', hint: 'Name, mobile and the dog. Thirty seconds.', action: "track('client');location.href='/clients/?new=1'" },
     { key: 'job', ok: hasAnyJob || series.length > 0 || rows.some(r => r.kind === 'job'), label: 'Add a walk', hint: 'One-off or repeating. It lands on the calendar right away.', action: "track('job');openJobForm()" },
-    { key: 'calendar', ok: !!onboarding().calendar_subscribed_at, label: 'Subscribe your phone calendar', hint: 'One link, and your schedule shows up next to everything else.', action: "track('calendar');openSubscribe()" },
+    { key: 'calendar', ok: !!onboarding().calendar_subscribed_at || !!gcal, label: 'Sync your calendar', hint: 'Connect Google Calendar, or subscribe from any calendar app.', action: "track('calendar');openSubscribe()" },
   ];
 }
 function welcomeVisible() {
@@ -385,7 +396,7 @@ function renderPage() {
     <div class="welcome">
       <div><h1>Schedule</h1><p>${rows.length ? summaryFor(rows) + ' this week' : 'Everything you have on, in one place.'}</p></div>
       <div class="welcome-actions">
-        <button class="btn secondary" onclick="openSubscribe()">${ICONS.cal} Subscribe</button>
+        <button class="btn secondary" onclick="openSubscribe()">${ICONS.cal} ${gcal ? 'Calendar sync' : 'Sync calendar'}</button>
         <button class="btn secondary" onclick="openIcsImport()">${ICONS.upload} Import .ics</button>
         <button class="btn primary" onclick="openJobForm()">${ICONS.plus} Add job</button>
       </div>
@@ -414,7 +425,7 @@ function renderBody() {
       <div class="steps">
         <div>1. <a href="/clients/?new=1">Add a client</a> and their dog.</div>
         <div>2. <a href="javascript:void(0)" onclick="openJobForm()">Add a walk</a>, one-off or repeating.</div>
-        <div>3. <a href="javascript:void(0)" onclick="openSubscribe()">Subscribe</a> so it shows in your phone's calendar.</div>
+        <div>3. <a href="javascript:void(0)" onclick="openSubscribe()">Sync your calendar</a> so it shows up next to everything else.</div>
       </div>
       <p style="margin-top:12px;">Already have a calendar full of walks? <a href="javascript:void(0)" onclick="openIcsImport()" style="color:var(--terracotta);font-weight:600;text-decoration:none;">Import an .ics file</a>.</p></div>`;
     return;
@@ -438,6 +449,7 @@ function jobCardHtml(r) {
     r.is_meet_and_greet ? '<span class="tag mg">Meet &amp; greet</span>' : '',
     own && r.source === 'series' ? '<span class="tag recurring">Recurring</span>' : '',
     own && r.source === 'import' ? '<span class="tag import">Imported</span>' : '',
+    own && r.source === 'google' ? '<span class="tag google">Google</span>' : '',
   ].join('');
   const status = cancelled ? '<span class="pill p-cancelled">Cancelled</span>'
     : !own && r.status === 'pending' ? '<span class="pill p-pending">Request</span>'
@@ -667,13 +679,40 @@ async function removeJob(id) {
   } catch (e) { alert(e.message); }
 }
 
-/* ── Subscribe (ICS feed, GitHub #158) ── */
+/* ── Calendar sync sheet: Google Calendar (GitHub #160) and the ICS feed (GitHub #158) ── */
 function feedUrl() { return `${SUPABASE_URL}/functions/v1/calendar-feed?token=${providerProfile.calendar_token}`; }
+function isNative() { return !!(window.Capacitor && typeof window.Capacitor.isNativePlatform === 'function' && window.Capacitor.isNativePlatform()); }
+function ago(iso) {
+  if (!iso) return 'never';
+  const m = Math.round((Date.now() - new Date(iso)) / 60000);
+  if (m < 1) return 'just now'; if (m < 60) return `${m} min ago`; if (m < 60 * 24) return `${Math.round(m / 60)} h ago`;
+  return new Date(iso).toLocaleDateString('en-AU', { day: 'numeric', month: 'short' });
+}
+function gcalCanReadPrimary() { return !!(gcal && (gcal.scopes || '').split(/\s+/).includes('https://www.googleapis.com/auth/calendar.events.readonly')); }
+function gcalCardHtml() {
+  const head = `<div class="gcal-head"><span class="gcal-logo">G</span><b>Google Calendar</b><span class="tag beta">Pro · free in beta</span></div>`;
+  if (!gcal) {
+    return `<div class="card">${head}
+      <div class="kv">Two-way sync. Truffl creates a <b>Truffl</b> calendar in your Google account and keeps your jobs and bookings in it. Add a walk to that calendar on your phone and it appears here within ten minutes. Your other calendars are not read unless you say so.</div>
+      <label class="switch" style="margin:10px 0;"><input type="checkbox" id="gcalRp"> Also bring in events from my main Google calendar</label>
+      <div class="form-actions" style="margin-top:8px;"><button class="btn primary" id="gcalConnectBtn" onclick="gcalConnect()">Connect Google Calendar</button></div>
+    </div>`;
+  }
+  const err = gcal.status === 'error' || gcal.last_error;
+  return `<div class="card">${head}
+    <div class="gcal-status ${gcal.status === 'error' ? 'err' : ''}">Connected as <b>${esc(gcal.google_email || 'your Google account')}</b> · last synced ${esc(ago(gcal.last_synced_at))}.${err ? `<br>${esc(gcal.last_error || 'Google needs you to reconnect.')}` : ''}</div>
+    ${gcal.status === 'error' ? `<div class="form-actions" style="margin:0 0 10px;"><button class="btn primary" id="gcalConnectBtn" onclick="gcalConnect(${gcal.read_primary ? 'true' : 'false'})">Reconnect Google</button></div>` : ''}
+    <label class="switch" style="margin:6px 0;"><input type="checkbox" ${gcal.read_primary ? 'checked' : ''} onchange="gcalToggleRead(this.checked)"> Also bring in events from my main Google calendar</label>
+    <div class="kv" style="font-size:0.78rem;color:var(--text-muted);">Events from your main calendar are read-only copies here: change them in Google. Truffl bookings are read-only in Google: change them in Truffl.</div>
+    <div class="form-actions" style="margin-top:10px;"><button class="btn ghost sm left" onclick="gcalDisconnect()">Disconnect</button><button class="btn secondary" id="gcalSyncBtn" onclick="gcalSyncNow()">Sync now</button></div>
+  </div>`;
+}
 function openSubscribe() {
   const url = feedUrl();
   modal(`
-    <div class="sheet-head"><h2>Subscribe in your calendar</h2><button class="close" onclick="closeModal()" aria-label="Close">×</button></div>
-    <div class="card"><div class="kv">Add this private link to the calendar you already use. Your Truffl bookings and your own jobs will show up there and stay in sync (calendar apps refresh every few hours).</div>
+    <div class="sheet-head"><h2>Sync your calendar</h2><button class="close" onclick="closeModal()" aria-label="Close">×</button></div>
+    <div id="gcalCard">${gcalCardHtml()}</div>
+    <div class="card"><div class="kv"><b>Any other calendar app</b> (Apple, Outlook, or Google without connecting). Add this private link and your Truffl bookings and jobs show up there, one way, refreshed every few hours.</div>
       <div class="urlbox"><input id="feedUrl" readonly value="${attr(url)}" onclick="this.select()"><button class="btn secondary sm" onclick="copyFeed()">Copy</button></div>
       <div class="kv" style="font-size:0.8rem;">
         <div><b>iPhone / Mac:</b> <a href="${attr(url.replace(/^https:/, 'webcal:'))}" style="color:var(--terracotta)" onclick="markSubscribed()">tap to subscribe</a>, or Calendar → File → New Calendar Subscription.</div>
@@ -682,6 +721,60 @@ function openSubscribe() {
       </div>
     </div>
     <div class="kv" style="font-size:0.8rem;color:var(--text-muted);">Anyone with this link can see your schedule. If it leaks, <button class="link-btn" onclick="rotateToken()">generate a new link</button>; old subscriptions stop working.</div>`);
+}
+async function gcalCall(action, body) {
+  const r = await fetch(`${SUPABASE_URL}/functions/v1/google-calendar`, { method: 'POST', headers: headers(), body: JSON.stringify(Object.assign({ action }, body || {})) });
+  const d = await r.json().catch(() => ({}));
+  if (!r.ok && !d.connection) throw new Error(d.error || `Request failed (${r.status})`);
+  return d;
+}
+function gcalGo(url) {
+  // Google refuses OAuth inside embedded web views, so the app hands the consent screen to
+  // the system browser; the callback lands on trufflpets.com/schedule/ there.
+  if (isNative()) window.open(url, '_blank'); else location.href = url;
+}
+async function gcalConnect(readPrimary) {
+  const rp = typeof readPrimary === 'boolean' ? readPrimary : !!(document.getElementById('gcalRp') && document.getElementById('gcalRp').checked);
+  const btn = document.getElementById('gcalConnectBtn'); if (btn) { btn.disabled = true; btn.textContent = 'Opening Google…'; }
+  track('google_connect');
+  try { const d = await gcalCall('connect', { read_primary: rp }); gcalGo(d.url); }
+  catch (e) { if (btn) { btn.disabled = false; btn.textContent = 'Connect Google Calendar'; } alert(e.message); }
+}
+async function gcalSyncNow() {
+  const btn = document.getElementById('gcalSyncBtn'); if (btn) { btn.disabled = true; btn.textContent = 'Syncing…'; }
+  try {
+    const d = await gcalCall('sync_now');
+    await loadGcal(); const card = document.getElementById('gcalCard'); if (card) card.innerHTML = gcalCardHtml();
+    if (d.ok) { const p = d.summary.pulled, q = d.summary.pushed; showMsg(`Synced. ${p.created + p.updated + p.cancelled} change${p.created + p.updated + p.cancelled === 1 ? '' : 's'} from Google, ${q.created + q.updated + q.deleted} to Google.`, 'success'); await refresh(); }
+    else showMsg(d.error || 'Sync failed.', 'error');
+  } catch (e) { if (btn) { btn.disabled = false; btn.textContent = 'Sync now'; } alert(e.message); }
+}
+async function gcalToggleRead(value) {
+  try {
+    const d = await gcalCall('set_read_primary', { value });
+    if (d.needs_consent) { if (confirm('Google needs your permission to read your main calendar. Open Google to allow it?')) gcalGo(d.url); else { await loadGcal(); const c = document.getElementById('gcalCard'); if (c) c.innerHTML = gcalCardHtml(); } return; }
+    await loadGcal(); const card = document.getElementById('gcalCard'); if (card) card.innerHTML = gcalCardHtml();
+    if (value) { showMsg('Your main calendar is now included. Events appear as jobs within a few minutes.', 'success'); await refresh(); }
+  } catch (e) { alert(e.message); await loadGcal(); const c = document.getElementById('gcalCard'); if (c) c.innerHTML = gcalCardHtml(); }
+}
+async function gcalDisconnect() {
+  if (!confirm('Disconnect Google Calendar? The Truffl calendar stays in your Google account but stops updating, and jobs already here stay here.')) return;
+  try { await gcalCall('disconnect'); gcal = null; const card = document.getElementById('gcalCard'); if (card) card.innerHTML = gcalCardHtml(); showMsg('Google Calendar disconnected.', 'success'); renderPage(); }
+  catch (e) { alert(e.message); }
+}
+function handleGcalReturn(params) {
+  const g = params.get('google'); if (!g) return;
+  history.replaceState(null, '', '/schedule/' + (selected ? '?d=' + selected : ''));
+  if (g === 'connected') {
+    track('google_connected');
+    const syncErr = params.get('sync');
+    showMsg(syncErr ? `Google Calendar connected, but the first sync hit a problem: ${syncErr}` : 'Google Calendar connected. Your jobs are on their way to a new "Truffl" calendar in Google.', syncErr ? 'error' : 'success');
+    if (!onboarding().calendar_subscribed_at) saveOnboarding({ calendar_subscribed_at: new Date().toISOString() });
+  } else {
+    const reasons = { state: 'the sign-in link expired, please try again', access_denied: 'you cancelled on the Google screen', scope: 'Truffl was not given calendar access', no_refresh_token: 'Google did not hand back a long-lived token, please try again', exchange: 'Google rejected the sign-in', store: 'we could not save the connection' };
+    showMsg(`Google Calendar was not connected: ${reasons[params.get('reason')] || 'something went wrong'}.`, 'error');
+  }
+  openSubscribe();
 }
 async function copyFeed() {
   try { await navigator.clipboard.writeText(feedUrl()); showMsg('Calendar link copied.', 'success'); } catch (e) { document.getElementById('feedUrl').select(); document.execCommand('copy'); }
@@ -857,11 +950,12 @@ async function init() {
 
     const [profiles] = await Promise.all([
       sbGet('provider_profiles', `user_id=eq.${authUid}&select=*`),
-      loadClients(), loadSeries(), loadWeek(), loadHasAnyJob(),
+      loadClients(), loadSeries(), loadWeek(), loadHasAnyJob(), loadGcal(),
     ]);
     providerProfile = profiles[0] || {};
     renderPage();
     if (params.get('new')) openJobForm(null, selected, params.get('client') || '');
+    handleGcalReturn(params);
   } catch (e) {
     area.innerHTML = `<div class="login-prompt"><h2>Something went wrong</h2><p>${esc(e.message)}</p><a href="/login/?redirect=/schedule/">Try signing in again</a></div>`;
   }

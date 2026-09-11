@@ -268,6 +268,7 @@ D1 and D2 (immediate daily value), E2 and E3 (revenue for the carer), E4 and E5
   `provider_schedule` view, calendar feed token, auto-link trigger and backfill for
   Truffl owners, deletion-sweep extension.
 - `supabase/functions/calendar-feed/`: the ICS feed.
+- `supabase/functions/google-calendar/`: Google Calendar two-way sync (OAuth, sync engine, push and poll).
 - `/clients/`: the client book.
 - `/schedule/`: the calendar, job editor, ICS import and subscribe link.
 - `/dashboard/`: navigation to the new tools and a today summary.
@@ -289,6 +290,21 @@ merging, because the dashboard links to the new pages as soon as it ships.
   shareable report link (`/report/?t=…`) the carer can turn off. Photos stay in the
   existing public bucket, matching the owner-facing track page; the token gates the
   listing, not the objects.
+
+- **C3 (Google Calendar two-way sync).** OAuth via a `google-calendar` edge function;
+  Truffl creates a "Truffl" calendar in the carer's Google account and mirrors jobs and
+  confirmed bookings into it (30 days back, 90 ahead). Events the carer adds to that
+  calendar become jobs (source `google`); reading their main calendar too is an opt-in
+  that asks Google for one extra read-only scope. Truffl edits reach Google within
+  seconds (a DB trigger posts through pg_net); Google edits come back on a ten-minute
+  pg_cron poll that uses Google's incremental sync tokens and also reconciles anything a
+  push missed. Etag plus content-hash bookkeeping in `calendar_event_links` stops the two
+  sides echoing each other; the most recent edit wins and deletions propagate as
+  cancellations. Bookings are read-only in Google. Decisions taken: main-calendar reading
+  is per-carer configurable; the Google Cloud app stays in Testing for the pilot (named
+  test users, weekly reconnect) and goes to production before launch; the feature is
+  open to everyone until subscriptions (E4) land. Setup steps in
+  `docs/google-calendar-setup.md`.
 
 ## 9. Ticket index
 

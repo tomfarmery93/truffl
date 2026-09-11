@@ -13,3 +13,8 @@ major_version = 17
 # string is the credential (GitHub #158). Deploy with --no-verify-jwt, as for the others.
 [functions.calendar-feed]
 verify_jwt = false
+
+# Google OAuth redirects and pg_net calls carry no Supabase JWT; each route authenticates
+# itself (HMAC state, shared webhook secret, or the carer's JWT) (GitHub #160).
+[functions.google-calendar]
+verify_jwt = false
