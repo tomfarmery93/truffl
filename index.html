@@ -236,6 +236,19 @@
     .step-title { font-family: 'Cormorant Garamond', Georgia, serif; font-size: 18px; color: var(--brown); margin-bottom: 10px; font-weight: 400; }
     .step-desc { font-size: 13px; color: var(--text-mid); font-weight: 300; line-height: 1.7; }
 
+    /* ── FOR CARERS ── */
+    .carers { padding: 100px 56px; background: var(--warm); display: grid; grid-template-columns: 1.1fr 1fr; gap: 72px; align-items: center; }
+    .carers-actions { display: flex; gap: 12px; flex-wrap: wrap; align-items: center; margin-top: 32px; }
+    .carers-mock { background: #fff; border: 1px solid var(--border); border-radius: 20px; padding: 20px; box-shadow: 0 30px 60px -32px rgba(61,43,31,0.3); max-width: 420px; justify-self: end; width: 100%; }
+    .cm-head { display: flex; justify-content: space-between; font-size: 12px; color: var(--text-light); margin-bottom: 12px; }
+    .cm-head span:first-child { font-family: 'Cormorant Garamond', Georgia, serif; font-size: 20px; color: var(--brown); }
+    .cm-job { display: flex; gap: 12px; align-items: center; padding: 10px 12px; border: 1px solid var(--border); border-left: 4px solid var(--sage-dark); border-radius: 12px; margin-bottom: 8px; font-size: 13px; color: var(--text-mid); background: #FFFDF9; }
+    .cm-job.truffl { border-left-color: var(--terracotta); }
+    .cm-job b { color: var(--brown); font-weight: 500; width: 62px; flex-shrink: 0; }
+    .cm-job em { font-style: normal; font-size: 9px; letter-spacing: .06em; text-transform: uppercase; padding: 2px 7px; border-radius: 20px; font-weight: 600; color: #6B7E5E; background: #EDF5ED; margin-left: 6px; }
+    .cm-job em.tr { color: var(--terracotta-dark); background: #F7E9E3; }
+    .cm-job small { color: var(--text-light); margin-left: 6px; }
+
     /* ── CTA ── */
     .cta-section { padding: 120px 56px; text-align: center; background: var(--brown-deep); position: relative; overflow: hidden; }
     .cta-eyebrow { font-size: 11px; letter-spacing: 0.16em; text-transform: uppercase; color: var(--sage); font-weight: 500; margin-bottom: 20px; position: relative; z-index: 1; }
@@ -296,6 +309,8 @@
       .why { padding: 72px 24px; grid-template-columns: 1fr; gap: 48px; }
       .how { padding: 72px 24px; }
       .how-steps { grid-template-columns: 1fr 1fr; }
+      .carers { padding: 72px 24px; grid-template-columns: 1fr; gap: 36px; }
+      .carers-mock { justify-self: start; }
       .cta-section { padding: 80px 24px; }
       .cta-h2 { font-size: 38px; }
       footer { padding: 28px 24px; flex-direction: column; align-items: flex-start; }
@@ -332,6 +347,7 @@
       <div class="nav-links">
         <a href="/about-us/">About</a>
         <a href="/trust-and-safety/">Trust &amp; safety</a> <a href="/how-we-vet/">How we vet</a>
+        <a href="/for-carers/">For carers</a>
       </div>
     </div>
 
@@ -893,6 +909,31 @@
     </div>
   </section>
 
+  <!-- FOR CARERS -->
+  <section class="carers" id="carers">
+    <div>
+      <p class="section-eyebrow">For carers</p>
+      <h2 class="section-h2">Run your whole business on Truffl</h2>
+      <p class="section-sub">Walk dogs already? Bring your own clients in and get one calendar, one client book and two-tap messaging, free. Truffl owners can find you too, when you are ready for them.</p>
+      <div class="why-checks">
+        <div class="check-item"><div class="check-circle"><svg width="11" height="9" viewBox="0 0 11 9" fill="none"><path d="M1 4.5L4 7.5L10 1" stroke="#5C4033" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg></div>No fee on clients you bring, ever</div>
+        <div class="check-item"><div class="check-circle"><svg width="11" height="9" viewBox="0 0 11 9" fill="none"><path d="M1 4.5L4 7.5L10 1" stroke="#5C4033" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg></div>Import your Rover or Mad Paws calendar, sync to Google or Apple</div>
+        <div class="check-item"><div class="check-circle"><svg width="11" height="9" viewBox="0 0 11 9" fill="none"><path d="M1 4.5L4 7.5L10 1" stroke="#5C4033" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg></div>Get vetted and listed whenever you want more work</div>
+      </div>
+      <div class="carers-actions">
+        <a href="/for-carers/" class="btn-ghost">See Truffl for carers</a>
+        <a href="/register/" class="btn-primary btn-primary-lg" style="border-radius:40px;">Start free</a>
+      </div>
+    </div>
+    <div class="carers-mock" aria-hidden="true">
+      <div class="cm-head"><span>Today, Friday</span><span>4 jobs · $190</span></div>
+      <div class="cm-job"><b>7:30am</b><span>Priya · Biscuit <em>Recurring</em></span></div>
+      <div class="cm-job"><b>9:30am</b><span>Dana · Milo, Rex</span></div>
+      <div class="cm-job"><b>12:00pm</b><span>Sam · Ziggy <small>from Rover</small></span></div>
+      <div class="cm-job truffl"><b>3:30pm</b><span>Bob · Rex <em class="tr">Truffl</em></span></div>
+    </div>
+  </section>
+
   <!-- CTA -->
   <section class="cta-section">
     <svg style="position:absolute;top:-60px;right:-40px;opacity:0.14;pointer-events:none;" width="380" height="460" viewBox="0 0 140 170" fill="none" xmlns="http://www.w3.org/2000/svg"><circle cx="70" cy="18" r="16" fill="none" stroke="#C4866A" stroke-width="4"/><circle cx="70" cy="18" r="7" fill="#3A2E28"/><rect x="62" y="30" width="16" height="20" rx="6" fill="#C4866A"/><circle cx="70" cy="95" r="55" fill="#C4866A"/><circle cx="70" cy="95" r="43" fill="none" stroke="#B8795C" stroke-width="1.2" opacity="0.5"/><line x1="30" y1="95" x2="110" y2="95" stroke="#F7F3EE" stroke-width="0.8" opacity="0.3"/><text x="70" y="101" font-family="'Cormorant Garamond', Georgia, serif" font-size="32" font-style="italic" font-weight="400" fill="#F7F3EE" text-anchor="middle" letter-spacing="-0.5">truffl</text></svg>
@@ -921,7 +962,7 @@
       </svg>
     </a>
     <div class="footer-links">
-      <a href="/register/">For carers</a>
+      <a href="/for-carers/">For carers</a>
       <a href="/about-us/">About</a>
       <a href="/trust-and-safety/">Trust &amp; safety</a> <a href="/how-we-vet/">How we vet</a>
       <a href="#">Contact</a>

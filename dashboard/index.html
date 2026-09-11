@@ -63,6 +63,10 @@
   }
   .nav-name { font-size: 0.85rem; font-weight: 500; color: var(--text-primary); }
   @media (max-width: 640px) { .nav-hide-sm { display: none; } }
+  .attr-grid { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; }
+  .attr-chip { padding: 8px 14px; border-radius: 999px; border: 1px solid var(--border); background: var(--warm-white); color: var(--text-secondary); font-size: 0.82rem; font-family: inherit; cursor: pointer; transition: all .15s; }
+  .attr-chip:hover { border-color: var(--sage-dark); }
+  .attr-chip.on { background: var(--success-bg); border-color: var(--sage-dark); color: var(--sage-dark); font-weight: 600; }
 
   .page-wrapper { max-width: 800px; margin: 0 auto; padding: 2rem 1.5rem 4rem; }
 
@@ -552,23 +556,32 @@ function servicesPriced() {
   return types.every(t => offered.some(s => s.service_type === t && s.price_cents != null));
 }
 function setupChecklistHtml() {
+  // The tools (schedule, client book) work from the moment a carer signs up. This checklist
+  // is the path to the marketplace listing, which is what unlocks Truffl bookings and leads.
+  if (providerProfile && providerProfile.is_verified) return '';
   const c = !!(providerProfile && providerProfile.acknowledged_commitments_at);
   const s = !!(providerProfile && providerProfile.acknowledged_safety_at);
   const steps = [
+    { ok: !!(providerProfile && providerProfile.bio), label: 'Write a short bio', onclick: "switchTab('profile')" },
     { ok: !!(userData && userData.avatar_url), label: 'Add a profile photo', href: '/profile/' },
-    { ok: servicesPriced(), label: 'Set your walk lengths & prices', onclick: "switchTab('services')" },
+    { ok: servicesPriced(), label: 'Set your services & prices', onclick: "switchTab('services')" },
     { ok: c, label: 'Your commitments', href: '/carer-guidelines/your-commitments/' },
     { ok: s, label: 'Emergencies and safety', href: '/carer-guidelines/emergencies-and-safety/' },
     { ok: payoutsEnabled(), label: 'Connect payouts', onclick: "switchTab('earnings')" },
   ];
   const done = steps.filter(st => st.ok).length;
-  if (done === steps.length) return '';
+  const allDone = done === steps.length;
   const tick = '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg>';
   const item = st => `<a class="ack-gate-item ${st.ok ? 'done' : ''}" ${st.href ? `href="${st.href}"` : `href="javascript:void(0)" onclick="${st.onclick}"`}>${st.ok ? tick : '<span class="ack-gate-dot"></span>'} ${st.label}</a>`;
-  const gateNote = guidelinesAcknowledged() ? '' : ' The two guideline pages must be read before you can accept bookings.';
+  if (allDone) {
+    return `<div class="ack-gate" style="border-color:var(--success);background:var(--success-bg);">
+      <div class="ack-gate-title">Ready for vetting</div>
+      <p>Your listing is complete. We will be in touch to arrange your vetting interview; once you are verified, Sydney owners can find and book you through Truffl. Your own clients carry no fee either way.</p>
+    </div>`;
+  }
   return `<div class="ack-gate">
-    <div class="ack-gate-title">Finish setting up — ${done} of ${steps.length} done</div>
-    <p>Complete these so owners see a bookable, priced profile.${gateNote}</p>
+    <div class="ack-gate-title">Get listed on the marketplace — ${done} of ${steps.length} done</div>
+    <p>Your schedule and client book already work, with no fee on your own clients. Finish these to be listed for Truffl owners and start receiving bookings.${guidelinesAcknowledged() ? '' : ' The two guideline pages must be read before you can accept a Truffl booking.'}</p>
     <div class="ack-gate-links">${steps.map(item).join('')}</div>
   </div>`;
 }
@@ -1341,7 +1354,7 @@ function renderDashboard() {
   area.innerHTML = `
     <div class="welcome">
       <h1>Hey, ${userData.first_name}</h1>
-      <p>${pending.length > 0 ? `You have ${pending.length} new booking request${pending.length !== 1 ? 's' : ''}` : 'Your dashboard — manage bookings, services, and your profile.'}</p>
+      <p>${pending.length > 0 ? `You have ${pending.length} new booking request${pending.length !== 1 ? 's' : ''}` : 'Truffl bookings, your listing and payouts. Your own clients live in Schedule and Clients.'}</p>
     </div>
 
     ${activeWalkBarHtml()}
@@ -1377,7 +1390,14 @@ function renderDashboard() {
             <a href="/carer/?id=${authUid}" class="pp-link">View as customers see it →</a>
           </div>
         </div>
-        ${providerProfile.bio ? `<div style="font-size:0.88rem;color:var(--text-secondary);line-height:1.7;margin-top:0.5rem;">${providerProfile.bio}</div>` : ''}
+        <div style="margin-top:0.75rem;">
+          <label for="bioInput" style="display:block;font-size:0.78rem;font-weight:600;color:var(--text-secondary);margin-bottom:4px;">Short bio</label>
+          <textarea id="bioInput" rows="4" style="width:100%;padding:10px 12px;border:1px solid var(--border);border-radius:10px;font:inherit;font-size:0.88rem;color:var(--text-primary);background:#fff;resize:vertical;" placeholder="A few sentences about your experience with dogs and how you work. Owners read this before they book.">${esc(providerProfile.bio || '')}</textarea>
+          <div style="display:flex;align-items:center;gap:10px;margin-top:8px;">
+            <button class="bc-btn accept" type="button" onclick="saveBio()">Save bio</button>
+            <span id="bioStatus" style="font-size:0.78rem;color:var(--text-muted);"></span>
+          </div>
+        </div>
         <div style="margin-top:1rem;display:flex;gap:8px;flex-wrap:wrap;">
           <span class="status-badge ${providerProfile.is_verified ? 'status-confirmed' : 'status-pending'}">${providerProfile.is_verified ? 'Verified' : 'Pending verification'}</span>
           ${providerProfile.experience_years ? `<span style="font-size:0.78rem;color:var(--text-muted);">${providerProfile.experience_years} years experience</span>` : ''}
@@ -1450,7 +1470,67 @@ function renderServicesTab() {
     }
     html += `</div>`;
   }
+  html += `<div class="svc-card"><div class="svc-card-title">Capabilities owners can filter by</div><div class="svc-card-help">Tick everything that applies. Owners use these as search filters once you are listed.</div>
+    <div class="attr-grid">${ATTRIBUTE_OPTIONS.map(a => `<button type="button" class="attr-chip ${providerAttributes[a.key] ? 'on' : ''}" onclick="toggleCapability('${a.key}')" aria-pressed="${!!providerAttributes[a.key]}">${esc(a.label)}</button>`).join('')}</div>
+    <div class="svc-row-status" id="attrStatus"></div></div>`;
   area.innerHTML = html;
+}
+
+// Capabilities used to be collected at signup; registration now stops at "where you work"
+// so they are edited here (rows in provider_attributes keyed by users.id, value = true).
+const ATTRIBUTE_OPTIONS = [
+  { key: 'has_car', label: 'Own vehicle' },
+  { key: 'outdoor_space', label: 'Garden / yard' },
+  { key: 'large_dogs_ok', label: 'Large dogs OK' },
+  { key: 'puppy_experience', label: 'Puppy experience' },
+  { key: 'senior_pets_ok', label: 'Senior / special needs' },
+  { key: 'reactive_dogs_ok', label: 'Reactive dogs OK' },
+  { key: 'water_confident', label: 'Water / swim confident' },
+  { key: 'no_other_pets', label: 'No other pets at home' },
+  { key: 'non_smoking', label: 'Non-smoking home' },
+];
+let providerAttributes = {};  // attribute -> row
+async function loadAttributes() {
+  try {
+    const rows = await sbGet('provider_attributes', `provider_id=eq.${authUid}&select=id,attribute,value`);
+    providerAttributes = {};
+    rows.forEach(r => { if (r.value) providerAttributes[r.attribute] = r; });
+  } catch (e) { providerAttributes = {}; }
+}
+async function toggleCapability(key) {
+  const st = document.getElementById('attrStatus');
+  if (st) { st.textContent = 'Saving…'; st.className = 'svc-row-status'; }
+  try {
+    if (providerAttributes[key]) {
+      const r = await fetch(`${SUPABASE_URL}/rest/v1/provider_attributes?id=eq.${providerAttributes[key].id}`, { method: 'DELETE', headers: headers(authToken) });
+      if (!r.ok) { const e = await r.json().catch(() => ({})); throw new Error(e.message || 'Could not remove'); }
+      delete providerAttributes[key];
+    } else {
+      const res = await sbInsert('provider_attributes', { provider_id: authUid, attribute: key, value: true });
+      providerAttributes[key] = Array.isArray(res) ? res[0] : res;
+    }
+    renderServicesTab();
+    const st2 = document.getElementById('attrStatus');
+    if (st2) { st2.textContent = 'Saved'; st2.className = 'svc-row-status saved'; setTimeout(() => { if (st2.textContent === 'Saved') st2.textContent = ''; }, 1500); }
+  } catch (e) {
+    if (st) { st.textContent = 'Error'; st.className = 'svc-row-status error'; }
+    showMsg(e.message, 'error');
+  }
+}
+
+async function saveBio() {
+  const ta = document.getElementById('bioInput'); const st = document.getElementById('bioStatus');
+  if (!ta) return;
+  const bio = ta.value.trim();
+  st.textContent = 'Saving…';
+  try {
+    const res = await sbPatch('provider_profiles', 'id', providerProfile.id, { bio: bio || null });
+    Object.assign(providerProfile, Array.isArray(res) ? res[0] : res);
+    st.textContent = 'Saved';
+    // The listing checklist counts the bio; repaint it without losing the current tab.
+    const gate = document.querySelector('.ack-gate'); const fresh = setupChecklistHtml();
+    if (gate) { if (fresh) gate.outerHTML = fresh; else gate.remove(); }
+  } catch (e) { st.textContent = 'Error: ' + e.message; }
 }
 
 function serviceRowHtml(service_type, duration_mins, label, unitHint) {
@@ -1655,6 +1735,7 @@ async function init() {
       loadBookings(),
       loadSeries(),
       loadMgSeries(),
+      loadAttributes(),
     ]);
     providerServices = svcRows;
 

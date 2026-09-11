@@ -12,19 +12,19 @@
 </script>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<meta name="description" content="Become a vetted Truffl Pets carer in Sydney. Set your services, get matched with local owners, and get paid for pet care you love.">
+<meta name="description" content="Start running your dog-walking business on Truffl. One calendar, one client book, free for your own clients. Two minutes to set up.">
 <link rel="canonical" href="https://trufflpets.com/register/">
 <meta property="og:type" content="website">
 <meta property="og:site_name" content="Truffl Pets">
-<meta property="og:title" content="Join Truffl Pets — become a trusted carer">
-<meta property="og:description" content="Become a vetted Truffl Pets carer in Sydney. Set your services, get matched with local owners, and get paid for pet care you love.">
+<meta property="og:title" content="Start free on Truffl for carers">
+<meta property="og:description" content="One calendar, one client book, free for your own clients. Two minutes to set up.">
 <meta property="og:url" content="https://trufflpets.com/register/">
 <meta property="og:image" content="https://trufflpets.com/dog-hero.png">
 <meta name="twitter:card" content="summary_large_image">
-<meta name="twitter:title" content="Join Truffl Pets — become a trusted carer">
-<meta name="twitter:description" content="Become a vetted Truffl Pets carer in Sydney. Set your services, get matched with local owners, and get paid for pet care you love.">
+<meta name="twitter:title" content="Start free on Truffl for carers">
+<meta name="twitter:description" content="One calendar, one client book, free for your own clients. Two minutes to set up.">
 <meta name="twitter:image" content="https://trufflpets.com/dog-hero.png">
-<title>Join Truffl Pets — Become a Trusted Carer</title>
+<title>Start free — Truffl Pets for carers</title>
 <link rel="icon" type="image/svg+xml" href="/favicon.svg">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,500;0,600;1,400;1,500&family=DM+Sans:wght@400;500;600&display=swap" rel="stylesheet">
@@ -453,9 +453,9 @@
         <text x="52" y="50" font-family="'DM Sans', sans-serif" font-size="12" font-weight="600" fill="#B0A090" letter-spacing="4">PETS</text>
       </svg>
     </a>
-  <a href="/" class="nav-back">
+  <a href="/for-carers/" class="nav-back">
     <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M10 12L6 8L10 4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
-    Back to home
+    Truffl for carers
   </a>
 </nav>
 
@@ -463,19 +463,17 @@
 <div class="page-wrapper">
 
   <div class="page-header">
-    <h1>Become a Truffl carer</h1>
-    <p>Join a community of trusted, vetted pet care professionals. We'll walk you through the setup — takes about 5 minutes.</p>
+    <h1>Start running your business on Truffl</h1>
+    <p>Free for your own clients. Two minutes to set up, and no vetting needed to use the tools. Getting listed for Truffl bookings comes later, when you want it.</p>
   </div>
 
   <!-- Steps -->
   <div class="steps">
     <div class="step-item"><div class="step-dot active" id="sd1">1</div><span class="step-label active" id="sl1">Account</span></div>
     <div class="step-line" id="line1"></div>
-    <div class="step-item"><div class="step-dot" id="sd2">2</div><span class="step-label" id="sl2">Profile</span></div>
+    <div class="step-item"><div class="step-dot" id="sd2">2</div><span class="step-label" id="sl2">Where you work</span></div>
     <div class="step-line" id="line2"></div>
-    <div class="step-item"><div class="step-dot" id="sd3">3</div><span class="step-label" id="sl3">Services</span></div>
-    <div class="step-line" id="line3"></div>
-    <div class="step-item"><div class="step-dot" id="sd4">4</div><span class="step-label" id="sl4">Done</span></div>
+    <div class="step-item"><div class="step-dot" id="sd3">3</div><span class="step-label" id="sl3">Done</span></div>
   </div>
 
   <div id="formMsg" class="msg"></div>
@@ -484,38 +482,38 @@
   <div class="form-step active" id="step1">
     <div class="form-card">
       <h2>Create your account</h2>
-      <p>This is your login — we'll build your provider profile in the next steps.</p>
+      <p>This is your login. Your schedule and client book are private to it.</p>
 
       <div class="field-row">
         <div class="field">
           <label>First name</label>
-          <input type="text" id="firstName" placeholder="e.g. Sarah" required>
+          <input type="text" id="firstName" placeholder="e.g. Sarah" required autocomplete="given-name">
         </div>
         <div class="field">
           <label>Last name</label>
-          <input type="text" id="lastName" placeholder="e.g. Mitchell" required>
+          <input type="text" id="lastName" placeholder="e.g. Mitchell" required autocomplete="family-name">
         </div>
       </div>
 
       <div class="field">
         <label>Email address</label>
-        <input type="email" id="email" placeholder="you@example.com" required>
+        <input type="email" id="email" placeholder="you@example.com" required autocomplete="email">
       </div>
 
       <div class="field">
-        <label>Phone number</label>
-        <input type="tel" id="phone" placeholder="0412 345 678">
+        <label>Mobile <span class="optional">(optional)</span></label>
+        <input type="tel" id="phone" placeholder="0412 345 678" autocomplete="tel">
       </div>
 
       <div class="field">
         <label>Password</label>
-        <input type="password" id="password" placeholder="At least 8 characters" required>
+        <input type="password" id="password" placeholder="At least 8 characters" required autocomplete="new-password">
         <div class="field-hint">Minimum 8 characters</div>
       </div>
 
       <div class="field">
         <label>Confirm password</label>
-        <input type="password" id="passwordConfirm" placeholder="Re-enter your password" required>
+        <input type="password" id="passwordConfirm" placeholder="Re-enter your password" required autocomplete="new-password">
       </div>
 
       <div class="consent-note">By continuing you agree to our <a href="/terms/" target="_blank" rel="noopener">Terms of service</a> and <a href="/privacy/" target="_blank" rel="noopener">Privacy policy</a>.</div>
@@ -526,94 +524,54 @@
     </div>
   </div>
 
-  <!-- ─── STEP 2: Profile ─── -->
+  <!-- ─── STEP 2: Where you work ─── -->
   <div class="form-step" id="step2">
     <div class="form-card">
-      <h2>Tell us about yourself</h2>
-      <p>This info helps pet owners find and trust you. Be genuine — it makes a difference.</p>
-
-      <div class="field">
-        <label>Short bio</label>
-        <textarea id="bio" placeholder="A few sentences about your experience with animals, why you love what you do, and what makes you great at it."></textarea>
-      </div>
-
-      <div class="field">
-        <label>Years of experience with animals</label>
-        <select id="experience">
-          <option value="">Select...</option>
-          <option value="0-1">Less than 1 year</option>
-          <option value="1-3">1–3 years</option>
-          <option value="3-5">3–5 years</option>
-          <option value="5+">5+ years</option>
-        </select>
-      </div>
+      <h2>Where you work</h2>
+      <p>Your suburb is home base for your schedule. If you get listed later, it also decides which owners see you.</p>
 
       <div class="field">
         <label>Suburb</label>
-        <input type="text" id="suburb" placeholder="e.g. Summer Hill">
-        <div class="field-hint">The area you're based in — we'll use this for matching with local pet owners</div>
+        <input type="text" id="suburb" placeholder="e.g. Summer Hill" autocomplete="address-level2">
       </div>
 
-      <!-- TRU-157: service area in the same terms as the profile editor — travel time
-           (isochrone, TRU-156) or a simple distance circle. No more orphan radius-km. -->
+      <!-- TRU-157: service area in the same terms as the profile editor (travel-time
+           isochrone or a distance circle). Kept at signup because it is one control and
+           it seeds the search fallback the day the carer chooses to get listed. -->
       <div class="field">
-        <label>How far will you go for a job?</label>
+        <label>How far will you travel for a job?</label>
         <div class="sa-seg">
           <button type="button" id="saModeRadius" onclick="setSignupAreaMode('radius')">Distance</button>
           <button type="button" id="saModeTravel" class="active" onclick="setSignupAreaMode('travel')">Travel time</button>
         </div>
         <select id="saValue"></select>
-        <div class="field-hint" id="saHint">Travel time follows real roads — you won't be shown jobs across the harbour unless you'd actually drive it.</div>
+        <div class="field-hint" id="saHint">Travel time follows real roads. You can change this anytime in your profile.</div>
       </div>
 
       <div class="field">
         <label>ABN <span class="optional">(optional)</span></label>
-        <input type="text" id="abn" placeholder="If you have one">
+        <input type="text" id="abn" placeholder="If you have one" inputmode="numeric">
+        <div class="field-hint">Used on invoices later. Skip it for now if you like.</div>
       </div>
 
       <div class="btn-row">
         <button class="btn btn-secondary" onclick="goToStep(1)">Back</button>
-        <button class="btn btn-primary" onclick="submitStep2()">Continue</button>
+        <button class="btn btn-primary" onclick="submitStep2()">Finish setup</button>
       </div>
     </div>
   </div>
 
-  <!-- ─── STEP 3: Services & Attributes ─── -->
+  <!-- ─── STEP 3: Done ─── -->
   <div class="form-step" id="step3">
-    <div class="form-card">
-      <h2>Your services</h2>
-      <p>Select everything you offer — you can update this anytime.</p>
-
-      <div class="field">
-        <label>Services you provide</label>
-        <div class="checkbox-grid" id="servicesGrid">
-          <!-- populated by JS -->
-        </div>
-      </div>
-
-      <div class="field" style="margin-top:1.5rem">
-        <label>Additional capabilities</label>
-        <div class="checkbox-grid" id="attribGrid">
-          <!-- populated by JS -->
-        </div>
-      </div>
-
-      <div class="btn-row">
-        <button class="btn btn-secondary" onclick="goToStep(2)">Back</button>
-        <button class="btn btn-primary" onclick="submitStep3()">Complete registration</button>
-      </div>
-    </div>
-  </div>
-
-  <!-- ─── STEP 4: Success ─── -->
-  <div class="form-step" id="step4">
     <div class="form-card success-card">
       <div class="success-icon">
         <svg width="28" height="28" viewBox="0 0 24 24" fill="none"><path d="M5 13l4 4L19 7" stroke="#5B8C5A" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
       </div>
-      <h2>You're in.</h2>
-      <p>Welcome to Truffl. Your profile has been created and is now pending verification. We'll be in touch within 48 hours to arrange the next steps — including your vetting interview and knowledge check.</p>
-      <p style="margin-top:1rem; font-size:0.85rem; color:var(--text-muted);">In the meantime, check your email to confirm your account.</p>
+      <h2 id="doneTitle">You're in.</h2>
+      <p id="doneBody">Taking you to your schedule. Add a client, add a walk, and subscribe your calendar, and you're set.</p>
+      <div class="btn-row" style="justify-content:center;margin-top:1.5rem;">
+        <a class="btn btn-primary" id="doneBtn" href="/schedule/?welcome=1" style="text-decoration:none;text-align:center;flex:0 0 auto;">Open your schedule</a>
+      </div>
     </div>
   </div>
 
@@ -651,6 +609,7 @@ const supabase = {
     const data = await res.json();
     if (data.error || data.msg) throw new Error(data.error?.message || data.msg || 'Signup failed');
     this._accessToken = data.access_token;
+    this._refreshToken = data.refresh_token;
     this._userId = data.user?.id;
     return data;
   },
@@ -695,51 +654,13 @@ function setSignupAreaMode(m) {
   renderSaOptions();
 }
 
-// ─── Services & Attributes Config ───
-const SERVICES = [
-  { key: 'dog_walking', label: 'Dog walking' },
-  { key: 'dog_sitting', label: 'Dog sitting' },
-  { key: 'dog_boarding', label: 'Dog boarding' },
-  { key: 'pet_sitting', label: 'Other pet sitting' }
-];
-
-const ATTRIBUTES = [
-  { key: 'has_car', label: 'Own vehicle' },
-  { key: 'outdoor_space', label: 'Garden / yard' },
-  { key: 'large_dogs_ok', label: 'Large dogs OK' },
-  { key: 'puppy_experience', label: 'Puppy experience' },
-  { key: 'senior_pets_ok', label: 'Senior / special needs' },
-  { key: 'reactive_dogs_ok', label: 'Reactive dogs OK' },
-  { key: 'water_confident', label: 'Water / swim confident' }
-];
-
-// ─── Render checkboxes ───
-function renderCheckboxes(containerId, items) {
-  const grid = document.getElementById(containerId);
-  grid.innerHTML = items.map(item => `
-    <label class="checkbox-item" onclick="toggleCheck(this)">
-      <input type="checkbox" value="${item.key}">
-      <div class="check-box">
-        <svg width="12" height="12" viewBox="0 0 12 12" fill="none"><path d="M2.5 6.5L5 9L9.5 3.5" stroke="white" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
-      </div>
-      <span class="check-label">${item.label}</span>
-    </label>
-  `).join('');
-}
-
-function toggleCheck(el) {
-  const input = el.querySelector('input');
-  input.checked = !input.checked;
-  el.classList.toggle('checked', input.checked);
-}
-
 // ─── Step navigation ───
 function goToStep(n) {
   document.querySelector('.form-step.active')?.classList.remove('active');
   document.getElementById(`step${n}`).classList.add('active');
   currentStep = n;
 
-  for (let i = 1; i <= 4; i++) {
+  for (let i = 1; i <= 3; i++) {
     const dot = document.getElementById(`sd${i}`);
     const label = document.getElementById(`sl${i}`);
     dot.className = 'step-dot';
@@ -747,7 +668,7 @@ function goToStep(n) {
     if (i < n) { dot.classList.add('done'); label.classList.add('done'); dot.innerHTML = '✓'; }
     else if (i === n) { dot.classList.add('active'); label.classList.add('active'); dot.innerHTML = i; }
     else { dot.innerHTML = i; }
-    if (i < 4) {
+    if (i < 3) {
       document.getElementById(`line${i}`).className = i < n ? 'step-line done' : 'step-line';
     }
   }
@@ -809,6 +730,7 @@ async function submitStep1() {
     });
 
     userData = { firstName, lastName, email, phone, userId: supabase._userId };
+    try { gtag('event', 'sign_up', { method: 'email', role: 'provider' }); } catch (e) {}
 
     // Update the user record with role and phone
     if (supabase._userId) {
@@ -844,40 +766,33 @@ async function submitStep1() {
   }
 }
 
-// ─── Step 2: Profile details ───
+// ─── Step 2: Where you work ───
 async function submitStep2() {
   clearMsg();
-  const bio = document.getElementById('bio').value.trim();
-  const experience = document.getElementById('experience').value;
   const suburb = document.getElementById('suburb').value.trim();
   const saValue = parseInt(document.getElementById('saValue').value, 10) || (signupAreaMode === 'travel' ? 30 : 10);
   const abn = document.getElementById('abn').value.trim();
 
-  if (!bio || !experience || !suburb) {
-    return showMsg('Please fill in your bio, experience and suburb.', 'error');
+  if (!suburb) {
+    return showMsg('Please enter your suburb.', 'error');
   }
 
   const btn = document.querySelector('#step2 .btn-primary');
   setLoading(btn, true);
 
   try {
+    // Bio, experience, services and capabilities are no longer collected here: they belong
+    // to the marketplace listing and live on the dashboard's "Get listed" checklist.
     await supabase.insert('provider_profiles', {
       user_id: supabase._userId,
-      bio: bio,
-      experience_years: experience,
       suburb: suburb,
-      // radius_km is the search fallback when no isochrone exists (TRU-156). In travel
-      // mode we keep a sane default here; the isochrone below is what search prefers.
       radius_km: signupAreaMode === 'radius' ? saValue : 10,
       abn: abn || null,
       is_verified: false,
       is_active: true
     });
 
-    // TRU-157: compute the service area right away — same geo-api call as the profile
-    // editor. The insert trigger has already set location from the suburb centroid.
-    // Non-fatal: if it hiccups (e.g. routing API down), the radius fallback still
-    // matches searches and the carer can redo it from their profile.
+    // TRU-157: compute the service area right away. Non-fatal.
     try {
       await fetch(`${SUPABASE_URL}/functions/v1/geo-api`, {
         method: 'POST',
@@ -888,60 +803,40 @@ async function submitStep2() {
       });
     } catch (e) { /* fallback radius already saved */ }
 
-    userData.bio = bio;
-    userData.suburb = suburb;
-    goToStep(3);
+    finishSignup();
   } catch (err) {
-    showMsg(err.message || 'Something went wrong saving your profile.', 'error');
+    showMsg(err.message || 'Something went wrong saving your details.', 'error');
   } finally {
     setLoading(btn, false);
   }
 }
 
-// ─── Step 3: Services & attributes ───
-async function submitStep3() {
-  clearMsg();
-  const selectedServices = [...document.querySelectorAll('#servicesGrid input:checked')].map(i => i.value);
-  const selectedAttribs = [...document.querySelectorAll('#attribGrid input:checked')].map(i => i.value);
-
-  if (selectedServices.length === 0) {
-    return showMsg('Please select at least one service you offer.', 'error');
+// ─── Done: straight into the tools ───
+// When email confirmation is off, signup returns a session and the carer lands on their
+// schedule with the first-run flow. When it is on, there is no session yet: say so and
+// point at sign-in (the /schedule/ redirect is preserved).
+function finishSignup() {
+  const hasSession = !!(supabase._accessToken && supabase._userId);
+  if (hasSession) {
+    try {
+      localStorage.setItem('truffl_session', JSON.stringify({
+        access_token: supabase._accessToken, refresh_token: supabase._refreshToken,
+        user_id: supabase._userId, role: 'provider'
+      }));
+    } catch (e) {}
+  } else {
+    document.getElementById('doneTitle').textContent = 'Check your email';
+    document.getElementById('doneBody').textContent = 'Confirm your email address, then sign in to open your schedule.';
+    const btn = document.getElementById('doneBtn');
+    btn.textContent = 'Sign in'; btn.href = '/login/?redirect=' + encodeURIComponent('/schedule/?welcome=1');
   }
-
-  const btn = document.querySelector('#step3 .btn-primary');
-  setLoading(btn, true);
-
-  try {
-    // Insert services
-    for (const svc of selectedServices) {
-      await supabase.insert('provider_services', {
-        provider_id: supabase._userId,
-        service_type: svc,
-        is_available: true
-      });
-    }
-
-    // Insert attributes
-    for (const attr of selectedAttribs) {
-      await supabase.insert('provider_attributes', {
-        provider_id: supabase._userId,
-        attribute: attr,
-        value: true
-      });
-    }
-
-    goToStep(4);
-  } catch (err) {
-    showMsg(err.message || 'Something went wrong saving your services.', 'error');
-  } finally {
-    setLoading(btn, false);
-  }
+  try { gtag('event', 'carer_signup_complete', { has_session: hasSession }); } catch (e) {}
+  goToStep(3);
+  if (hasSession) setTimeout(() => { window.location.href = '/schedule/?welcome=1'; }, 1400);
 }
 
 // ─── Init ───
 document.addEventListener('DOMContentLoaded', () => {
-  renderCheckboxes('servicesGrid', SERVICES);
-  renderCheckboxes('attribGrid', ATTRIBUTES);
   renderSaOptions(); // TRU-157: service-area picker options
 });
 </script>
