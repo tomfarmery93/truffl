@@ -172,6 +172,23 @@
   .login-prompt p { color: var(--text-muted); font-size: 0.9rem; margin-bottom: 14px; }
   .login-prompt a { color: var(--terracotta); font-weight: 600; text-decoration: none; }
   .link-btn { background: none; border: none; color: var(--terracotta); font-size: 0.8rem; font-weight: 600; cursor: pointer; padding: 0; }
+
+  /* First-run card */
+  .welcome-card { background: var(--warm-white); border: 1px solid var(--border); border-left: 4px solid var(--terracotta); border-radius: 14px; padding: 16px 18px; margin-bottom: 14px; }
+  .wc-head { display: flex; justify-content: space-between; gap: 12px; align-items: flex-start; }
+  .wc-title { font-family: 'Cormorant Garamond', serif; font-weight: 500; font-size: 1.3rem; color: var(--brown); }
+  .wc-sub { font-size: 0.84rem; color: var(--text-secondary); margin-top: 2px; line-height: 1.5; }
+  .wc-dismiss { width: 30px; height: 30px; border-radius: 50%; border: 1px solid var(--border); background: transparent; color: var(--text-muted); cursor: pointer; font-size: 1rem; flex-shrink: 0; }
+  .wc-steps { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-top: 12px; }
+  @media (max-width: 640px) { .wc-steps { grid-template-columns: 1fr; } }
+  .wc-step { display: flex; gap: 10px; align-items: flex-start; text-align: left; padding: 11px 12px; border: 1px solid var(--border); border-radius: 12px; background: var(--cream); cursor: pointer; font-family: inherit; color: inherit; transition: border-color .15s; }
+  .wc-step:hover { border-color: var(--terracotta); }
+  .wc-step.done { background: var(--success-bg); border-color: var(--sage-light); }
+  .wc-num { width: 24px; height: 24px; border-radius: 50%; background: var(--warm-white); border: 1px solid var(--border); display: inline-flex; align-items: center; justify-content: center; font-size: 0.78rem; font-weight: 600; color: var(--brown); flex-shrink: 0; }
+  .wc-step.done .wc-num { background: var(--success); border-color: var(--success); color: #fff; }
+  .wc-label { display: block; font-size: 0.88rem; font-weight: 600; color: var(--brown); }
+  .wc-hint { display: block; font-size: 0.76rem; color: var(--text-muted); margin-top: 1px; line-height: 1.4; }
+  .wc-foot { font-size: 0.78rem; color: var(--text-muted); margin-top: 10px; }
 </style>
 </head>
 <body>
@@ -226,6 +243,8 @@ let weekStart = null;        // Date at local midnight, Monday
 let selected = null;         // 'YYYY-MM-DD'
 let view = window.innerWidth < 700 ? 'day' : 'week';
 let payChoice = null;        // job id showing the payment-method chooser
+let hasAnyJob = false;       // any job ever (the week's rows are not enough to know)
+let welcomeDismissedLocal = false;
 
 /* ── Supabase helpers ── */
 function headers(extra) {
@@ -304,6 +323,51 @@ async function loadClients() {
   clients = await sbGet('clients', `provider_user_id=eq.${authUid}&is_archived=eq.false&select=id,first_name,last_name,phone,suburb,client_pets(id,name,is_active)&order=first_name.asc`);
 }
 
+/* ── First-run flow (GitHub #174) ──
+   Three steps that make the page useful: a client, a walk, the calendar on their phone. The
+   first two are inferred from data; the third and a dismissal are stored on the profile
+   (provider_profiles.onboarding, jsonb) so progress follows the carer across devices. */
+async function loadHasAnyJob() {
+  try { const r = await sbGet('jobs', `provider_user_id=eq.${authUid}&select=id&limit=1`); hasAnyJob = r.length > 0; } catch (e) { hasAnyJob = false; }
+}
+function onboarding() { return (providerProfile && providerProfile.onboarding && typeof providerProfile.onboarding === 'object') ? providerProfile.onboarding : {}; }
+async function saveOnboarding(patch) {
+  const next = Object.assign({}, onboarding(), patch);
+  if (providerProfile) providerProfile.onboarding = next;
+  try { await sbPatch('provider_profiles', 'id', providerProfile.id, { onboarding: next }); } catch (e) { /* column may not exist yet; the page still works */ }
+}
+function track(step) { try { gtag('event', 'onboarding_step', { step }); } catch (e) {} }
+function welcomeSteps() {
+  return [
+    { key: 'client', ok: clients.length > 0, label: 'Add a client and their dog', hint: 'Name, mobile and the dog. Thirty seconds.', action: "track('client');location.href='/clients/?new=1'" },
+    { key: 'job', ok: hasAnyJob || series.length > 0 || rows.some(r => r.kind === 'job'), label: 'Add a walk', hint: 'One-off or repeating. It lands on the calendar right away.', action: "track('job');openJobForm()" },
+    { key: 'calendar', ok: !!onboarding().calendar_subscribed_at, label: 'Subscribe your phone calendar', hint: 'One link, and your schedule shows up next to everything else.', action: "track('calendar');openSubscribe()" },
+  ];
+}
+function welcomeVisible() {
+  if (welcomeDismissedLocal || onboarding().dismissed_at) return false;
+  const forced = new URLSearchParams(location.search).get('welcome');
+  return forced || welcomeSteps().some(st => !st.ok);
+}
+function welcomeCardHtml() {
+  if (!welcomeVisible()) return '';
+  const steps = welcomeSteps();
+  const done = steps.filter(st => st.ok).length;
+  const tick = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg>';
+  return `<div class="welcome-card">
+    <div class="wc-head"><div><div class="wc-title">${done === steps.length ? 'You are set up' : (userData ? 'Welcome, ' + esc(userData.first_name) : 'Welcome')}</div><div class="wc-sub">${done === steps.length ? 'Everything you add here is yours, with no fee. Whenever you want Truffl bookings too, the listing checklist is on your dashboard.' : `${done} of ${steps.length} done. Three things and this page runs your week.`}</div></div><button class="wc-dismiss" onclick="dismissWelcome()" aria-label="Dismiss">×</button></div>
+    <div class="wc-steps">${steps.map((st, i) => `<button type="button" class="wc-step ${st.ok ? 'done' : ''}" onclick="${st.action}"><span class="wc-num">${st.ok ? tick : i + 1}</span><span><span class="wc-label">${st.label}</span><span class="wc-hint">${st.hint}</span></span></button>`).join('')}</div>
+    <div class="wc-foot">Already have a calendar full of walks? <button class="link-btn" onclick="track('import');openIcsImport()">Import an .ics file</button> &nbsp;·&nbsp; <a href="/clients/" style="color:var(--terracotta);font-weight:600;text-decoration:none;" onclick="track('csv')">Import clients from a spreadsheet</a></div>
+  </div>`;
+}
+async function dismissWelcome() {
+  welcomeDismissedLocal = true;
+  track('dismiss');
+  history.replaceState(null, '', '/schedule/' + (selected ? '?d=' + selected : ''));
+  renderPage();
+  await saveOnboarding({ dismissed_at: new Date().toISOString() });
+}
+
 /* ── Rendering ── */
 function rowsOn(dateStr) { return rows.filter(r => ymd(new Date(r.starts_at)) === dateStr).sort((a, b) => new Date(a.starts_at) - new Date(b.starts_at)); }
 function summaryFor(list) {
@@ -331,6 +395,7 @@ function renderPage() {
       <div class="viewtoggle"><button class="${view === 'day' ? 'active' : ''}" onclick="view='day';renderPage()">Day</button><button class="${view === 'week' ? 'active' : ''}" onclick="view='week';renderPage()">Week</button></div>
     </div>
     <div class="daystrip">${[0,1,2,3,4,5,6].map(i => { const d = addDays(weekStart, i); const s = ymd(d); const n = rowsOn(s).filter(r => r.status !== 'cancelled').length; return `<div class="day ${s === selected ? 'sel' : ''} ${s === ymd(new Date()) ? 'istoday' : ''}" onclick="selectDay('${s}')"><div class="dn">${DAY_SHORT[i]}</div><div class="dd">${d.getDate()}</div><div class="dc">${n ? n + (n === 1 ? ' job' : ' jobs') : ''}</div></div>`; }).join('')}</div>
+    ${welcomeCardHtml()}
     <div id="body"></div>
     <div id="seriesCard"></div>`;
   renderBody();
@@ -339,6 +404,10 @@ function renderPage() {
 
 function renderBody() {
   const body = document.getElementById('body'); if (!body) return;
+  if (!rows.length && welcomeVisible()) {
+    body.innerHTML = `<div class="nothing" style="margin-top:6px;">Nothing on this week yet.</div>`;
+    return;
+  }
   if (!rows.length && !clients.length && !series.length) {
     body.innerHTML = `<div class="empty"><h3>Nothing scheduled yet</h3>Three things to do in your first five minutes:
       <div class="steps">
@@ -419,7 +488,7 @@ function selectDay(s) { selected = s; if (view === 'week') view = 'day'; history
 async function setWeek(d) { weekStart = mondayOf(d); await refresh(); }
 async function shiftWeek(n) { weekStart = addDays(weekStart, n * 7); selected = ymd(weekStart); history.replaceState(null, '', `/schedule/?d=${selected}`); await refresh(); }
 async function goToday() { const t = new Date(); weekStart = mondayOf(t); selected = ymd(t); history.replaceState(null, '', '/schedule/'); await refresh(); }
-async function refresh() { try { await loadWeek(); } catch (e) { showMsg(e.message, 'error'); } renderPage(); }
+async function refresh() { try { await loadWeek(); if (!hasAnyJob) await loadHasAnyJob(); } catch (e) { showMsg(e.message, 'error'); } renderPage(); }
 
 /* ── Job actions ── */
 async function setStatus(id, status) {
@@ -582,14 +651,23 @@ function openSubscribe() {
     <div class="card"><div class="kv">Add this private link to the calendar you already use. Your Truffl bookings and your own jobs will show up there and stay in sync (calendar apps refresh every few hours).</div>
       <div class="urlbox"><input id="feedUrl" readonly value="${attr(url)}" onclick="this.select()"><button class="btn secondary sm" onclick="copyFeed()">Copy</button></div>
       <div class="kv" style="font-size:0.8rem;">
-        <div><b>iPhone / Mac:</b> <a href="${attr(url.replace(/^https:/, 'webcal:'))}" style="color:var(--terracotta)">tap to subscribe</a>, or Calendar → File → New Calendar Subscription.</div>
+        <div><b>iPhone / Mac:</b> <a href="${attr(url.replace(/^https:/, 'webcal:'))}" style="color:var(--terracotta)" onclick="markSubscribed()">tap to subscribe</a>, or Calendar → File → New Calendar Subscription.</div>
         <div><b>Google Calendar:</b> on a computer, Other calendars → + → From URL, paste the link.</div>
         <div><b>Outlook:</b> Add calendar → Subscribe from web.</div>
       </div>
     </div>
     <div class="kv" style="font-size:0.8rem;color:var(--text-muted);">Anyone with this link can see your schedule. If it leaks, <button class="link-btn" onclick="rotateToken()">generate a new link</button>; old subscriptions stop working.</div>`);
 }
-async function copyFeed() { try { await navigator.clipboard.writeText(feedUrl()); showMsg('Calendar link copied.', 'success'); } catch (e) { document.getElementById('feedUrl').select(); document.execCommand('copy'); } }
+async function copyFeed() {
+  try { await navigator.clipboard.writeText(feedUrl()); showMsg('Calendar link copied.', 'success'); } catch (e) { document.getElementById('feedUrl').select(); document.execCommand('copy'); }
+  markSubscribed();
+}
+async function markSubscribed() {
+  if (onboarding().calendar_subscribed_at) return;
+  track('calendar_subscribed');
+  await saveOnboarding({ calendar_subscribed_at: new Date().toISOString() });
+  renderPage();
+}
 async function rotateToken() {
   if (!confirm('Generate a new link? Calendars using the old one will stop updating until you re-add it.')) return;
   try { providerProfile.calendar_token = await sbRpc('rotate_calendar_token', {}); openSubscribe(); showMsg('New calendar link generated.', 'success'); }
@@ -752,8 +830,8 @@ async function init() {
     weekStart = mondayOf(d); selected = ymd(d);
 
     const [profiles] = await Promise.all([
-      sbGet('provider_profiles', `user_id=eq.${authUid}&select=id,calendar_token`),
-      loadClients(), loadSeries(), loadWeek(),
+      sbGet('provider_profiles', `user_id=eq.${authUid}&select=*`),
+      loadClients(), loadSeries(), loadWeek(), loadHasAnyJob(),
     ]);
     providerProfile = profiles[0] || {};
     renderPage();

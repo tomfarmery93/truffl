@@ -274,6 +274,14 @@ D1 and D2 (immediate daily value), E2 and E3 (revenue for the carer), E4 and E5
 Deployment order matters: apply the migration and deploy the edge function before
 merging, because the dashboard links to the new pages as soon as it ships.
 
+### Phase 2 progress
+
+- **H1, H2, H3 (positioning and signup).** `/for-carers/` landing page and a homepage
+  section; registration cut to account plus suburb, landing on `/schedule/` with a
+  three-step first-run card whose progress is stored on the profile; the dashboard's
+  setup checklist reframed as "Get listed on the marketplace" with bio and capabilities
+  editors. Decision taken: verification is not required to use the tools.
+
 ## 9. Ticket index
 
 Issues are labelled `supply-side` plus `P0`, `P1` or `P2`, and grouped under one epic
