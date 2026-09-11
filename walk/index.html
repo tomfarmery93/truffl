@@ -141,6 +141,7 @@
 </style>
   <link rel="preconnect" href="https://gadflsntbnbnnxbpiral.supabase.co" crossorigin>
   <script src="/session.js"></script>
+  <script src="/carer-messaging.js"></script>
 </head>
 <body>
 
@@ -183,6 +184,7 @@ const UPDATE_ICONS = {
 
 let authToken=null, authUid=null;
 let booking=null, walkSession=null, map=null, polyline=null;
+let job=null, jobClient=null, carerFirst='';   // B6: own-client job instead of a booking
 let gpsPoints=[], watchId=null, timerInterval=null, wakeLock=null;
 let bgWatcherId=null, lastPingTs=0, nativeTracking=false, pollInterval=null, lastPingTime=null;
 const PING_INTERVAL_MS=10000; // native: persist a ping at most every 10s
@@ -195,6 +197,7 @@ function esc(s){return (s||'').toString().replace(/&/g,'&amp;').replace(/</g,'&l
 function h(token){const hd={'Content-Type':'application/json','apikey':SUPABASE_ANON_KEY,'Authorization':`Bearer ${SUPABASE_ANON_KEY}`};if(token)hd['Authorization']=`Bearer ${token}`;return hd;}
 async function sbGet(t,p){const r=await fetch(`${SUPABASE_URL}/rest/v1/${t}?${p}`,{headers:h(authToken)});if(!r.ok){const e=await r.json();throw new Error(e.message);}return await r.json();}
 async function sbInsert(t,row){const r=await fetch(`${SUPABASE_URL}/rest/v1/${t}`,{method:'POST',headers:{...h(authToken),'Prefer':'return=representation'},body:JSON.stringify(row)});if(!r.ok){const e=await r.json();throw new Error(e.message);}return await r.json();}
+async function sbRpc(fn,args){const r=await fetch(`${SUPABASE_URL}/rest/v1/rpc/${fn}`,{method:'POST',headers:h(authToken),body:JSON.stringify(args||{})});if(!r.ok){const e=await r.json().catch(()=>({}));throw new Error(e.message||'Request failed');}return await r.json();}
 async function sbPatch(t,col,val,upd){const r=await fetch(`${SUPABASE_URL}/rest/v1/${t}?${col}=eq.${val}`,{method:'PATCH',headers:{...h(authToken),'Prefer':'return=representation'},body:JSON.stringify(upd)});if(!r.ok){const e=await r.json();throw new Error(e.message);}return await r.json();}
 
 function showMsg(t,type){const el=document.getElementById('walkMsg');el.textContent=t;el.className=`msg ${type}`;}
@@ -388,10 +391,13 @@ async function startNativeGpsTracking(){
 async function startWalk(){
   clearMsg();
   try{
-    const result=await sbInsert('walk_sessions',{booking_id:booking.id,provider_id:authUid,status:'active',started_at:new Date().toISOString()});
+    const subject=job?{job_id:job.id}:{booking_id:booking.id};
+    const result=await sbInsert('walk_sessions',{...subject,provider_id:authUid,status:'active',started_at:new Date().toISOString()});
     walkSession=Array.isArray(result)?result[0]:result;
-    await sbPatch('bookings','id',booking.id,{status:'in_progress'});
-    booking.status='in_progress';
+    if(!job){
+      await sbPatch('bookings','id',booking.id,{status:'in_progress'});
+      booking.status='in_progress';
+    }
     await requestWakeLock();
     renderActiveWalk();
     startGpsTracking();
@@ -490,7 +496,12 @@ async function endWalk(){
       status:'completed',ended_at:new Date().toISOString(),
       distance_metres:dist,duration_seconds:dur
     });
-    await sbPatch('bookings','id',booking.id,{status:'completed',completed_at:new Date().toISOString()});
+    if(job){
+      await sbPatch('jobs','id',job.id,{status:'completed',completed_at:new Date().toISOString()});
+      job.status='completed';
+    } else {
+      await sbPatch('bookings','id',booking.id,{status:'completed',completed_at:new Date().toISOString()});
+    }
 
     walkSession.status='completed';
     walkSession.distance_metres=dist;
@@ -517,7 +528,7 @@ function renderPreWalk(){
     <div class="status-bar idle"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M10 9l5 3-5 3z"/></svg> Ready to start</div>
 
     <div style="background:var(--warm-white);border:1px solid var(--border);border-radius:14px;padding:1.25rem;margin-bottom:1rem;">
-      <div style="font-size:0.78rem;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.08em;margin-bottom:8px;">Booking details</div>
+      <div style="font-size:0.78rem;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.08em;margin-bottom:8px;">${job?'Job details':'Booking details'}</div>
       <div style="font-size:0.95rem;font-weight:500;color:var(--text-primary);">${esc(customerName)}</div>
       <div style="font-size:0.85rem;color:var(--text-muted);">${esc(petName)}${petBreed?' · '+esc(petBreed):''}</div>
       ${loc?`<div style="font-size:0.85rem;color:var(--text-secondary);margin-top:8px;display:flex;gap:6px;align-items:flex-start;"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;margin-top:2px;color:var(--text-muted);"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg><span>${esc(loc)}</span></div>`:''}
@@ -529,8 +540,8 @@ function renderPreWalk(){
     <div class="gps-notice">
       <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
       ${isNative()
-        ? `<div><strong>Location permission:</strong> When prompted, choose <strong>"Allow all the time"</strong> so GPS keeps tracking while your screen is locked. If you only see "While using the app", grant that first, then open Settings › Truffl › Location and switch it to "Allow all the time". This is how your customer sees the live route.</div>`
-        : `<div><strong>Heads up:</strong> GPS tracking requires this screen to stay open during the walk. Pop your phone in your pocket with the screen on — we'll keep it awake for you. This is how your customer sees the live route.</div>`}
+        ? `<div><strong>Location permission:</strong> When prompted, choose <strong>"Allow all the time"</strong> so GPS keeps tracking while your screen is locked. If you only see "While using the app", grant that first, then open Settings › Truffl › Location and switch it to "Allow all the time". ${job?'Afterwards you can share the route and photos with '+esc(customerName)+' by link.':'This is how your customer sees the live route.'}</div>`
+        : `<div><strong>Heads up:</strong> GPS tracking requires this screen to stay open during the walk. Pop your phone in your pocket with the screen on — we'll keep it awake for you. ${job?'Afterwards you can share the route and photos with '+esc(customerName)+' by link.':'This is how your customer sees the live route.'}</div>`}
     </div>
 
     <div class="walk-controls">
@@ -624,7 +635,7 @@ function renderSummary(){
     <div class="summary-card fade-in">
       <div style="margin-bottom:0.5rem;color:var(--success);display:flex;justify-content:center;"><svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M8 12.5l2.5 2.5L16 9"/></svg></div>
       <h2>Walk complete!</h2>
-      <p style="color:var(--text-secondary);font-size:0.9rem;">Great job. ${customerName} has been notified.</p>
+      <p style="color:var(--text-secondary);font-size:0.9rem;">${job?`Great job. Send ${esc(customerName)} the report: the route, your photos and notes.`:`Great job. ${esc(customerName)} has been notified.`}</p>
 
       <div class="summary-stats">
         <div class="summary-stat"><div class="stat-value">${formatDuration(dur)}</div><div class="stat-label">Duration</div></div>
@@ -634,9 +645,13 @@ function renderSummary(){
 
       ${gpsPoints.length > 0 ? '<div class="map-container" style="margin-bottom:1rem;"><div id="summaryMap" style="height:200px;"></div></div>' : ''}
 
-      <div style="margin-top:1.5rem;">
+      ${job?`<div style="margin-top:1.5rem;display:flex;gap:10px;justify-content:center;flex-wrap:wrap;">
+        ${jobClient&&(jobClient.phone||jobClient.email)?`<button onclick="sendReport()" style="padding:12px 28px;background:var(--terracotta);color:white;border:none;border-radius:10px;font-weight:500;font-size:0.9rem;font-family:inherit;cursor:pointer;">Send report to ${esc((jobClient.first_name||'client'))}</button>`:''}
+        <button onclick="copyReportLink()" style="padding:12px 24px;background:transparent;color:var(--text-secondary);border:1px solid var(--border);border-radius:10px;font-weight:500;font-size:0.9rem;font-family:inherit;cursor:pointer;">Copy report link</button>
+        <a href="/schedule/" style="display:inline-block;padding:12px 24px;background:transparent;color:var(--text-secondary);border:1px solid var(--border);border-radius:10px;font-weight:500;text-decoration:none;font-size:0.9rem;">Back to schedule</a>
+      </div>`:`<div style="margin-top:1.5rem;">
         <a href="/dashboard/" style="display:inline-block;padding:12px 32px;background:var(--terracotta);color:white;border-radius:10px;font-weight:500;text-decoration:none;font-size:0.9rem;">Back to dashboard</a>
-      </div>
+      </div>`}
     </div>
   `;
 
@@ -652,6 +667,26 @@ function renderSummary(){
   }
 }
 
+/* ── D2: share the walk with an own client ── */
+async function reportLink(){
+  const t=await sbRpc('job_share_link',{p_job_id:job.id,p_action:'ensure'});
+  return t?`${location.origin}/report/?t=${t}`:null;
+}
+async function copyReportLink(){
+  try{
+    const url=await reportLink();
+    try{await navigator.clipboard.writeText(url);}catch(e){prompt('Copy this link',url);}
+    showMsg('Report link copied. Anyone with it can see this walk until you turn it off from the schedule.','success');
+  }catch(e){showMsg(e.message,'error');}
+}
+function sendReport(){
+  TrufflMessaging.open({
+    client:jobClient, pets:petName,
+    job:{id:job.id,starts_at:job.starts_at,ends_at:job.ends_at,service_type:job.service_type,price_cents:job.price_cents},
+    preselect:'walk_done', reportLink
+  });
+}
+
 async function init(){
   const area=document.getElementById('walkContent');
   const stored=localStorage.getItem('truffl_session');
@@ -664,13 +699,30 @@ async function init(){
 
   const params=new URLSearchParams(window.location.search);
   const bookingId=params.get('booking');
+  const jobId=params.get('job');
 
-  if(!bookingId){
-    area.innerHTML=`<div class="login-prompt"><h2>No booking specified</h2><p>Go to your <a href="/dashboard/" style="color:var(--terracotta);">dashboard</a> and start a walk from there.</p></div>`;
+  if(!bookingId&&!jobId){
+    area.innerHTML=`<div class="login-prompt"><h2>Nothing to walk yet</h2><p>Start a walk from your <a href="/schedule/" style="color:var(--terracotta);">schedule</a> or your <a href="/dashboard/" style="color:var(--terracotta);">dashboard</a>.</p></div>`;
     return;
   }
 
   try{
+    if(jobId){
+      // B6: an own-client job. Client and dogs come straight from the carer's own book.
+      const jobs=await sbGet('jobs',`id=eq.${jobId}&select=*,clients(*),job_pets(client_pets(*))`);
+      if(!jobs.length){area.innerHTML=`<div class="login-prompt"><h2>Job not found</h2><p><a href="/schedule/" style="color:var(--terracotta);">Back to schedule</a></p></div>`;return;}
+      job=jobs[0]; jobClient=job.clients||null;
+      booking={id:job.id,customer_notes:job.notes,status:job.status};
+      customerName=jobClient?`${jobClient.first_name||''} ${jobClient.last_name||''}`.trim():(job.title||'Job');
+      custContact=jobClient?{address:jobClient.address,suburb:jobClient.suburb,postcode:jobClient.postcode,customer_phone:jobClient.phone}:null;
+      petCare=(job.job_pets||[]).map(jp=>jp.client_pets).filter(Boolean);
+      if(petCare.length){
+        petName=petCare.map(p=>p.name).filter(Boolean).join(' + ');
+        petBreed=petCare.length===1?(petCare[0].breed||''):'';
+      } else { petName=jobClient?'their dog':''; }
+      try{ const me=await sbGet('users',`id=eq.${authUid}&select=first_name`); carerFirst=(me[0]&&me[0].first_name)||''; }catch(e){}
+      TrufflMessaging.init({supabaseUrl:SUPABASE_URL,anonKey:SUPABASE_ANON_KEY,token:authToken,uid:authUid,carerFirstName:carerFirst});
+    } else {
     const bookings=await sbGet('bookings',`id=eq.${bookingId}&select=*`);
     if(!bookings.length){area.innerHTML=`<div class="login-prompt"><h2>Booking not found</h2><p><a href="/dashboard/" style="color:var(--terracotta);">Back to dashboard</a></p></div>`;return;}
     booking=bookings[0];
@@ -694,8 +746,10 @@ async function init(){
       }
     }catch(e){}
 
+    }
+
     // Check if walk already started
-    const sessions=await sbGet('walk_sessions',`booking_id=eq.${bookingId}&select=*&order=created_at.desc&limit=1`);
+    const sessions=await sbGet('walk_sessions',`${job?'job_id':'booking_id'}=eq.${job?job.id:bookingId}&select=*&order=created_at.desc&limit=1`);
     if(sessions.length && sessions[0].status==='active'){
       walkSession=sessions[0];
       renderActiveWalk();
