@@ -19,6 +19,7 @@
 <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,500;0,600;1,400;1,500&family=DM+Sans:wght@400;500;600&display=swap" rel="stylesheet">
   <link rel="preconnect" href="https://gadflsntbnbnnxbpiral.supabase.co" crossorigin>
   <script src="/session.js"></script>
+  <script src="/carer-messaging.js"></script>
 <style>
   :root {
     --cream: #FAF7F2; --warm-white: #FFFDF9; --sage: #8B9E7E; --sage-light: #C2D1B5;
@@ -384,6 +385,7 @@ function renderClientSheet(c) {
       <div class="actions-row">${quickActionsHtml(c)}</div>
       <div class="actions-row">
         <a class="btn primary sm" href="/schedule/?new=1&client=${c.id}">${ICONS.plus} Add a walk</a>
+        ${(c.phone || c.email) ? `<button class="btn secondary sm" onclick="messageClient('${c.id}')">Message</button>` : ''}
         <button class="btn secondary sm" onclick="openClientForm('${c.id}')">Edit</button>
         ${c.is_archived ? `<button class="btn secondary sm" onclick="archiveClient('${c.id}', false)">Restore</button>` : `<button class="btn ghost sm" onclick="archiveClient('${c.id}', true)">Archive</button>`}
       </div>
@@ -418,6 +420,12 @@ async function archiveClient(id, archive) {
     closeModal(); renderPage();
     showMsg(archive ? 'Client archived. You can find them under the Archived filter.' : 'Client restored.', 'success');
   } catch (e) { showMsg(e.message, 'error'); }
+}
+
+/* ── Messaging (GitHub #162) ── */
+function messageClient(id) {
+  const c = clients.find(x => x.id === id); if (!c) return;
+  TrufflMessaging.open({ client: c, pets: activePets(c).map(p => p.name).join(', ') });
 }
 
 /* ── Add / edit form ── */
@@ -636,6 +644,7 @@ async function init() {
     }
     const ini = ((userData.first_name || '')[0] || '') + ((userData.last_name || '')[0] || '');
     document.getElementById('navUser').innerHTML = `<a href="/profile/" title="Your profile" style="display:flex;align-items:center;gap:8px;text-decoration:none;color:inherit;"><div class="nav-avatar">${esc(ini)}</div><span class="nav-name">${esc(userData.first_name)}</span></a>`;
+    TrufflMessaging.init({ supabaseUrl: SUPABASE_URL, anonKey: SUPABASE_ANON_KEY, token: authToken, uid: authUid, carerFirstName: userData.first_name });
     await loadClients();
     renderPage();
     const params = new URLSearchParams(location.search);

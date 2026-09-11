@@ -1,0 +1,145 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <!-- Google tag (gtag.js) -->
+<script async src="https://www.googletagmanager.com/gtag/js?id=G-T2CPSDBJ1L"></script>
+<script>
+  window.dataLayer = window.dataLayer || [];
+  function gtag(){dataLayer.push(arguments);}
+  gtag('js', new Date());
+
+  gtag('config', 'G-T2CPSDBJ1L');
+</script>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="robots" content="noindex,nofollow">
+<title>Walk report — Truffl Pets</title>
+<link rel="icon" type="image/svg+xml" href="/favicon.svg">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,500;1,400;1,500&family=DM+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css"/>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+<style>
+  :root {
+    --cream: #FAF7F2; --warm-white: #FFFDF9; --sage: #8B9E7E; --sage-dark: #6B7E5E; --terracotta: #C4755B;
+    --blush: #E8C4B8; --brown: #3D2B1F; --text-primary: #3D2B1F; --text-secondary: #6B5B4E; --text-muted: #9B8B7E;
+    --border: #E8E0D6; --success: #5B8C5A; --success-bg: #EDF5ED; --error: #C0392B;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: 'DM Sans', sans-serif; background: var(--cream); color: var(--text-primary); min-height: 100vh; -webkit-font-smoothing: antialiased; }
+  .nav { background: var(--warm-white); border-bottom: 1px solid var(--border); padding: 0 1.25rem; height: 60px; display: flex; align-items: center; justify-content: space-between; }
+  .nav a { text-decoration: none; color: var(--text-secondary); font-size: 0.82rem; }
+  .wrap { max-width: 640px; margin: 0 auto; padding: 1.5rem 1.25rem 3rem; }
+  .eyebrow { font-size: 0.72rem; letter-spacing: .14em; text-transform: uppercase; color: var(--sage-dark); font-weight: 600; margin-bottom: 6px; }
+  h1 { font-family: 'Cormorant Garamond', serif; font-weight: 500; font-size: 1.9rem; color: var(--brown); line-height: 1.15; }
+  .sub { color: var(--text-muted); font-size: 0.9rem; margin-top: 4px; }
+  .stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin: 1.25rem 0; }
+  .stat { background: var(--warm-white); border: 1px solid var(--border); border-radius: 12px; padding: 12px; text-align: center; }
+  .stat-value { font-size: 1.25rem; font-weight: 600; color: var(--brown); }
+  .stat-label { font-size: 0.72rem; color: var(--text-muted); margin-top: 2px; }
+  .map-container { border-radius: 14px; overflow: hidden; border: 1px solid var(--border); margin-bottom: 1.25rem; }
+  #map { height: 300px; width: 100%; background: var(--cream); }
+  .card { background: var(--warm-white); border: 1px solid var(--border); border-radius: 14px; padding: 1rem 1.1rem; margin-bottom: 1rem; }
+  .card-title { font-family: 'Cormorant Garamond', serif; font-weight: 500; font-size: 1.15rem; color: var(--brown); margin-bottom: .6rem; }
+  .upd { display: flex; gap: 12px; padding: 10px 0; border-top: 1px solid var(--border); }
+  .upd:first-of-type { border-top: none; padding-top: 0; }
+  .upd-ic { width: 32px; height: 32px; border-radius: 50%; display: flex; align-items: center; justify-content: center; flex-shrink: 0; background: var(--cream); color: var(--sage-dark); }
+  .upd-ic svg { width: 16px; height: 16px; }
+  .upd-ic.mood { background: #FDF0EE; color: var(--terracotta); }
+  .upd-body { flex: 1; min-width: 0; }
+  .upd-msg { font-size: 0.9rem; color: var(--text-primary); }
+  .upd-time { font-size: 0.74rem; color: var(--text-muted); margin-top: 2px; }
+  .upd-photo { width: 100%; max-width: 360px; border-radius: 10px; margin-top: 8px; display: block; border: 1px solid var(--border); }
+  .notes { font-size: 0.9rem; color: var(--text-secondary); white-space: pre-wrap; line-height: 1.6; }
+  .footer { text-align: center; font-size: 0.78rem; color: var(--text-muted); margin-top: 2rem; line-height: 1.6; }
+  .footer a { color: var(--terracotta); text-decoration: none; font-weight: 600; }
+  .state { text-align: center; padding: 3rem 1rem; }
+  .state h2 { font-family: 'Cormorant Garamond', serif; font-weight: 500; font-size: 1.5rem; color: var(--brown); margin-bottom: 8px; }
+  .state p { color: var(--text-muted); font-size: 0.9rem; }
+  .pill { display: inline-block; font-size: 0.68rem; font-weight: 600; letter-spacing: .04em; text-transform: uppercase; padding: 3px 9px; border-radius: 20px; background: var(--success-bg); color: var(--success); vertical-align: middle; margin-left: 6px; }
+</style>
+</head>
+<body>
+<nav class="nav">
+  <a href="/" aria-label="Truffl Pets home">
+    <svg width="96" height="34" viewBox="0 0 118 44" xmlns="http://www.w3.org/2000/svg">
+      <rect x="16.5" y="10.5" width="7" height="9" rx="3" fill="#C4866A"/>
+      <circle cx="20" cy="33" r="20" fill="#C4866A"/>
+      <text x="20" y="35.5" font-family="'Cormorant Garamond', Georgia, serif" font-size="14" font-style="italic" font-weight="400" fill="#FFFDF9" text-anchor="middle" letter-spacing="-0.3">truffl</text>
+      <text x="52" y="30" font-family="'Cormorant Garamond', Georgia, serif" font-size="32" font-style="italic" font-weight="400" fill="#3D2B1F" letter-spacing="-0.5">truffl</text>
+    </svg>
+  </a>
+  <a href="/for-carers/">Walkers: run your business on Truffl</a>
+</nav>
+<div class="wrap" id="content"><div class="state"><p>Loading the walk…</p></div></div>
+
+<script>
+/* Public walk report (GitHub #163). No sign-in: the link carries a per-job token that the
+   carer generates and can revoke from their schedule. Everything comes back from one
+   definer RPC (public.walk_report) that returns nothing for an unknown or revoked token. */
+const SUPABASE_URL = 'https://gadflsntbnbnnxbpiral.supabase.co';
+const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImdhZGZsc250Ym5ibm54YnBpcmFsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzUwNjcwNTcsImV4cCI6MjA5MDY0MzA1N30.g5ZrqeAX9U5l7oDZEbQFrU5j10828dUF0QuJ0ZlHXK8';
+const SERVICE_LABELS = { dog_walking: 'walk', dog_sitting: 'visit', dog_boarding: 'stay', pet_sitting: 'visit' };
+const ICONS = {
+  comment: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>',
+  photo: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 8.5A1.5 1.5 0 0 1 4.5 7H7l1-2h8l1 2h2.5A1.5 1.5 0 0 1 21 8.5V18a1.5 1.5 0 0 1-1.5 1.5h-15A1.5 1.5 0 0 1 3 18z"/><circle cx="12" cy="13" r="3.2"/></svg>',
+  mood: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M8.5 14.5s1.2 1.8 3.5 1.8 3.5-1.8 3.5-1.8"/><path d="M9 10h.01M15 10h.01"/></svg>',
+};
+function esc(s) { return (s == null ? '' : String(s)).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;'); }
+function fmtDur(sec) { if (!sec) return '–'; const m = Math.round(sec / 60); return m >= 60 ? `${Math.floor(m / 60)}h ${m % 60}m` : `${m} min`; }
+function fmtDist(m) { if (!m) return '–'; return m >= 1000 ? (m / 1000).toFixed(1) + ' km' : m + ' m'; }
+function fmtTime(iso) { return new Date(iso).toLocaleTimeString('en-AU', { hour: 'numeric', minute: '2-digit' }); }
+function fmtDate(iso) { return new Date(iso).toLocaleDateString('en-AU', { weekday: 'long', day: 'numeric', month: 'long' }); }
+function state(title, body) { document.getElementById('content').innerHTML = `<div class="state"><h2>${esc(title)}</h2><p>${esc(body)}</p></div>`; }
+
+async function init() {
+  const token = (new URLSearchParams(location.search).get('t') || '').trim();
+  if (!/^[0-9a-f]{32,128}$/i.test(token)) return state('This link is not valid', 'Ask your walker to send it again.');
+  let r;
+  try {
+    const res = await fetch(`${SUPABASE_URL}/rest/v1/rpc/walk_report`, { method: 'POST', headers: { 'Content-Type': 'application/json', 'apikey': SUPABASE_ANON_KEY, 'Authorization': `Bearer ${SUPABASE_ANON_KEY}` }, body: JSON.stringify({ p_token: token }) });
+    r = res.ok ? await res.json() : null;
+  } catch (e) { r = null; }
+  if (!r || !r.job) return state('This report is not available', 'The link may have been turned off by your walker.');
+
+  const pets = (r.pets || []).join(' and ') || 'your dog';
+  const svc = SERVICE_LABELS[r.job.service_type] || 'visit';
+  const s = r.session || null;
+  const pings = (r.pings || []).filter(p => p.lat != null && p.lng != null);
+  const updates = r.updates || [];
+  const dur = s ? (s.duration_seconds || (s.ended_at ? Math.round((new Date(s.ended_at) - new Date(s.started_at)) / 1000) : null)) : null;
+  document.title = `${pets}'s ${svc} — Truffl Pets`;
+
+  document.getElementById('content').innerHTML = `
+    <div class="eyebrow">${esc(fmtDate(r.job.starts_at))}</div>
+    <h1>${esc(pets)}'s ${esc(svc)} with ${esc(r.carer_first || 'your walker')}${s && s.status === 'active' ? '<span class="pill">Live</span>' : ''}</h1>
+    <div class="sub">${s ? `${esc(fmtTime(s.started_at))}${s.ended_at ? ' to ' + esc(fmtTime(s.ended_at)) : ', in progress'}` : esc(fmtTime(r.job.starts_at)) + ' to ' + esc(fmtTime(r.job.ends_at))}</div>
+    <div class="stats">
+      <div class="stat"><div class="stat-value">${esc(fmtDur(dur))}</div><div class="stat-label">Duration</div></div>
+      <div class="stat"><div class="stat-value">${esc(fmtDist(s ? s.distance_metres : null))}</div><div class="stat-label">Distance</div></div>
+      <div class="stat"><div class="stat-value">${updates.filter(u => u.update_type === 'photo' && u.photo_url).length}</div><div class="stat-label">Photos</div></div>
+    </div>
+    ${pings.length ? '<div class="map-container"><div id="map"></div></div>' : ''}
+    ${updates.length ? `<div class="card"><div class="card-title">Along the way</div>${updates.map(u => `
+      <div class="upd"><div class="upd-ic ${esc(u.update_type)}">${ICONS[u.update_type] || ICONS.comment}</div>
+        <div class="upd-body"><div class="upd-msg">${esc(u.message || (u.update_type === 'photo' ? 'Photo' : ''))}</div><div class="upd-time">${esc(fmtTime(u.created_at))}</div>
+        ${u.photo_url ? `<img class="upd-photo" src="${esc(u.photo_url)}" alt="Walk photo" loading="lazy" onerror="this.style.display='none'">` : ''}</div></div>`).join('')}</div>` : ''}
+    ${r.job.notes ? `<div class="card"><div class="card-title">Notes from ${esc(r.carer_first || 'your walker')}</div><div class="notes">${esc(r.job.notes)}</div></div>` : ''}
+    <div class="footer">Shared by ${esc(r.carer_first || 'your walker')} through Truffl Pets.<br>Walk dogs yourself? <a href="/for-carers/">Run your business on Truffl</a>, free for your own clients.</div>`;
+
+  if (pings.length && typeof L === 'undefined') {
+    document.getElementById('map').innerHTML = '<div style="padding:2rem;text-align:center;color:var(--text-muted);font-size:.85rem;">Map could not load. The route was recorded and the stats above are correct.</div>';
+  } else if (pings.length) {
+    const map = L.map('map').fitBounds(pings.map(p => [p.lat, p.lng]), { padding: [20, 20] });
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19, attribution: '© OpenStreetMap' }).addTo(map);
+    L.polyline(pings.map(p => [p.lat, p.lng]), { color: '#C4755B', weight: 4 }).addTo(map);
+    L.circleMarker([pings[0].lat, pings[0].lng], { radius: 6, color: '#5B8C5A', fillColor: '#5B8C5A', fillOpacity: 1 }).addTo(map).bindPopup('Start');
+    const last = pings[pings.length - 1];
+    L.circleMarker([last.lat, last.lng], { radius: 6, color: '#C0392B', fillColor: '#C0392B', fillOpacity: 1 }).addTo(map).bindPopup(s && s.status === 'active' ? 'Now' : 'End');
+  }
+  try { gtag('event', 'walk_report_view'); } catch (e) {}
+}
+document.addEventListener('DOMContentLoaded', init);
+</script>
+</body>
+</html>

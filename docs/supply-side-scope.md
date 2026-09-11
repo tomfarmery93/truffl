@@ -282,6 +282,13 @@ merging, because the dashboard links to the new pages as soon as it ships.
   setup checklist reframed as "Get listed on the marketplace" with bio and capabilities
   editors. Decision taken: verification is not required to use the tools.
 
+- **D1, D2, B6 (daily messaging).** Message templates with merge fields, sent as WhatsApp,
+  SMS or email deep links from a job or a client, with a per-carer template editor and a
+  send log; the GPS walk tracker starts from an own-client job; a completed walk gets a
+  shareable report link (`/report/?t=…`) the carer can turn off. Photos stay in the
+  existing public bucket, matching the owner-facing track page; the token gates the
+  listing, not the objects.
+
 ## 9. Ticket index
 
 Issues are labelled `supply-side` plus `P0`, `P1` or `P2`, and grouped under one epic

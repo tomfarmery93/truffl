@@ -19,6 +19,7 @@
 <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,500;0,600;1,400;1,500&family=DM+Sans:wght@400;500;600&display=swap" rel="stylesheet">
   <link rel="preconnect" href="https://gadflsntbnbnnxbpiral.supabase.co" crossorigin>
   <script src="/session.js"></script>
+  <script src="/carer-messaging.js"></script>
 <style>
   :root {
     --cream: #FAF7F2; --warm-white: #FFFDF9; --sage: #8B9E7E; --sage-light: #C2D1B5;
@@ -320,7 +321,7 @@ async function loadSeries() {
   series = await sbGet('job_series', `provider_user_id=eq.${authUid}&status=in.(active,paused)&select=*,job_series_pets(client_pet_id)&order=created_at.desc`);
 }
 async function loadClients() {
-  clients = await sbGet('clients', `provider_user_id=eq.${authUid}&is_archived=eq.false&select=id,first_name,last_name,phone,suburb,client_pets(id,name,is_active)&order=first_name.asc`);
+  clients = await sbGet('clients', `provider_user_id=eq.${authUid}&is_archived=eq.false&select=id,first_name,last_name,phone,email,suburb,client_pets(id,name,is_active)&order=first_name.asc`);
 }
 
 /* ── First-run flow (GitHub #174) ──
@@ -445,12 +446,16 @@ function jobCardHtml(r) {
   const contact = r.client_phone ? `<a class="icon-btn" href="tel:${attr(r.client_phone)}" title="Call">${ICONS.phone}</a><a class="icon-btn" href="sms:${attr(r.client_phone)}" title="Text">${ICONS.sms}</a><a class="icon-btn wa" href="https://wa.me/${attr(e164(r.client_phone).replace('+',''))}" target="_blank" rel="noopener" title="WhatsApp">${ICONS.wa}</a>` : '';
   let actions = '';
   if (own) {
+    const msgBtn = r.client_id ? `<button class="btn secondary sm" onclick="messageJob('${r.id}')">Message</button>` : '';
+    const walkBtn = r.walk_status === 'active' ? `<a class="btn primary sm" href="/walk/?job=${r.id}">Resume walk</a>`
+      : (!done && !cancelled && r.service_type === 'dog_walking' ? `<a class="btn primary sm" href="/walk/?job=${r.id}">Start walk</a>` : '');
+    const reportBtn = r.walk_status === 'completed' && r.client_id ? `<button class="btn secondary sm" onclick="messageJob('${r.id}','walk_done')">Share report</button>` : '';
     if (cancelled) actions = `<button class="btn ghost sm" onclick="setStatus('${r.id}','scheduled')">Restore</button>`;
-    else if (!done) actions = `<button class="btn success sm" onclick="setStatus('${r.id}','completed')">Done</button><button class="btn secondary sm" onclick="openJobForm('${r.id}')">Edit</button>`;
+    else if (!done) actions = `${walkBtn}<button class="btn success sm" onclick="setStatus('${r.id}','completed')">Done</button>${msgBtn}<button class="btn ghost sm" onclick="openJobForm('${r.id}')">Edit</button>`;
     else if (r.price_cents && !r.is_paid) actions = payChoice === r.id
       ? `<span class="paychoice">Paid by ${['cash','bank_transfer','card','other'].map(m => `<button class="btn secondary sm" onclick="markPaid('${r.id}','${m}')">${{cash:'Cash',bank_transfer:'Transfer',card:'Card',other:'Other'}[m]}</button>`).join('')}<button class="btn ghost sm" onclick="payChoice=null;renderBody()">×</button></span>`
-      : `<button class="btn success sm" onclick="payChoice='${r.id}';renderBody()">Mark paid</button><button class="btn ghost sm" onclick="openJobForm('${r.id}')">Edit</button>`;
-    else actions = `<button class="btn ghost sm" onclick="openJobForm('${r.id}')">Edit</button>`;
+      : `<button class="btn success sm" onclick="payChoice='${r.id}';renderBody()">Mark paid</button>${reportBtn || msgBtn}<button class="btn ghost sm" onclick="openJobForm('${r.id}')">Edit</button>`;
+    else actions = `${reportBtn || msgBtn}<button class="btn ghost sm" onclick="openJobForm('${r.id}')">Edit</button>`;
   } else {
     actions = `<a class="btn secondary sm" href="/dashboard/">Open in dashboard</a><a class="btn ghost sm" href="/messages/?booking=${r.id}">Message</a>`;
   }
@@ -489,6 +494,24 @@ async function setWeek(d) { weekStart = mondayOf(d); await refresh(); }
 async function shiftWeek(n) { weekStart = addDays(weekStart, n * 7); selected = ymd(weekStart); history.replaceState(null, '', `/schedule/?d=${selected}`); await refresh(); }
 async function goToday() { const t = new Date(); weekStart = mondayOf(t); selected = ymd(t); history.replaceState(null, '', '/schedule/'); await refresh(); }
 async function refresh() { try { await loadWeek(); if (!hasAnyJob) await loadHasAnyJob(); } catch (e) { showMsg(e.message, 'error'); } renderPage(); }
+
+/* ── Messaging (GitHub #162, #163) ── */
+function messageJob(id, preselect) {
+  const r = rows.find(x => x.id === id && x.kind === 'job'); if (!r) return;
+  const c = clients.find(x => x.id === r.client_id);
+  if (!c) { showMsg('Add a client to this job to message them.', 'info'); return; }
+  TrufflMessaging.open({
+    client: c, pets: r.pet_names || '',
+    job: { id: r.id, starts_at: r.starts_at, ends_at: r.ends_at, service_type: r.service_type, price_cents: r.price_cents },
+    preselect: preselect || (r.walk_status === 'completed' ? 'walk_done' : null),
+    reportLink: r.walk_status === 'completed' ? (async () => { const t = await sbRpc('job_share_link', { p_job_id: r.id, p_action: 'ensure' }); return t ? `${location.origin}/report/?t=${t}` : null; }) : null,
+  });
+}
+async function revokeReport(id) {
+  if (!confirm('Turn off the report link for this walk? Anyone with the old link will no longer be able to open it.')) return;
+  try { await sbRpc('job_share_link', { p_job_id: id, p_action: 'revoke' }); showMsg('Report link turned off. Sharing again creates a fresh link.', 'success'); closeModal(); }
+  catch (e) { alert(e.message); }
+}
 
 /* ── Job actions ── */
 async function setStatus(id, status) {
@@ -535,6 +558,7 @@ function openJobForm(jobId, dateStr, presetClient) {
     notes: existing ? (existing.notes || '') : '', title: existing ? (existing.title || '') : '',
     repeat: false, freq: 'specific_days', days: new Set([(start.getDay() + 6) % 7 + 1]), end_date: '',
     source: existing ? existing.source : 'manual', series_id: existing ? existing.series_id : null,
+    walk_status: existing ? existing.walk_status : null,
   };
   if (existing) {
     // Pet ids are not on the view; resolve by matching names against the client's pets.
@@ -581,6 +605,7 @@ function renderJobForm() {
       </div>
       <div class="form-actions">
         ${isEdit ? `<button type="button" class="btn danger sm left" onclick="removeJob('${f.id}')">${f.series_id ? 'Cancel this one' : 'Delete'}</button>` : ''}
+        ${isEdit && f.walk_status === 'completed' ? `<button type="button" class="btn ghost sm" onclick="revokeReport('${f.id}')">Turn off report link</button>` : ''}
         <button type="button" class="btn ghost" onclick="closeModal()">Close</button>
         <button type="submit" class="btn primary" id="saveJobBtn">${isEdit ? 'Save' : (f.repeat ? 'Create repeating job' : 'Add job')}</button>
       </div>
@@ -824,6 +849,7 @@ async function init() {
     }
     const ini = ((userData.first_name || '')[0] || '') + ((userData.last_name || '')[0] || '');
     document.getElementById('navUser').innerHTML = `<a href="/profile/" title="Your profile" style="display:flex;align-items:center;gap:8px;text-decoration:none;color:inherit;"><div class="nav-avatar">${esc(ini)}</div><span class="nav-name">${esc(userData.first_name)}</span></a>`;
+    TrufflMessaging.init({ supabaseUrl: SUPABASE_URL, anonKey: SUPABASE_ANON_KEY, token: authToken, uid: authUid, carerFirstName: userData.first_name });
 
     const params = new URLSearchParams(location.search);
     const d = params.get('d') && /^\d{4}-\d{2}-\d{2}$/.test(params.get('d')) ? fromYmd(params.get('d')) : new Date();
