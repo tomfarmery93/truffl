@@ -22,7 +22,10 @@ quota-limited, not metered.
 4. **Branding** (left menu): the logo if you want it on the consent screen, app domain
    `trufflpets.com`, privacy policy `https://trufflpets.com/privacy/`, terms
    `https://trufflpets.com/terms/`, and under Authorised domains add `trufflpets.com`
-   and `supabase.co` (the redirect lives on the Supabase project domain).
+   and `gadflsntbnbnnxbpiral.supabase.co` (the redirect lives on the Supabase project
+   domain; bare `supabase.co` is rejected as "must be a top private domain" because
+   Supabase lists it on the Public Suffix List). If the second one is rejected too,
+   leave it out: authorised domains only matter for the verification review.
 5. **Data Access** (left menu): press **Add or remove scopes**, search "calendar" and tick
    - `https://www.googleapis.com/auth/calendar.app.created` (non-sensitive: lets Truffl
      create and manage the calendars it created, which is the "Truffl" calendar)
