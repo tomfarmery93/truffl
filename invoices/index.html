@@ -1,0 +1,577 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <!-- Google tag (gtag.js) -->
+<script async src="https://www.googletagmanager.com/gtag/js?id=G-T2CPSDBJ1L"></script>
+<script>
+  window.dataLayer = window.dataLayer || [];
+  function gtag(){dataLayer.push(arguments);}
+  gtag('js', new Date());
+
+  gtag('config', 'G-T2CPSDBJ1L');
+</script>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="robots" content="noindex,nofollow">
+<title>Invoices — Truffl Pets</title>
+<link rel="icon" type="image/svg+xml" href="/favicon.svg">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,500;0,600;1,400;1,500&family=DM+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+  <link rel="preconnect" href="https://gadflsntbnbnnxbpiral.supabase.co" crossorigin>
+  <script src="/session.js"></script>
+  <script src="/carer-messaging.js"></script>
+<style>
+  :root {
+    --cream: #FAF7F2; --warm-white: #FFFDF9; --sage: #8B9E7E; --sage-light: #C2D1B5;
+    --sage-dark: #6B7E5E; --terracotta: #C4755B; --terracotta-light: #D4917B;
+    --blush: #E8C4B8; --brown: #3D2B1F; --brown-light: #5C4033; --brown-muted: #8B7355;
+    --text-primary: #3D2B1F; --text-secondary: #6B5B4E; --text-muted: #9B8B7E;
+    --border: #E8E0D6; --border-focus: #C4755B;
+    --error: #C0392B; --error-bg: #FDF0EE; --success: #5B8C5A; --success-bg: #EDF5ED;
+    --warning: #C0862B; --warning-bg: #FEF3E2;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: 'DM Sans', sans-serif; background: var(--cream); color: var(--text-primary); min-height: 100vh; -webkit-font-smoothing: antialiased; }
+  button, input, select, textarea { font-family: inherit; }
+
+  .nav { position: sticky; top: 0; z-index: 100; background: var(--warm-white); border-bottom: 1px solid var(--border); padding: 0 2rem; height: 64px; display: flex; align-items: center; justify-content: space-between; }
+  .nav-logo { display: flex; align-items: center; text-decoration: none; }
+  .nav-right { display: flex; align-items: center; gap: 18px; font-size: 13px; }
+  .nav-right a { color: var(--text-secondary); text-decoration: none; transition: color 0.2s; }
+  .nav-right a:hover, .nav-right a.active { color: var(--terracotta); }
+  .nav-user { display: flex; align-items: center; gap: 8px; }
+  .nav-avatar { width: 32px; height: 32px; border-radius: 50%; background: var(--blush); display: flex; align-items: center; justify-content: center; font-size: 0.75rem; font-weight: 600; color: var(--brown); }
+  .nav-name { font-size: 0.85rem; font-weight: 500; color: var(--text-primary); }
+  @media (max-width: 640px) { .nav { padding: 0 1rem; } .nav-right { gap: 12px; } .nav-name, .nav-hide-sm { display: none; } }
+
+  .page-wrapper { max-width: 800px; margin: 0 auto; padding: 1.5rem 1.25rem 4rem; }
+  .welcome { display: flex; align-items: flex-end; justify-content: space-between; gap: 12px; flex-wrap: wrap; margin-bottom: 1.25rem; }
+  .welcome h1 { font-family: 'Cormorant Garamond', serif; font-weight: 500; font-size: 1.8rem; color: var(--brown); }
+  .welcome p { color: var(--text-muted); font-size: 0.9rem; margin-top: 2px; }
+  .welcome-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+
+  .btn { display: inline-flex; align-items: center; gap: 6px; padding: 9px 16px; border-radius: 999px; font-size: 0.85rem; font-weight: 600; cursor: pointer; border: 1px solid transparent; text-decoration: none; transition: all .15s; white-space: nowrap; }
+  .btn.primary { background: var(--terracotta); color: #fff; }
+  .btn.primary:hover { background: #B3684F; }
+  .btn.secondary { background: var(--warm-white); color: var(--brown); border-color: var(--border); }
+  .btn.secondary:hover { border-color: var(--terracotta); color: var(--terracotta); }
+  .btn.ghost { background: transparent; color: var(--text-secondary); }
+  .btn.ghost:hover { color: var(--terracotta); }
+  .btn.danger { background: var(--error-bg); color: var(--error); }
+  .btn.sm { padding: 6px 12px; font-size: 0.78rem; }
+  .btn:disabled { opacity: .55; cursor: default; }
+
+  .msg { display: none; padding: 12px 16px; border-radius: 10px; font-size: 0.85rem; margin-bottom: 1rem; }
+  .msg.error { display: block; background: var(--error-bg); color: var(--error); }
+  .msg.success { display: block; background: var(--success-bg); color: var(--success); }
+  .msg.info { display: block; background: var(--warning-bg); color: var(--warning); }
+
+  .toolbar { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; margin-bottom: 1rem; }
+  .search { flex: 1; min-width: 200px; position: relative; }
+  .search input { width: 100%; padding: 11px 14px 11px 38px; border: 1px solid var(--border); border-radius: 999px; background: var(--warm-white); font-size: 0.9rem; color: var(--text-primary); outline: none; }
+  .search input:focus { border-color: var(--border-focus); }
+  .search svg { position: absolute; left: 13px; top: 50%; transform: translateY(-50%); color: var(--text-muted); }
+  .chips { display: flex; gap: 6px; flex-wrap: wrap; }
+  .chip { padding: 7px 12px; border-radius: 999px; font-size: 0.78rem; font-weight: 500; border: 1px solid var(--border); background: var(--warm-white); color: var(--text-secondary); cursor: pointer; }
+  .chip.active { background: var(--brown); color: #fff; border-color: var(--brown); }
+
+  .client-card { background: var(--warm-white); border: 1px solid var(--border); border-radius: 14px; padding: 14px 16px; margin-bottom: 10px; display: flex; gap: 14px; align-items: flex-start; cursor: pointer; transition: box-shadow .2s, transform .15s; }
+  .client-card:hover { box-shadow: 0 6px 18px -8px rgba(61,43,31,.2); transform: translateY(-1px); }
+  .cc-avatar { width: 44px; height: 44px; border-radius: 50%; background: var(--blush); display: flex; align-items: center; justify-content: center; font-weight: 600; color: var(--brown); font-size: 0.9rem; flex-shrink: 0; }
+  .cc-avatar.truffl { background: var(--sage-light); color: var(--sage-dark); }
+  .cc-body { flex: 1; min-width: 0; }
+  .cc-name { font-weight: 600; font-size: 1rem; color: var(--brown); display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+  .cc-dogs { font-size: 0.86rem; color: var(--text-secondary); margin-top: 2px; }
+  .cc-meta { font-size: 0.78rem; color: var(--text-muted); margin-top: 3px; display: flex; gap: 10px; flex-wrap: wrap; }
+  .cc-actions { display: flex; gap: 4px; flex-shrink: 0; }
+  .tag { display: inline-block; font-size: 0.62rem; font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase; padding: 2px 8px; border-radius: 20px; vertical-align: middle; }
+  .tag.truffl { color: var(--sage-dark); background: var(--success-bg); }
+  .tag.import { color: var(--warning); background: var(--warning-bg); }
+  .tag.archived { color: var(--text-muted); background: var(--cream); border: 1px solid var(--border); }
+  .tag.user { color: var(--brown-light); background: var(--cream); border: 1px solid var(--border); text-transform: none; letter-spacing: 0; font-weight: 500; }
+
+  .icon-btn { width: 34px; height: 34px; border-radius: 50%; border: 1px solid var(--border); background: var(--warm-white); display: inline-flex; align-items: center; justify-content: center; color: var(--text-secondary); text-decoration: none; transition: all .15s; }
+  .icon-btn:hover { color: var(--terracotta); border-color: var(--terracotta); }
+  .icon-btn svg { width: 16px; height: 16px; }
+  .icon-btn.wa:hover { color: #25D366; border-color: #25D366; }
+
+  .empty { text-align: center; padding: 3rem 1.5rem; color: var(--text-muted); font-size: 0.9rem; background: var(--warm-white); border: 1px dashed var(--border); border-radius: 14px; line-height: 1.6; }
+  .empty h3 { font-family: 'Cormorant Garamond', serif; font-weight: 500; font-size: 1.3rem; color: var(--brown); margin-bottom: 6px; }
+  .empty .btn { margin-top: 12px; }
+
+  /* Sheet / modal */
+  .overlay { position: fixed; inset: 0; background: rgba(61,43,31,.45); z-index: 200; display: flex; align-items: flex-end; justify-content: center; padding: 0; }
+  .sheet { background: var(--cream); width: 100%; max-width: 640px; max-height: 92vh; overflow-y: auto; border-radius: 18px 18px 0 0; padding: 1.25rem 1.25rem 2rem; animation: up .2s ease; }
+  @media (min-width: 700px) { .overlay { align-items: center; padding: 2rem; } .sheet { border-radius: 18px; max-height: 88vh; } }
+  @keyframes up { from { transform: translateY(24px); opacity: 0; } to { transform: none; opacity: 1; } }
+  .sheet-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 1rem; }
+  .sheet-head h2 { font-family: 'Cormorant Garamond', serif; font-weight: 500; font-size: 1.5rem; color: var(--brown); }
+  .close { width: 34px; height: 34px; border-radius: 50%; border: 1px solid var(--border); background: var(--warm-white); cursor: pointer; color: var(--text-secondary); font-size: 1.1rem; }
+
+  .card { background: var(--warm-white); border: 1px solid var(--border); border-radius: 14px; padding: 1.1rem 1.2rem; margin-bottom: 0.9rem; }
+  .card-title { font-family: 'Cormorant Garamond', serif; font-weight: 500; font-size: 1.1rem; color: var(--brown); margin-bottom: 0.6rem; display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+  .kv { font-size: 0.86rem; color: var(--text-secondary); line-height: 1.7; }
+  .kv b { color: var(--brown); font-weight: 500; }
+  .actions-row { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 10px; }
+  .pet-row { display: flex; gap: 12px; align-items: flex-start; padding: 8px 0; border-top: 1px solid var(--border); }
+  .pet-row:first-of-type { border-top: none; }
+  .pet-avatar { width: 36px; height: 36px; border-radius: 50%; background: var(--cream); border: 1px solid var(--border); display: flex; align-items: center; justify-content: center; font-weight: 600; color: var(--brown); font-size: 0.8rem; flex-shrink: 0; }
+  .pet-name { font-weight: 600; color: var(--brown); font-size: 0.92rem; }
+  .pet-meta { font-size: 0.78rem; color: var(--text-muted); }
+  .pet-notes { font-size: 0.82rem; color: var(--text-secondary); margin-top: 3px; line-height: 1.5; }
+  .job-line { display: flex; justify-content: space-between; gap: 10px; font-size: 0.84rem; padding: 7px 0; border-top: 1px solid var(--border); color: var(--text-secondary); }
+  .job-line:first-of-type { border-top: none; }
+  .job-line b { color: var(--brown); font-weight: 500; }
+  .status-pill { font-size: 0.68rem; font-weight: 600; padding: 2px 8px; border-radius: 20px; text-transform: uppercase; letter-spacing: .03em; }
+  .st-scheduled, .st-confirmed { background: var(--success-bg); color: var(--success); }
+  .st-completed { background: var(--cream); color: var(--text-muted); border: 1px solid var(--border); }
+  .st-cancelled { background: var(--error-bg); color: var(--error); }
+  .st-pending { background: var(--warning-bg); color: var(--warning); }
+  .st-unpaid { background: var(--warning-bg); color: var(--warning); }
+
+  /* Forms */
+  .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  .form-grid .full { grid-column: 1 / -1; }
+  @media (max-width: 520px) { .form-grid { grid-template-columns: 1fr; } }
+  .field label { display: block; font-size: 0.76rem; font-weight: 600; color: var(--text-secondary); margin-bottom: 4px; letter-spacing: .02em; }
+  .field input, .field select, .field textarea { width: 100%; padding: 10px 12px; border: 1px solid var(--border); border-radius: 10px; background: var(--warm-white); font-size: 0.9rem; color: var(--text-primary); outline: none; }
+  .field input:focus, .field select:focus, .field textarea:focus { border-color: var(--border-focus); }
+  .field textarea { resize: vertical; min-height: 64px; }
+  .field .hint { font-size: 0.74rem; color: var(--text-muted); margin-top: 3px; }
+  .section-label { font-size: 0.78rem; font-weight: 600; letter-spacing: .05em; text-transform: uppercase; color: var(--text-muted); margin: 1.1rem 0 .5rem; display: flex; justify-content: space-between; align-items: center; }
+  .pet-form { background: var(--warm-white); border: 1px solid var(--border); border-radius: 12px; padding: 12px; margin-bottom: 8px; }
+  .pet-form-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; font-size: 0.8rem; color: var(--text-muted); }
+  .link-btn { background: none; border: none; color: var(--terracotta); font-size: 0.8rem; font-weight: 600; cursor: pointer; padding: 0; }
+  .form-actions { display: flex; gap: 8px; justify-content: flex-end; margin-top: 1.1rem; flex-wrap: wrap; }
+
+  /* CSV import */
+  .drop { border: 2px dashed var(--border); border-radius: 14px; padding: 1.5rem; text-align: center; color: var(--text-muted); font-size: 0.86rem; background: var(--warm-white); }
+  .drop input { display: none; }
+  .drop.over { border-color: var(--terracotta); }
+  .preview { overflow-x: auto; margin-top: 10px; }
+  .preview table { border-collapse: collapse; font-size: 0.76rem; width: 100%; }
+  .preview th, .preview td { padding: 6px 8px; border-bottom: 1px solid var(--border); text-align: left; white-space: nowrap; }
+  .preview th { color: var(--text-muted); font-weight: 600; }
+  .login-prompt { text-align: center; padding: 3rem 1rem; }
+  .login-prompt h2 { font-family: 'Cormorant Garamond', serif; font-weight: 500; font-size: 1.5rem; color: var(--brown); margin-bottom: 8px; }
+  .login-prompt p { color: var(--text-muted); font-size: 0.9rem; margin-bottom: 14px; }
+  .login-prompt a { color: var(--terracotta); font-weight: 600; text-decoration: none; }
+  .inv { display: flex; gap: 12px; align-items: center; background: var(--warm-white); border: 1px solid var(--border); border-radius: 14px; padding: 12px 14px; margin-bottom: 8px; cursor: pointer; transition: border-color .15s; }
+  .inv:hover { border-color: var(--terracotta); }
+  .inv-num { width: 84px; flex-shrink: 0; font-size: 0.8rem; color: var(--text-muted); line-height: 1.4; }
+  .inv-num b { display: block; color: var(--brown); font-weight: 600; font-size: 0.9rem; }
+  .inv-body { flex: 1; min-width: 0; }
+  .inv-client { font-weight: 600; color: var(--brown); font-size: 0.97rem; }
+  .inv-sub { font-size: 0.8rem; color: var(--text-secondary); margin-top: 2px; display: flex; gap: 8px; flex-wrap: wrap; }
+  .inv-amt { text-align: right; flex-shrink: 0; }
+  .inv-amt b { display: block; color: var(--brown); font-size: 1rem; }
+  .st-paid { background: var(--success-bg); color: var(--success); }
+  .st-void { background: var(--cream); color: var(--text-muted); border: 1px solid var(--border); }
+  .st-overdue { background: var(--error-bg); color: var(--error); }
+  .totals { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-bottom: 1rem; }
+  .tot { background: var(--warm-white); border: 1px solid var(--border); border-radius: 12px; padding: 10px 12px; }
+  .tot-v { font-size: 1.15rem; font-weight: 600; color: var(--brown); }
+  .tot-l { font-size: 0.72rem; color: var(--text-muted); margin-top: 2px; }
+  @media (max-width: 480px) { .totals { grid-template-columns: 1fr 1fr; } .inv-num { width: 70px; } }
+  .line { display: flex; justify-content: space-between; gap: 10px; padding: 8px 0; border-top: 1px solid var(--border); font-size: 0.86rem; color: var(--text-secondary); }
+  .line:first-child { border-top: none; }
+  .line b { color: var(--brown); font-weight: 500; }
+  .line.total { font-weight: 600; color: var(--brown); border-top: 2px solid var(--border); }
+  .jobpick { display: flex; gap: 10px; align-items: center; padding: 8px 0; border-top: 1px solid var(--border); font-size: 0.86rem; }
+  .jobpick:first-child { border-top: none; }
+  .jobpick input { width: 18px; height: 18px; accent-color: var(--terracotta); }
+  .jobpick .t { flex: 1; min-width: 0; color: var(--text-secondary); }
+  .jobpick .t b { color: var(--brown); font-weight: 500; }
+  .extra-row { display: grid; grid-template-columns: 1fr 110px 34px; gap: 6px; margin-bottom: 6px; align-items: center; }
+  .extra-row input { padding: 8px 10px; border: 1px solid var(--border); border-radius: 8px; background: var(--warm-white); font-size: 0.86rem; }
+  .switch { display: flex; align-items: center; gap: 10px; padding: 10px 12px; border: 1px solid var(--border); border-radius: 10px; background: var(--warm-white); font-size: 0.88rem; cursor: pointer; }
+  .switch input { width: 18px; height: 18px; accent-color: var(--terracotta); }
+  .urlbox { display: flex; gap: 6px; align-items: center; margin: 8px 0; }
+  .urlbox input { flex: 1; min-width: 0; font-size: 0.78rem; padding: 9px 10px; border: 1px solid var(--border); border-radius: 10px; background: var(--cream); color: var(--text-secondary); }
+  .paychoice { display: inline-flex; gap: 4px; align-items: center; flex-wrap: wrap; font-size: 0.78rem; color: var(--text-muted); }
+  .setup-note { background: var(--warning-bg); color: var(--warning); border-radius: 12px; padding: 12px 14px; font-size: 0.85rem; margin-bottom: 1rem; line-height: 1.5; }
+  .setup-note a, .setup-note button { color: inherit; font-weight: 600; text-decoration: underline; background: none; border: none; cursor: pointer; font-size: inherit; padding: 0; }
+</style>
+</head>
+<body>
+
+<nav class="nav">
+  <a href="/" class="nav-logo" aria-label="Truffl Pets home">
+    <svg width="150" height="48" viewBox="0 0 180 56" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <circle cx="20" cy="5.5" r="6" fill="none" stroke="#C4866A" stroke-width="2.5"/>
+      <circle cx="20" cy="5.5" r="2.8" fill="#FFFDF9"/>
+      <rect x="16.5" y="10.5" width="7" height="9" rx="3" fill="#C4866A"/>
+      <circle cx="20" cy="33" r="20" fill="#C4866A"/>
+      <circle cx="20" cy="33" r="15.5" fill="none" stroke="#B8795C" stroke-width="0.6" opacity="0.45"/>
+      <line x1="7" y1="33" x2="33" y2="33" stroke="#FFFDF9" stroke-width="0.5" opacity="0.3"/>
+      <text x="20" y="35.5" font-family="'Cormorant Garamond', Georgia, serif" font-size="14" font-style="italic" font-weight="400" fill="#FFFDF9" text-anchor="middle" letter-spacing="-0.3">truffl</text>
+      <text x="52" y="30" font-family="'Cormorant Garamond', Georgia, serif" font-size="32" font-style="italic" font-weight="400" fill="#3D2B1F" letter-spacing="-0.5">truffl</text>
+      <text x="52" y="50" font-family="'DM Sans', sans-serif" font-size="12" font-weight="600" fill="#B0A090" letter-spacing="4">PETS</text>
+    </svg>
+  </a>
+  <div class="nav-right">
+    <a href="/dashboard/" class="nav-hide-sm">Dashboard</a>
+    <a href="/schedule/">Schedule</a>
+    <a href="/clients/">Clients</a>
+    <a href="/invoices/" class="active">Invoices</a>
+    <a href="/messages/" class="nav-hide-sm">Messages</a>
+    <div class="nav-user" id="navUser"></div>
+  </div>
+</nav>
+
+<div class="page-wrapper">
+  <div id="pageMsg" class="msg"></div>
+  <div id="content">
+    <div style="text-align:center;padding:3rem;color:var(--text-muted);font-size:0.85rem;">Loading your invoices...</div>
+  </div>
+</div>
+
+<div id="modalRoot"></div>
+
+<script>
+/* Invoices for own clients (GitHub #166, E2). A record and a document, never a payment: the
+   invoice carries the carer's own bank details, the client pays them directly, and the carer
+   marks it paid. Same conventions as /clients/: inline script, PostgREST under RLS, the
+   money-shaped writes go through definer RPCs (create_invoice, set_invoice_paid, void_invoice). */
+const SUPABASE_URL = 'https://gadflsntbnbnnxbpiral.supabase.co';
+const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImdhZGZsc250Ym5ibm54YnBpcmFsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzUwNjcwNTcsImV4cCI6MjA5MDY0MzA1N30.g5ZrqeAX9U5l7oDZEbQFrU5j10828dUF0QuJ0ZlHXK8';
+const SERVICE_LABELS = { dog_walking:'Walk', dog_sitting:'Sitting', dog_boarding:'Boarding', pet_sitting:'Visit' };
+const PAY_LABELS = { cash:'Cash', bank_transfer:'Transfer', card:'Card', other:'Other' };
+
+let authToken = null, authUid = null, userData = null;
+let invoices = [];
+let clients = [];
+let settings = null;
+let filter = 'unpaid';
+
+function headers(extra) {
+  const h = { 'Content-Type':'application/json', 'apikey':SUPABASE_ANON_KEY, 'Authorization':`Bearer ${SUPABASE_ANON_KEY}` };
+  if (authToken) h['Authorization'] = `Bearer ${authToken}`;
+  return Object.assign(h, extra || {});
+}
+async function sbGet(table, params) {
+  const r = await fetch(`${SUPABASE_URL}/rest/v1/${table}?${params}`, { headers: headers() });
+  if (!r.ok) { const e = await r.json().catch(() => ({})); throw new Error(e.message || `Request failed (${r.status})`); }
+  return await r.json();
+}
+async function sbUpsert(table, row, onConflict) {
+  const r = await fetch(`${SUPABASE_URL}/rest/v1/${table}?on_conflict=${onConflict}`, { method:'POST', headers: headers({ 'Prefer':'return=representation,resolution=merge-duplicates' }), body: JSON.stringify(row) });
+  if (!r.ok) { const e = await r.json().catch(() => ({})); throw new Error(e.message || 'Save failed'); }
+  return await r.json();
+}
+async function sbPatch(table, col, val, updates) {
+  const r = await fetch(`${SUPABASE_URL}/rest/v1/${table}?${col}=eq.${val}`, { method:'PATCH', headers: headers({ 'Prefer':'return=representation' }), body: JSON.stringify(updates) });
+  if (!r.ok) { const e = await r.json().catch(() => ({})); throw new Error(e.message || 'Update failed'); }
+  return await r.json();
+}
+async function sbRpc(fn, args) {
+  const r = await fetch(`${SUPABASE_URL}/rest/v1/rpc/${fn}`, { method:'POST', headers: headers(), body: JSON.stringify(args || {}) });
+  if (!r.ok) { const e = await r.json().catch(() => ({})); throw new Error(e.message || 'Request failed'); }
+  const t = await r.text(); return t ? JSON.parse(t) : null;
+}
+
+function esc(s) { return (s == null ? '' : s.toString()).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+function attr(s) { return esc(s).replace(/'/g, '&#39;'); }
+function showMsg(t, type) { const el = document.getElementById('pageMsg'); el.textContent = t; el.className = `msg ${type}`; if (type === 'success') setTimeout(() => { if (el.textContent === t) el.className = 'msg'; }, 4000); window.scrollTo({ top: 0, behavior: 'smooth' }); }
+function money(c) { return '$' + ((c || 0) / 100).toFixed(2); }
+function dollarsToCents(s) { const t = (s || '').toString().replace(/[^0-9.]/g, ''); if (!t) return null; const n = Math.round(parseFloat(t) * 100); return isNaN(n) || n < 0 ? null : n; }
+function pad(n) { return String(n).padStart(2, '0'); }
+function ymd(d) { return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`; }
+function fmtDate(s) { if (!s) return ''; return new Date(s.length === 10 ? s + 'T12:00:00' : s).toLocaleDateString('en-AU', { day:'numeric', month:'short', year: 'numeric' }); }
+function fmtShort(s) { if (!s) return ''; return new Date(s.length === 10 ? s + 'T12:00:00' : s).toLocaleDateString('en-AU', { weekday:'short', day:'numeric', month:'short' }); }
+function fmtTime(iso) { return new Date(iso).toLocaleTimeString('en-AU', { hour:'numeric', minute:'2-digit' }).replace(' ', '').toLowerCase(); }
+function clientName(c) { return c ? (`${c.first_name || ''} ${c.last_name || ''}`.trim() || 'Client') : 'Client'; }
+function activePets(c) { return (c && c.client_pets || []).filter(p => p.is_active !== false); }
+function isOverdue(i) { return i.status === 'unpaid' && i.due_on && i.due_on < ymd(new Date()); }
+function publicLink(i) { return `${location.origin}/invoice/?t=${i.share_token}`; }
+function track(name, params) { try { gtag('event', name, params || {}); } catch (e) {} }
+function settingsReady() { return !!(settings && (settings.bank_bsb || settings.payid || settings.payment_notes)); }
+
+const ICONS = {
+  plus: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>',
+  gear: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09a1.65 1.65 0 0 0-1-1.51 1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.6 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.6a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>',
+};
+
+/* ── Loading ── */
+async function loadAll() {
+  [invoices, clients, settings] = await Promise.all([
+    sbGet('invoices', `provider_user_id=eq.${authUid}&select=*,invoice_items(*)&order=sequence.desc`),
+    sbGet('clients', `provider_user_id=eq.${authUid}&is_archived=eq.false&select=id,first_name,last_name,phone,email,suburb,client_pets(id,name,is_active)&order=first_name.asc`),
+    sbGet('invoice_settings', `provider_user_id=eq.${authUid}&select=*`).then(r => r[0] || null),
+  ]);
+}
+
+/* ── Rendering ── */
+function statusPill(i) {
+  if (i.status === 'paid') return '<span class="status-pill st-paid">Paid</span>';
+  if (i.status === 'void') return '<span class="status-pill st-void">Void</span>';
+  if (isOverdue(i)) return '<span class="status-pill st-overdue">Overdue</span>';
+  return `<span class="status-pill st-unpaid">${i.sent_at ? 'Sent' : 'Unpaid'}</span>`;
+}
+function renderPage() {
+  const unpaid = invoices.filter(i => i.status === 'unpaid');
+  const outstanding = unpaid.reduce((s, i) => s + i.total_cents, 0);
+  const overdue = unpaid.filter(isOverdue).reduce((s, i) => s + i.total_cents, 0);
+  const monthStart = ymd(new Date(new Date().getFullYear(), new Date().getMonth(), 1));
+  const paidMonth = invoices.filter(i => i.status === 'paid' && i.paid_at && i.paid_at.slice(0, 10) >= monthStart).reduce((s, i) => s + i.total_cents, 0);
+  const list = invoices.filter(i => filter === 'all' ? true : (filter === 'paid' ? i.status === 'paid' : i.status === 'unpaid'));
+  document.getElementById('content').innerHTML = `
+    <div class="welcome">
+      <div><h1>Invoices</h1><p>${invoices.length ? `${unpaid.length} unpaid` : 'Send a proper invoice, get paid straight to your account.'}</p></div>
+      <div class="welcome-actions">
+        <button class="btn secondary" onclick="openSettings()">${ICONS.gear} Settings</button>
+        <button class="btn primary" onclick="openNew()">${ICONS.plus} New invoice</button>
+      </div>
+    </div>
+    ${!settingsReady() ? `<div class="setup-note">Add your bank details or PayID in <button onclick="openSettings()">invoice settings</button> so clients know how to pay you. ABN and GST live there too.</div>` : ''}
+    ${invoices.length ? `<div class="totals">
+      <div class="tot"><div class="tot-v">${money(outstanding)}</div><div class="tot-l">Outstanding</div></div>
+      <div class="tot"><div class="tot-v" style="${overdue ? 'color:var(--error)' : ''}">${money(overdue)}</div><div class="tot-l">Overdue</div></div>
+      <div class="tot"><div class="tot-v">${money(paidMonth)}</div><div class="tot-l">Paid this month</div></div>
+    </div>
+    <div class="chips" style="margin-bottom:12px;">${[['unpaid','Unpaid'],['paid','Paid'],['all','All']].map(([k, v]) => `<button class="chip ${filter === k ? 'active' : ''}" onclick="filter='${k}';renderPage()">${v}</button>`).join('')}</div>
+    <div id="list">${list.length ? list.map(invCardHtml).join('') : '<div class="empty">Nothing here.</div>'}</div>` : `
+    <div class="empty"><h3>No invoices yet</h3>Pick a client, tick the walks they owe you for, and Truffl writes the invoice with your ABN and bank details. Send it as a link, mark it paid when the money lands.
+      <div><button class="btn primary" onclick="openNew()">${ICONS.plus} New invoice</button></div></div>`}`;
+}
+function invCardHtml(i) {
+  const c = clients.find(x => x.id === i.client_id);
+  return `<div class="inv" onclick="openInvoice('${i.id}')">
+    <div class="inv-num"><b>${esc(i.number)}</b>${esc(fmtShort(i.issued_on))}</div>
+    <div class="inv-body"><div class="inv-client">${esc(i.client_name)}</div>
+      <div class="inv-sub">${(i.invoice_items || []).length} line${(i.invoice_items || []).length === 1 ? '' : 's'}${i.status === 'unpaid' && i.due_on ? ` · due ${esc(fmtShort(i.due_on))}` : ''}${i.status === 'paid' && i.paid_at ? ` · paid ${esc(fmtShort(i.paid_at))}${i.payment_method ? ' by ' + esc(PAY_LABELS[i.payment_method] || i.payment_method).toLowerCase() : ''}` : ''}${c && c.suburb ? ` · ${esc(c.suburb)}` : ''}</div></div>
+    <div class="inv-amt"><b>${money(i.total_cents)}</b>${statusPill(i)}</div>
+  </div>`;
+}
+
+/* ── Modal plumbing ── */
+function closeModal() { document.getElementById('modalRoot').innerHTML = ''; document.body.style.overflow = ''; if (/[?&](new|id|client)=/.test(location.search)) history.replaceState(null, '', '/invoices/'); }
+function modal(html) { document.getElementById('modalRoot').innerHTML = `<div class="overlay" onclick="if(event.target===this)closeModal()"><div class="sheet">${html}</div></div>`; document.body.style.overflow = 'hidden'; }
+
+/* ── New invoice ── */
+let draft = null;
+async function openNew(clientId) {
+  draft = { client_id: clientId || '', jobs: [], extras: [], issued_on: ymd(new Date()), due_on: '', notes: '' };
+  renderNew();
+  if (draft.client_id) await loadDraftJobs();
+}
+async function loadDraftJobs() {
+  draft.jobs = null; renderNew();
+  try {
+    const rows = await sbGet('jobs', `provider_user_id=eq.${authUid}&client_id=eq.${draft.client_id}&status=neq.cancelled&paid_at=is.null&invoice_id=is.null&price_cents=gt.0&select=id,starts_at,ends_at,service_type,price_cents,title,status,job_pets(client_pets(name))&order=starts_at.asc&limit=200`);
+    const now = Date.now();
+    draft.jobs = rows.map(j => ({ ...j, pets: (j.job_pets || []).map(p => p.client_pets && p.client_pets.name).filter(Boolean).join(', '), selected: j.status === 'completed' || new Date(j.starts_at).getTime() < now }));
+  } catch (e) { draft.jobs = []; showMsg(e.message, 'error'); }
+  renderNew();
+}
+function draftTotal() {
+  const jobs = (draft.jobs || []).filter(j => j.selected).reduce((s, j) => s + j.price_cents, 0);
+  const extras = draft.extras.reduce((s, x) => s + (dollarsToCents(x.amount) || 0), 0);
+  return jobs + extras;
+}
+function renderNew() {
+  const d = draft;
+  const c = clients.find(x => x.id === d.client_id);
+  const dueDefault = (() => { const x = new Date(d.issued_on + 'T12:00:00'); x.setDate(x.getDate() + ((settings && settings.due_days) != null ? settings.due_days : 7)); return ymd(x); })();
+  const total = draftTotal();
+  const gst = settings && settings.gst_registered;
+  modal(`
+    <div class="sheet-head"><h2>New invoice</h2><button class="close" onclick="closeModal()" aria-label="Close">×</button></div>
+    <form onsubmit="createInvoice(event)">
+      <div class="form-grid">
+        <div class="field full"><label>Client</label>
+          <select onchange="draft.client_id=this.value;draft.extras=[];loadDraftJobs()" required>
+            <option value="">Choose a client</option>
+            ${clients.map(x => `<option value="${x.id}" ${x.id === d.client_id ? 'selected' : ''}>${esc(clientName(x))}${x.suburb ? ' · ' + esc(x.suburb) : ''}</option>`).join('')}
+          </select></div>
+      </div>
+      ${c ? `<div class="section-label"><span>Unpaid work</span>${d.jobs && d.jobs.length ? `<button type="button" class="link-btn" onclick="draft.jobs.forEach(j=>j.selected=true);renderNew()">Select all</button>` : ''}</div>
+      <div class="card" style="padding:6px 14px;">
+        ${d.jobs == null ? '<div class="kv" style="color:var(--text-muted);padding:6px 0;">Loading…</div>' : d.jobs.length ? d.jobs.map((j, i) => `<label class="jobpick">
+          <input type="checkbox" ${j.selected ? 'checked' : ''} onchange="draft.jobs[${i}].selected=this.checked;renderNew()">
+          <span class="t"><b>${esc(fmtShort(j.starts_at))}, ${esc(fmtTime(j.starts_at))}</b> · ${esc(SERVICE_LABELS[j.service_type] || j.service_type)}${j.pets ? ' · ' + esc(j.pets) : ''}${j.status !== 'completed' ? ' <span class="status-pill st-scheduled">upcoming</span>' : ''}</span>
+          <b>${money(j.price_cents)}</b></label>`).join('') : `<div class="kv" style="color:var(--text-muted);padding:6px 0;">No unpaid priced jobs for ${esc(clientName(c))}. Add a line below, or <a href="/schedule/?new=1&client=${c.id}" style="color:var(--terracotta)">add a walk</a> with a price first.</div>`}
+      </div>
+      <div class="section-label"><span>Other lines</span><button type="button" class="link-btn" onclick="draft.extras.push({description:'',amount:''});renderNew()">+ Add a line</button></div>
+      ${d.extras.map((x, i) => `<div class="extra-row">
+        <input placeholder="e.g. Treats, key cutting, extra dog" value="${attr(x.description)}" oninput="draft.extras[${i}].description=this.value">
+        <input placeholder="$" inputmode="decimal" value="${attr(x.amount)}" oninput="draft.extras[${i}].amount=this.value" onchange="renderNew()">
+        <button type="button" class="close" style="width:30px;height:30px;font-size:.9rem;" onclick="draft.extras.splice(${i},1);renderNew()" aria-label="Remove">×</button></div>`).join('')}
+      <div class="form-grid" style="margin-top:10px;">
+        <div class="field"><label>Issue date</label><input type="date" value="${attr(d.issued_on)}" onchange="draft.issued_on=this.value;renderNew()" required></div>
+        <div class="field"><label>Due</label><input type="date" value="${attr(d.due_on || dueDefault)}" onchange="draft.due_on=this.value"></div>
+        <div class="field full"><label>Note to client (optional)</label><input value="${attr(d.notes)}" oninput="draft.notes=this.value" placeholder="Thanks for having me, see you next week"></div>
+      </div>
+      <div class="card" style="margin-top:12px;">
+        <div class="line total"><span>Total${gst ? ' (includes GST)' : ''}</span><span>${money(total)}</span></div>
+        ${gst ? `<div class="kv" style="font-size:.78rem;">GST component ${money(Math.round(total / 11))}. Your prices are treated as GST-inclusive, as quoted.</div>` : ''}
+        <div class="kv" style="font-size:.78rem;">Numbered ${esc((settings && settings.invoice_prefix) || 'INV-')}${String((settings && settings.next_number) || 1).padStart(4, '0')}. ${settingsReady() ? 'Your payment details go in the footer.' : '<b style="color:var(--warning)">No payment details yet</b>: add them in Settings first.'}</div>
+      </div>` : ''}
+      <div class="form-actions">
+        <button type="button" class="btn ghost" onclick="closeModal()">Cancel</button>
+        <button type="submit" class="btn primary" id="createBtn" ${c && total > 0 ? '' : 'disabled'}>Create invoice</button>
+      </div>
+    </form>`);
+}
+async function createInvoice(ev) {
+  ev.preventDefault();
+  const d = draft;
+  const btn = document.getElementById('createBtn'); btn.disabled = true; btn.textContent = 'Creating…';
+  try {
+    const extras = d.extras.map(x => ({ description: x.description.trim(), amount_cents: dollarsToCents(x.amount) })).filter(x => x.description && x.amount_cents > 0);
+    const id = await sbRpc('create_invoice', { p_client_id: d.client_id, p_job_ids: (d.jobs || []).filter(j => j.selected).map(j => j.id), p_extra_items: extras, p_issued_on: d.issued_on, p_due_on: d.due_on || null, p_notes: d.notes.trim() || null });
+    track('invoice_created', { lines: (d.jobs || []).filter(j => j.selected).length + extras.length });
+    await loadAll(); filter = 'unpaid'; renderPage();
+    openInvoice(id);
+    showMsg('Invoice created. Send it when you are ready.', 'success');
+  } catch (e) { btn.disabled = false; btn.textContent = 'Create invoice'; alert(e.message); }
+}
+
+/* ── Detail ── */
+let payChoice = false;
+function openInvoice(id) {
+  const i = invoices.find(x => x.id === id); if (!i) return;
+  history.replaceState(null, '', `/invoices/?id=${id}`);
+  const c = clients.find(x => x.id === i.client_id);
+  const items = (i.invoice_items || []).slice().sort((a, b) => a.sort_order - b.sort_order);
+  const link = publicLink(i);
+  const live = i.status !== 'void';
+  modal(`
+    <div class="sheet-head"><h2>${esc(i.number)} ${statusPill(i)}</h2><button class="close" onclick="closeModal()" aria-label="Close">×</button></div>
+    <div class="card">
+      <div class="kv"><div><b>${esc(i.client_name)}</b>${c && c.email ? ` · ${esc(c.email)}` : ''}${c && c.phone ? ` · ${esc(c.phone)}` : ''}</div>
+        <div>Issued ${esc(fmtDate(i.issued_on))}${i.due_on ? ` · due ${esc(fmtDate(i.due_on))}` : ''}${i.sent_at ? ` · sent ${esc(fmtShort(i.sent_at))}` : ''}${i.paid_at ? ` · paid ${esc(fmtShort(i.paid_at))}${i.payment_method ? ' by ' + esc(PAY_LABELS[i.payment_method] || i.payment_method).toLowerCase() : ''}` : ''}</div></div>
+      <div style="margin-top:10px;">
+        ${items.map(it => `<div class="line"><span><b>${esc(it.description)}</b>${Number(it.quantity) !== 1 ? ` × ${esc(String(Number(it.quantity)))}` : ''}</span><span>${money(it.amount_cents)}</span></div>`).join('')}
+        ${i.gst_applied ? `<div class="line"><span>Includes GST</span><span>${money(i.gst_cents)}</span></div>` : ''}
+        <div class="line total"><span>Total</span><span>${money(i.total_cents)}</span></div>
+      </div>
+      ${i.notes ? `<div class="kv" style="margin-top:8px;white-space:pre-wrap;">${esc(i.notes)}</div>` : ''}
+    </div>
+    ${live ? `<div class="card">
+      <div class="card-title">Send</div>
+      <div class="urlbox"><input readonly value="${attr(link)}" onclick="this.select()"><button class="btn secondary sm" onclick="copyLink('${i.id}')">Copy</button></div>
+      <div class="actions-row">
+        ${c && (c.phone || c.email) ? `<button class="btn primary sm" onclick="sendInvoice('${i.id}')">Send to ${esc(c.first_name || 'client')}</button>` : '<span class="kv" style="color:var(--text-muted)">Add a mobile or email to the client to send from here.</span>'}
+        <a class="btn secondary sm" href="${attr(link)}" target="_blank" rel="noopener">Open</a>
+      </div>
+      <div class="kv" style="font-size:.78rem;color:var(--text-muted);margin-top:8px;">Anyone with the link can view this invoice. Voiding it turns the link off.</div>
+    </div>
+    <div class="form-actions">
+      ${i.status === 'unpaid' ? `<button class="btn ghost sm left" onclick="voidInvoice('${i.id}')">Void</button>` : ''}
+      ${i.status === 'paid' ? `<button class="btn ghost" onclick="setPaid('${i.id}', false)">Mark unpaid</button>` : ''}
+      ${i.status === 'unpaid' ? (payChoice ? `<span class="paychoice">Paid by ${['bank_transfer','cash','other'].map(m => `<button class="btn secondary sm" onclick="setPaid('${i.id}', true, '${m}')">${PAY_LABELS[m]}</button>`).join('')}<button class="btn ghost sm" onclick="payChoice=false;openInvoice('${i.id}')">×</button></span>` : `<button class="btn success" style="background:var(--success);color:#fff;" onclick="payChoice=true;openInvoice('${i.id}')">Mark paid</button>`) : ''}
+    </div>` : '<div class="kv" style="color:var(--text-muted)">This invoice was voided. The jobs on it can be invoiced again.</div>'}`);
+}
+async function copyLink(id) {
+  const i = invoices.find(x => x.id === id);
+  try { await navigator.clipboard.writeText(publicLink(i)); showMsg('Invoice link copied.', 'success'); } catch (e) { const el = document.querySelector('.urlbox input'); if (el) { el.select(); document.execCommand('copy'); } }
+  markSent(i);
+}
+async function markSent(i) {
+  if (i.sent_at) return;
+  try { const rows = await sbPatch('invoices', 'id', i.id, { sent_at: new Date().toISOString() }); Object.assign(i, rows[0], { invoice_items: i.invoice_items }); renderPage(); } catch (e) { /* cosmetic */ }
+}
+function sendInvoice(id) {
+  const i = invoices.find(x => x.id === id); const c = clients.find(x => x.id === i.client_id); if (!c) return;
+  track('invoice_send_opened');
+  TrufflMessaging.open({ client: c, pets: activePets(c).map(p => p.name).join(', '), invoice: { id: i.id, number: i.number, total_cents: i.total_cents, due_on: i.due_on, link: publicLink(i) }, preselect: isOverdue(i) ? 'invoice_overdue' : 'invoice_send' });
+  markSent(i);
+}
+async function setPaid(id, paid, method) {
+  try {
+    await sbRpc('set_invoice_paid', { p_invoice_id: id, p_paid: paid, p_method: method || null });
+    track(paid ? 'invoice_paid' : 'invoice_unpaid', { method });
+    payChoice = false; await loadAll(); renderPage(); openInvoice(id);
+    showMsg(paid ? 'Marked paid. The jobs on it are marked paid too.' : 'Marked unpaid.', 'success');
+  } catch (e) { alert(e.message); }
+}
+async function voidInvoice(id) {
+  if (!confirm('Void this invoice? The number is kept, the link stops working, and the jobs on it can be invoiced again.')) return;
+  try { await sbRpc('void_invoice', { p_invoice_id: id }); await loadAll(); closeModal(); renderPage(); showMsg('Invoice voided.', 'success'); }
+  catch (e) { alert(e.message); }
+}
+
+/* ── Settings ── */
+function openSettings() {
+  const s = settings || {};
+  const f = (name, label, ph, opts) => `<div class="field ${opts && opts.full ? 'full' : ''}"><label>${label}</label><input name="${name}" value="${attr(s[name] || '')}" placeholder="${attr(ph || '')}" ${opts && opts.type ? `type="${opts.type}"` : ''} ${opts && opts.extra ? opts.extra : ''}>${opts && opts.hint ? `<div class="hint">${opts.hint}</div>` : ''}</div>`;
+  modal(`
+    <div class="sheet-head"><h2>Invoice settings</h2><button class="close" onclick="closeModal()" aria-label="Close">×</button></div>
+    <form onsubmit="saveSettings(event)">
+      <div class="section-label" style="margin-top:0"><span>Who is invoicing</span></div>
+      <div class="form-grid">
+        ${f('business_name', 'Business or trading name', userData ? `${userData.first_name || ''} ${userData.last_name || ''}`.trim() : '', { full: true, hint: 'Leave blank to use your own name.' })}
+        ${f('abn', 'ABN', '12 345 678 901', { hint: 'Shown on every invoice.' })}
+        ${f('phone', 'Phone', '04xx xxx xxx', { type: 'tel' })}
+        ${f('email', 'Email', '', { type: 'email' })}
+        ${f('address', 'Address', 'Suburb is enough', {})}
+        <div class="field full"><label class="switch"><input type="checkbox" name="gst_registered" ${s.gst_registered ? 'checked' : ''}> I am registered for GST</label><div class="hint">Off for most carers under the $75k threshold. On, your prices are treated as GST-inclusive, the GST component is shown, and the document is headed "Tax invoice".</div></div>
+      </div>
+      <div class="section-label"><span>How clients pay you</span></div>
+      <div class="form-grid">
+        ${f('bank_account_name', 'Account name', 'J Walker', { full: true })}
+        ${f('bank_bsb', 'BSB', '062-000', { extra: 'inputmode="numeric"' })}
+        ${f('bank_account', 'Account number', '12345678', { extra: 'inputmode="numeric"' })}
+        ${f('payid', 'PayID', 'Mobile or email', { full: true })}
+        ${f('payment_notes', 'Anything else', 'Cash on the day is fine too', { full: true })}
+      </div>
+      <div class="section-label"><span>Numbering and terms</span></div>
+      <div class="form-grid">
+        ${f('invoice_prefix', 'Prefix', 'INV-', {})}
+        ${f('next_number', 'Next number', '1', { type: 'number', extra: 'min="1" step="1"' })}
+        ${f('due_days', 'Due after (days)', '7', { type: 'number', extra: 'min="0" max="90" step="1"' })}
+        ${f('footer_note', 'Footer note', 'Thank you for choosing me for your dog', { full: true })}
+      </div>
+      <div class="form-actions"><button type="button" class="btn ghost" onclick="closeModal()">Cancel</button><button type="submit" class="btn primary" id="saveSettingsBtn">Save</button></div>
+    </form>`);
+}
+async function saveSettings(ev) {
+  ev.preventDefault();
+  const form = ev.target; const btn = document.getElementById('saveSettingsBtn'); btn.disabled = true; btn.textContent = 'Saving…';
+  const row = { provider_user_id: authUid };
+  ['business_name','abn','phone','email','address','bank_account_name','bank_bsb','bank_account','payid','payment_notes','footer_note'].forEach(k => { row[k] = (form[k].value || '').trim() || null; });
+  row.invoice_prefix = (form.invoice_prefix.value || '').trim() || 'INV-';
+  row.next_number = Math.max(1, parseInt(form.next_number.value, 10) || 1);
+  row.due_days = Math.min(90, Math.max(0, parseInt(form.due_days.value, 10) || 0));
+  row.gst_registered = form.gst_registered.checked;
+  try {
+    const rows = await sbUpsert('invoice_settings', row, 'provider_user_id'); settings = rows[0];
+    closeModal(); renderPage(); showMsg('Invoice settings saved.', 'success');
+  } catch (e) { btn.disabled = false; btn.textContent = 'Save'; alert(e.message); }
+}
+
+/* ── Boot ── */
+async function init() {
+  const area = document.getElementById('content');
+  const stored = localStorage.getItem('truffl_session');
+  if (stored) { try { const s = JSON.parse(stored); authToken = s.access_token; authUid = s.user_id; } catch (e) {} }
+  if (!authToken) {
+    area.innerHTML = `<div class="login-prompt"><h2>Sign in to see your invoices</h2><p>Invoices live in your carer account.</p><a href="/login/?redirect=/invoices/">Sign in</a></div>`;
+    return;
+  }
+  try {
+    const users = await sbGet('users', `id=eq.${authUid}&select=first_name,last_name,role`);
+    if (!users.length) { localStorage.removeItem('truffl_session'); location.href = '/login/?redirect=/invoices/'; return; }
+    userData = users[0];
+    if (userData.role !== 'provider') {
+      area.innerHTML = `<div class="login-prompt"><h2>This is the carer invoicing page</h2><p>You're signed in as an owner. <a href="/profile/">Go to your profile</a></p></div>`;
+      return;
+    }
+    const ini = ((userData.first_name || '')[0] || '') + ((userData.last_name || '')[0] || '');
+    document.getElementById('navUser').innerHTML = `<a href="/profile/" title="Your profile" style="display:flex;align-items:center;gap:8px;text-decoration:none;color:inherit;"><div class="nav-avatar">${esc(ini)}</div><span class="nav-name">${esc(userData.first_name)}</span></a>`;
+    TrufflMessaging.init({ supabaseUrl: SUPABASE_URL, anonKey: SUPABASE_ANON_KEY, token: authToken, uid: authUid, carerFirstName: userData.first_name });
+    await loadAll();
+    renderPage();
+    const params = new URLSearchParams(location.search);
+    if (params.get('new')) openNew(params.get('client') || '');
+    else if (params.get('id')) openInvoice(params.get('id'));
+    else if (params.get('settings')) openSettings();
+  } catch (e) {
+    area.innerHTML = `<div class="login-prompt"><h2>Something went wrong</h2><p>${esc(e.message)}</p><a href="/login/?redirect=/invoices/">Try signing in again</a></div>`;
+  }
+}
+document.addEventListener('DOMContentLoaded', init);
+</script>
+</body>
+</html>

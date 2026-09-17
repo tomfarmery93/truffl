@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <!-- Google tag (gtag.js) -->
+<script async src="https://www.googletagmanager.com/gtag/js?id=G-T2CPSDBJ1L"></script>
+<script>
+  window.dataLayer = window.dataLayer || [];
+  function gtag(){dataLayer.push(arguments);}
+  gtag('js', new Date());
+
+  gtag('config', 'G-T2CPSDBJ1L');
+</script>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="robots" content="noindex,nofollow">
+<title>Invoice — Truffl Pets</title>
+<link rel="icon" type="image/svg+xml" href="/favicon.svg">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,500;0,600;1,400;1,500&family=DM+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --cream: #FAF7F2; --warm-white: #FFFDF9; --sage: #8B9E7E; --sage-dark: #6B7E5E; --terracotta: #C4755B;
+    --blush: #E8C4B8; --brown: #3D2B1F; --text-primary: #3D2B1F; --text-secondary: #6B5B4E; --text-muted: #9B8B7E;
+    --border: #E8E0D6; --success: #5B8C5A; --success-bg: #EDF5ED; --error: #C0392B; --warning: #C0862B; --warning-bg: #FEF3E2;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: 'DM Sans', sans-serif; background: var(--cream); color: var(--text-primary); min-height: 100vh; -webkit-font-smoothing: antialiased; }
+  .nav { background: var(--warm-white); border-bottom: 1px solid var(--border); padding: 0 1.25rem; height: 60px; display: flex; align-items: center; justify-content: space-between; }
+  .nav a { text-decoration: none; color: var(--text-secondary); font-size: 0.82rem; }
+  .wrap { max-width: 720px; margin: 0 auto; padding: 1.5rem 1.25rem 3rem; }
+  .toolbar { display: flex; justify-content: flex-end; gap: 8px; margin-bottom: 1rem; }
+  .btn { display: inline-flex; align-items: center; gap: 6px; padding: 9px 16px; border-radius: 999px; font-size: 0.85rem; font-weight: 600; cursor: pointer; border: 1px solid var(--border); background: var(--warm-white); color: var(--brown); font-family: inherit; text-decoration: none; }
+  .btn.primary { background: var(--terracotta); color: #fff; border-color: transparent; }
+  .doc { background: #fff; border: 1px solid var(--border); border-radius: 14px; padding: 2rem 2rem 1.5rem; position: relative; }
+  @media (max-width: 520px) { .doc { padding: 1.25rem 1rem; } }
+  .doc-head { display: flex; justify-content: space-between; gap: 16px; flex-wrap: wrap; margin-bottom: 1.5rem; }
+  h1 { font-family: 'Cormorant Garamond', serif; font-weight: 500; font-size: 2rem; color: var(--brown); line-height: 1.1; }
+  .num { font-size: 0.9rem; color: var(--text-secondary); margin-top: 4px; }
+  .issuer { text-align: right; font-size: 0.86rem; color: var(--text-secondary); line-height: 1.55; }
+  .issuer b { color: var(--brown); font-size: 1rem; font-weight: 600; display: block; }
+  @media (max-width: 520px) { .issuer { text-align: left; } }
+  .meta { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 1.5rem; font-size: 0.86rem; color: var(--text-secondary); line-height: 1.55; }
+  .meta .lbl { font-size: 0.7rem; letter-spacing: .12em; text-transform: uppercase; color: var(--text-muted); font-weight: 600; margin-bottom: 3px; }
+  .meta b { color: var(--brown); font-weight: 600; }
+  table { width: 100%; border-collapse: collapse; font-size: 0.9rem; }
+  th { text-align: left; font-size: 0.7rem; letter-spacing: .12em; text-transform: uppercase; color: var(--text-muted); font-weight: 600; padding: 0 0 8px; border-bottom: 1px solid var(--border); }
+  td { padding: 10px 0; border-bottom: 1px solid var(--border); vertical-align: top; color: var(--text-secondary); }
+  td.d { color: var(--brown); }
+  td.r, th.r { text-align: right; white-space: nowrap; }
+  .sub { font-size: 0.78rem; color: var(--text-muted); }
+  .tot { display: flex; justify-content: flex-end; margin-top: 10px; }
+  .tot table { width: auto; min-width: 260px; }
+  .tot td { border: none; padding: 5px 0 5px 24px; }
+  .tot tr.grand td { font-weight: 600; color: var(--brown); font-size: 1.05rem; border-top: 2px solid var(--border); padding-top: 10px; }
+  .pay { margin-top: 1.5rem; background: var(--cream); border-radius: 12px; padding: 1rem 1.1rem; font-size: 0.88rem; color: var(--text-secondary); line-height: 1.7; }
+  .pay .lbl { font-size: 0.7rem; letter-spacing: .12em; text-transform: uppercase; color: var(--text-muted); font-weight: 600; margin-bottom: 4px; }
+  .pay b { color: var(--brown); font-weight: 600; }
+  .notes { margin-top: 1rem; font-size: 0.88rem; color: var(--text-secondary); white-space: pre-wrap; line-height: 1.6; }
+  .foot { margin-top: 1.5rem; font-size: 0.78rem; color: var(--text-muted); text-align: center; line-height: 1.6; }
+  .foot a { color: var(--terracotta); text-decoration: none; font-weight: 600; }
+  .stamp { position: absolute; top: 1.4rem; right: 1.6rem; border: 3px solid var(--success); color: var(--success); font-weight: 700; letter-spacing: .18em; text-transform: uppercase; padding: 4px 12px; border-radius: 6px; transform: rotate(-8deg); font-size: 0.95rem; opacity: .85; }
+  .stamp.overdue { border-color: var(--error); color: var(--error); }
+  .state { text-align: center; padding: 3rem 1rem; }
+  .state h2 { font-family: 'Cormorant Garamond', serif; font-weight: 500; font-size: 1.5rem; color: var(--brown); margin-bottom: 8px; }
+  .state p { color: var(--text-muted); font-size: 0.9rem; }
+  @media print {
+    body { background: #fff; }
+    .nav, .toolbar, .foot { display: none; }
+    .wrap { max-width: none; padding: 0; }
+    .doc { border: none; border-radius: 0; padding: 0; }
+    .stamp { opacity: 1; }
+  }
+</style>
+</head>
+<body>
+<nav class="nav">
+  <a href="/" aria-label="Truffl Pets home">
+    <svg width="96" height="34" viewBox="0 0 118 44" xmlns="http://www.w3.org/2000/svg">
+      <rect x="16.5" y="10.5" width="7" height="9" rx="3" fill="#C4866A"/>
+      <circle cx="20" cy="33" r="20" fill="#C4866A"/>
+      <text x="20" y="35.5" font-family="'Cormorant Garamond', Georgia, serif" font-size="14" font-style="italic" font-weight="400" fill="#FFFDF9" text-anchor="middle" letter-spacing="-0.3">truffl</text>
+      <text x="52" y="30" font-family="'Cormorant Garamond', Georgia, serif" font-size="32" font-style="italic" font-weight="400" fill="#3D2B1F" letter-spacing="-0.5">truffl</text>
+    </svg>
+  </a>
+  <a href="/for-carers/">Walkers: run your business on Truffl</a>
+</nav>
+<div class="wrap" id="content"><div class="state"><p>Loading the invoice…</p></div></div>
+
+<script>
+/* Public invoice (GitHub #166). No sign-in: the link carries a per-invoice token. One definer
+   RPC (public.invoice_public) returns the document for a live token and nothing for an unknown
+   or voided one. Print-styled so the client can save it as a PDF from the browser; Truffl never
+   collects the money, the carer's own payment details sit in the footer. */
+const SUPABASE_URL = 'https://gadflsntbnbnnxbpiral.supabase.co';
+const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImdhZGZsc250Ym5ibm54YnBpcmFsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzUwNjcwNTcsImV4cCI6MjA5MDY0MzA1N30.g5ZrqeAX9U5l7oDZEbQFrU5j10828dUF0QuJ0ZlHXK8';
+function esc(s) { return (s == null ? '' : String(s)).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;'); }
+function money(c) { return '$' + ((c || 0) / 100).toFixed(2); }
+function fmtDate(s) { if (!s) return ''; return new Date(s.length === 10 ? s + 'T12:00:00' : s).toLocaleDateString('en-AU', { day: 'numeric', month: 'long', year: 'numeric' }); }
+function fmtShort(s) { if (!s) return ''; return new Date(s + 'T12:00:00').toLocaleDateString('en-AU', { weekday: 'short', day: 'numeric', month: 'short' }); }
+function state(title, body) { document.getElementById('content').innerHTML = `<div class="state"><h2>${esc(title)}</h2><p>${esc(body)}</p></div>`; }
+
+async function init() {
+  const token = (new URLSearchParams(location.search).get('t') || '').trim();
+  if (!/^[0-9a-f]{32,128}$/i.test(token)) return state('This link is not valid', 'Ask your carer to send it again.');
+  let r;
+  try {
+    const res = await fetch(`${SUPABASE_URL}/rest/v1/rpc/invoice_public`, { method: 'POST', headers: { 'Content-Type': 'application/json', 'apikey': SUPABASE_ANON_KEY, 'Authorization': `Bearer ${SUPABASE_ANON_KEY}` }, body: JSON.stringify({ p_token: token }) });
+    r = res.ok ? await res.json() : null;
+  } catch (e) { r = null; }
+  if (!r || !r.invoice) return state('This invoice is not available', 'It may have been cancelled or replaced. Ask your carer for the latest one.');
+
+  const inv = r.invoice, who = r.issuer || {}, cl = r.client || {}, items = r.items || [];
+  const title = inv.gst_applied ? 'Tax invoice' : 'Invoice';
+  const overdue = inv.status === 'unpaid' && inv.due_on && inv.due_on < new Date().toISOString().slice(0, 10);
+  const name = who.business_name || who.carer_name || 'Your carer';
+  document.title = `${title} ${inv.number} from ${name}`;
+  const bank = [who.bank_account_name ? `<div><b>Account name</b> ${esc(who.bank_account_name)}</div>` : '', who.bank_bsb ? `<div><b>BSB</b> ${esc(who.bank_bsb)}</div>` : '', who.bank_account ? `<div><b>Account</b> ${esc(who.bank_account)}</div>` : '', who.payid ? `<div><b>PayID</b> ${esc(who.payid)}</div>` : ''].join('');
+  document.getElementById('content').innerHTML = `
+    <div class="toolbar"><button class="btn primary" onclick="window.print()">Print or save as PDF</button></div>
+    <div class="doc">
+      ${inv.status === 'paid' ? '<div class="stamp">Paid</div>' : (overdue ? '<div class="stamp overdue">Overdue</div>' : '')}
+      <div class="doc-head">
+        <div><h1>${esc(title)}</h1><div class="num">${esc(inv.number)}</div></div>
+        <div class="issuer"><b>${esc(name)}</b>${who.business_name && who.carer_name && who.business_name !== who.carer_name ? esc(who.carer_name) + '<br>' : ''}${who.abn ? 'ABN ' + esc(who.abn) + '<br>' : ''}${who.address ? esc(who.address) + '<br>' : ''}${who.phone ? esc(who.phone) + '<br>' : ''}${who.email ? esc(who.email) : ''}</div>
+      </div>
+      <div class="meta">
+        <div><div class="lbl">Bill to</div><b>${esc(cl.name || 'Client')}</b>${cl.address ? '<br>' + esc(cl.address) : ''}${cl.email ? '<br>' + esc(cl.email) : ''}</div>
+        <div><div class="lbl">Dates</div>Issued <b>${esc(fmtDate(inv.issued_on))}</b>${inv.due_on ? `<br>Due <b>${esc(fmtDate(inv.due_on))}</b>` : ''}${inv.paid_at ? `<br>Paid ${esc(fmtDate(inv.paid_at.slice(0, 10)))}` : ''}</div>
+      </div>
+      <table>
+        <thead><tr><th>Description</th><th class="r">Amount</th></tr></thead>
+        <tbody>${items.map(it => `<tr><td class="d">${esc(it.description)}${Number(it.quantity) !== 1 ? `<div class="sub">${esc(String(Number(it.quantity)))} × ${money(it.unit_cents)}</div>` : ''}</td><td class="r">${money(it.amount_cents)}</td></tr>`).join('')}</tbody>
+      </table>
+      <div class="tot"><table>
+        ${inv.gst_applied ? `<tr><td>Subtotal (ex GST)</td><td class="r">${money(inv.subtotal_cents)}</td></tr><tr><td>GST</td><td class="r">${money(inv.gst_cents)}</td></tr>` : ''}
+        <tr class="grand"><td>${inv.status === 'paid' ? 'Total paid' : 'Total due'}</td><td class="r">${money(inv.total_cents)}</td></tr>
+      </table></div>
+      ${inv.status !== 'paid' ? `<div class="pay"><div class="lbl">How to pay</div>${bank || '<div>Please pay ' + esc(name) + ' directly.</div>'}${who.payment_notes ? `<div>${esc(who.payment_notes)}</div>` : ''}<div class="sub" style="margin-top:6px;">Please use <b>${esc(inv.number)}</b> as the payment reference.</div></div>` : ''}
+      ${inv.notes ? `<div class="notes">${esc(inv.notes)}</div>` : ''}
+      ${who.footer_note ? `<div class="notes" style="color:var(--text-muted);font-size:.82rem;">${esc(who.footer_note)}</div>` : ''}
+    </div>
+    <div class="foot">Sent by ${esc(name)} through Truffl Pets. Payment goes straight to your carer; Truffl takes nothing.<br>Walk dogs yourself? <a href="/for-carers/">Run your business on Truffl</a>.</div>`;
+  try { gtag('event', 'invoice_view'); } catch (e) {}
+}
+document.addEventListener('DOMContentLoaded', init);
+</script>
+</body>
+</html>
