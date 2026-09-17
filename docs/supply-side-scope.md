@@ -47,13 +47,15 @@ the tools plus a fee on work Truffl generates.
 | Tier | Price (proposal) | Includes |
 |---|---|---|
 | Free | A$0 | Client book, schedule, calendar subscribe (ICS), one-off import, quick actions (call, WhatsApp, SMS). Enough to replace the diary. |
-| Pro | A$29 / month | Invoicing and Stripe payment links for own clients, walk reports shareable with own clients, automated reminders, Google Calendar two-way sync, public booking page. |
+| Pro | A$29 / month | Invoicing for own clients, walk reports shareable with own clients, automated reminders, Google Calendar two-way sync, public booking page. |
 | Business | A$79 / month | Everything in Pro plus team: staff accounts, job assignment, per-walker run sheets and earnings, business branding. |
 
 **Truffl leads.** A booking that originates on the marketplace carries the platform fee
 (15% today, set in `charge-booking`). Work the carer brings themselves carries no Truffl
-fee, ever. Card payments for own clients go through the carer's existing Stripe Connect
-account, so the only cost is Stripe's processing fee.
+fee, ever. Own-client payments stay off Truffl: the invoice carries the carer's bank
+details and the carer marks it paid. (Decision, September 2026: taking those payments
+through Connect would put chargeback and fraud liability on Truffl for no fee revenue.
+Revisit only with evidence carers want it and a plan for the risk.)
 
 **Why not a per-lead price like hipages?** Per-lead pricing suits one-off trade jobs.
 Dog care is recurring, so a percentage of realised bookings aligns us with the carer:
@@ -65,9 +67,8 @@ be revisited (see open decisions).
 1. Price points for Pro and Business, and whether the Free tier caps active clients.
 2. Lead fee: keep 15% for the life of the relationship, or taper (for example 15% for
    12 months, then 0%) so a carer never feels penalised for a client staying.
-3. Whether Truffl adds a small margin on own-client card payments (for example 0.5%) or
-   passes Stripe's fee straight through. Recommendation: pass through, at least until Pro
-   has a base.
+3. Decided: Truffl does not process own-client payments in the MVP. Carers keep taking
+   cash, transfer or their own card provider; Truffl records it. See E3.
 4. Whether verification (ID, interview, in-person assessment) stays mandatory to use the
    tools. Recommendation: no. Anyone can use the tools; verification is required only to be
    listed on the marketplace and receive leads. That keeps the trust promise to owners
@@ -150,7 +151,7 @@ deep links, then automate the routine messages, then bring the channels into Tru
 
 - E1 P0. Price per job, mark paid with a method (cash, bank transfer, card, other), owed balance per client.
 - E2 P1. Invoices: numbered, with ABN and GST handling, emailed as PDF, per job or per period.
-- E3 P1. Stripe payment links and card on file for own clients through the carer's Connect account. No Truffl fee.
+- E3 P2 (deferred). Card payments for own clients through the carer's Connect account. Deferred by decision: Truffl would carry chargeback and fraud liability for no fee revenue. Reopen only with demand and a risk plan.
 - E4 P1. Subscription plans on Stripe Billing: Free, Pro, Business. Entitlement checks in the pages, upgrade prompts at the feature boundary.
 - E5 P1. Lead fee: marketplace bookings carry the platform fee, own work does not; the earnings view shows the split so the deal is visible.
 - E6 P2. Statements and tax export (CSV per quarter, BAS friendly).
@@ -225,8 +226,8 @@ recorded so future tickets do not re-open them.
    Business Platform is expensive to run and slow to approve; it waits for evidence.
 
 6. **Own-client money is recorded first, collected second.** Mark paid (cash, transfer)
-   ships in P0. Stripe payment links reuse the carer's Connect account from TRU-143 and
-   run as a separate PaymentIntent path, never through `charge-booking`.
+   ships in P0. Invoices carry the carer's own bank details and are settled off Truffl.
+   Card collection through Connect is deferred (E3): the platform would own disputes.
 
 7. **Security conventions carry over.** Every new table has RLS keyed on
    `provider_profiles.user_id = (select auth.uid())` (TRU-142 pattern); every definer
@@ -246,7 +247,7 @@ done and paid. Free tier. This is what makes a full-time independent switch thei
 _Built in this branch: A1 to A4, B1 to B3, C1, C2, E1._
 
 **Phase 2, "look professional, get paid, get leads" (P1).** Templates and deep-link
-messaging, shareable walk reports, reminders, invoices and payment links, Google two-way
+messaging, shareable walk reports, reminders, invoices, Google two-way
 sync, the public booking page and client portal, subscription tiers with the lead-fee
 split visible, new positioning and onboarding, earnings view, mobile check. This is
 where Pro becomes worth A$29 and where the marketplace listing becomes an upsell rather
@@ -267,6 +268,7 @@ D1 and D2 (immediate daily value), E2 and E3 (revenue for the carer), E4 and E5
   `provider_schedule` view, calendar feed token, auto-link trigger and backfill for
   Truffl owners, deletion-sweep extension.
 - `supabase/functions/calendar-feed/`: the ICS feed.
+- `supabase/functions/google-calendar/`: Google Calendar two-way sync (OAuth, sync engine, push and poll).
 - `/clients/`: the client book.
 - `/schedule/`: the calendar, job editor, ICS import and subscribe link.
 - `/dashboard/`: navigation to the new tools and a today summary.
@@ -288,6 +290,21 @@ merging, because the dashboard links to the new pages as soon as it ships.
   shareable report link (`/report/?t=…`) the carer can turn off. Photos stay in the
   existing public bucket, matching the owner-facing track page; the token gates the
   listing, not the objects.
+
+- **C3 (Google Calendar two-way sync).** OAuth via a `google-calendar` edge function;
+  Truffl creates a "Truffl" calendar in the carer's Google account and mirrors jobs and
+  confirmed bookings into it (30 days back, 90 ahead). Events the carer adds to that
+  calendar become jobs (source `google`); reading their main calendar too is an opt-in
+  that asks Google for one extra read-only scope. Truffl edits reach Google within
+  seconds (a DB trigger posts through pg_net); Google edits come back on a ten-minute
+  pg_cron poll that uses Google's incremental sync tokens and also reconciles anything a
+  push missed. Etag plus content-hash bookkeeping in `calendar_event_links` stops the two
+  sides echoing each other; the most recent edit wins and deletions propagate as
+  cancellations. Bookings are read-only in Google. Decisions taken: main-calendar reading
+  is per-carer configurable; the Google Cloud app stays in Testing for the pilot (named
+  test users, weekly reconnect) and goes to production before launch; the feature is
+  open to everyone until subscriptions (E4) land. Setup steps in
+  `docs/google-calendar-setup.md`.
 
 ## 9. Ticket index
 
