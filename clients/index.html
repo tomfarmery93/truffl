@@ -178,6 +178,7 @@
     <a href="/dashboard/" class="nav-hide-sm">Dashboard</a>
     <a href="/schedule/">Schedule</a>
     <a href="/clients/" class="active">Clients</a>
+    <a href="/invoices/">Invoices</a>
     <a href="/messages/" class="nav-hide-sm">Messages</a>
     <div class="nav-user" id="navUser"></div>
   </div>
@@ -405,7 +406,7 @@ function renderClientSheet(c) {
         </div>`).join('') : '<div class="kv" style="color:var(--text-muted)">No dogs on file.</div>'}
     </div>
     <div class="card" id="jobs-${c.id}">
-      <div class="card-title">Schedule ${owed ? `<span class="status-pill st-unpaid">${money(owed)} owed</span>` : ''}</div>
+      <div class="card-title">Schedule ${owed ? `<span class="status-pill st-unpaid">${money(owed)} owed</span>` : ''}${owed ? `<a class="link-btn" href="/invoices/?new=1&client=${c.id}" style="text-decoration:none;">Invoice it</a>` : ''}</div>
       ${jobs == null ? '<div class="kv" style="color:var(--text-muted)">Loading…</div>' : (upcoming.length || recent.length) ? `
         ${upcoming.length ? `<div class="section-label" style="margin-top:0">Upcoming</div>${upcoming.slice(0, 8).map(jobLine).join('')}` : ''}
         ${recent.length ? `<div class="section-label">Recent</div>${recent.map(jobLine).join('')}` : ''}

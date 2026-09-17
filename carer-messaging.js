@@ -4,15 +4,17 @@
  * this is a plain script that attaches window.TrufflMessaging (the session.js precedent).
  *
  *   TrufflMessaging.init({ supabaseUrl, anonKey, token, uid, carerFirstName })
- *   TrufflMessaging.open({ client, job, pets, reportLink })
+ *   TrufflMessaging.open({ client, job, pets, reportLink, invoice })
  *     client:     { id, first_name, last_name, phone, email }         (required)
  *     job:        { id, starts_at, ends_at, service_type, price_cents } (optional)
  *     pets:       'Rex, Milo'                                           (optional string)
  *     reportLink: async () => 'https://…'                              (optional; walk_done)
+ *     invoice:    { id, number, total_cents, due_on, link }             (optional; GitHub #166)
  *   TrufflMessaging.openEditor()
  *
  * Merge fields: {client_first} {client_name} {dog} {dogs} {time} {date} {duration} {price}
- *               {service} {carer_first} {report_link}
+ *               {service} {carer_first} {report_link} {invoice_number} {amount_due} {due_date}
+ *               {invoice_link}
  */
 (function () {
   'use strict';
@@ -23,6 +25,8 @@
     { key: 'walk_done',    label: 'Walk done',        needs: 'job', body: "Hi {client_first}, {dog} is home and happy after {duration} today. Here's how it went: {report_link}" },
     { key: 'reminder',     label: 'See you tomorrow', needs: 'job', body: "Hi {client_first}, just a reminder I'll be by for {dog} at {time} on {date}. Anything I should know?" },
     { key: 'invoice',      label: 'Payment reminder', needs: 'job', body: "Hi {client_first}, here's what's outstanding for {dog}'s {service} on {date}: {price}. Bank transfer or cash whenever suits, thank you!" },
+    { key: 'invoice_send', label: 'Send invoice',     needs: 'invoice', body: "Hi {client_first}, here's your invoice {invoice_number} for {amount_due}, due {due_date}: {invoice_link} Payment details are on the invoice. Thanks so much!" },
+    { key: 'invoice_overdue', label: 'Invoice overdue', needs: 'invoice', body: "Hi {client_first}, a gentle nudge that invoice {invoice_number} ({amount_due}) was due {due_date}: {invoice_link} Let me know if anything's amiss. Thank you!" },
     { key: 'hello',        label: 'Say hello',        needs: null,  body: "Hi {client_first}, it's {carer_first}. Just checking in about {dog}. When would suit for the next {service}?" },
     { key: 'photo',        label: 'Quick photo note', needs: null,  body: "Hi {client_first}, {dog} had a great time today. Photo to follow!" },
   ];
@@ -64,7 +68,7 @@
   function track(name, params) { try { if (typeof gtag === 'function') gtag('event', name, params || {}); } catch (e) {} }
 
   function fields(reportLink) {
-    const c = ctx.client || {}, j = ctx.job || null;
+    const c = ctx.client || {}, j = ctx.job || null, inv = ctx.invoice || null;
     const dogs = (ctx.pets || '').split(',').map(s => s.trim()).filter(Boolean);
     return {
       client_first: c.first_name || 'there',
@@ -78,6 +82,10 @@
       service: j ? (SERVICE_WORD[j.service_type] || 'visit') : 'walk',
       carer_first: cfg.carerFirstName || 'your carer',
       report_link: reportLink || '',
+      invoice_number: inv ? (inv.number || '') : '',
+      amount_due: inv ? money(inv.total_cents) : '',
+      due_date: inv && inv.due_on ? new Date(inv.due_on + 'T12:00:00').toLocaleDateString('en-AU', { day: 'numeric', month: 'short' }) : '',
+      invoice_link: inv ? (inv.link || '') : '',
     };
   }
   function merge(body, f) {
@@ -152,10 +160,10 @@
   /* ── chooser ── */
   async function open(options) {
     if (!cfg) throw new Error('TrufflMessaging.init() first');
-    ctx = Object.assign({ client: {}, job: null, pets: '', reportLink: null }, options || {});
+    ctx = Object.assign({ client: {}, job: null, pets: '', reportLink: null, invoice: null }, options || {});
     ctx._report = null;
     await loadCustom();
-    const list = allTemplates().filter(t => !t.needs || (t.needs === 'job' && ctx.job));
+    const list = allTemplates().filter(t => !t.needs || (t.needs === 'job' && ctx.job) || (t.needs === 'invoice' && ctx.invoice));
     selectedKey = (list.find(t => t.key === (ctx.preselect || '')) || list[0] || {}).key || null;
     render();
     // Resolve the report link in the background so "Walk done" can include it.
@@ -171,7 +179,7 @@
   function setText(v) { const ta = document.getElementById('tmText'); if (ta) ta.value = v; }
   function render() {
     const c = ctx.client || {};
-    const list = allTemplates().filter(t => !t.needs || (t.needs === 'job' && ctx.job));
+    const list = allTemplates().filter(t => !t.needs || (t.needs === 'job' && ctx.job) || (t.needs === 'invoice' && ctx.invoice));
     const phone = e164(c.phone), email = (c.email || '').trim();
     mount(`
       <div class="tm-head"><div><div class="tm-title">Message ${esc(c.first_name || 'client')}</div><div class="tm-sub">${phone ? esc(c.phone) : 'No mobile on file'}${email ? ' · ' + esc(email) : ''}${ctx.pets ? ' · ' + esc(ctx.pets) : ''}</div></div><button class="tm-close" onclick="TrufflMessaging.close()" aria-label="Close">×</button></div>
@@ -184,7 +192,7 @@
         <button type="button" class="tm-ch mail" ${email ? '' : 'disabled'} onclick="TrufflMessaging._send('email')">${ICON.mail}Email</button>
         <button type="button" class="tm-ch" onclick="TrufflMessaging._send('copy')">${ICON.copy}Copy</button>
       </div>
-      <div class="tm-foot"><span>${ctx.job ? 'Fields like time and price come from this job.' : 'Open from a job to fill in times and prices.'}</span><button class="tm-link" onclick="TrufflMessaging.openEditor()">Edit templates</button></div>`);
+      <div class="tm-foot"><span>${ctx.invoice ? 'The link opens the invoice; no sign-in needed.' : (ctx.job ? 'Fields like time and price come from this job.' : 'Open from a job to fill in times and prices.')}</span><button class="tm-link" onclick="TrufflMessaging.openEditor()">Edit templates</button></div>`);
   }
   function pick(key) { selectedKey = key; const ta = document.getElementById('tmText'); const body = currentBody(); if (ta) ta.value = body; document.querySelectorAll('.tm-chip').forEach(el => el.classList.toggle('on', el.textContent === (allTemplates().find(t => t.key === key) || {}).label)); }
   async function send(channel) {
@@ -195,12 +203,12 @@
     let href = null;
     if (channel === 'whatsapp' && phone) href = `https://wa.me/${phone.replace('+', '')}?text=${enc}`;
     else if (channel === 'sms' && phone) href = `sms:${phone}${isIos() ? '&' : '?'}body=${enc}`;
-    else if (channel === 'email' && email) href = `mailto:${email}?subject=${encodeURIComponent((ctx.job ? 'About ' + (ctx.pets || 'your dog') : 'From ' + (cfg.carerFirstName || 'your carer')))}&body=${enc}`;
+    else if (channel === 'email' && email) href = `mailto:${email}?subject=${encodeURIComponent(ctx.invoice ? 'Invoice ' + (ctx.invoice.number || '') + ' from ' + (cfg.carerFirstName || 'your carer') : (ctx.job ? 'About ' + (ctx.pets || 'your dog') : 'From ' + (cfg.carerFirstName || 'your carer')))}&body=${enc}`;
     else if (channel === 'copy') {
       try { await navigator.clipboard.writeText(text); } catch (e) { if (ta) { ta.select(); document.execCommand('copy'); } }
     }
     // Log first (fire and forget), then hand off to the app.
-    const snapshot = { provider_user_id: cfg.uid, client_id: c.id || null, job_id: ctx.job ? ctx.job.id : null, channel, template_key: selectedKey, body: text };
+    const snapshot = { provider_user_id: cfg.uid, client_id: c.id || null, job_id: ctx.job ? ctx.job.id : null, invoice_id: ctx.invoice ? ctx.invoice.id : null, channel, template_key: selectedKey, body: text };
     api('POST', 'message_log', snapshot, 'return=minimal').catch(() => {});
     track('message_sent', { channel, template: selectedKey || 'custom' });
     if (href) {
@@ -219,7 +227,7 @@
   function renderEditor(status) {
     const list = allTemplates();
     mount(`
-      <div class="tm-head"><div><div class="tm-title">Message templates</div><div class="tm-sub">Fields: {client_first} {dog} {dogs} {time} {date} {duration} {price} {service} {carer_first} {report_link}</div></div><button class="tm-close" onclick="TrufflMessaging.close()" aria-label="Close">×</button></div>
+      <div class="tm-head"><div><div class="tm-title">Message templates</div><div class="tm-sub">Fields: {client_first} {dog} {dogs} {time} {date} {duration} {price} {service} {carer_first} {report_link} {invoice_number} {amount_due} {due_date} {invoice_link}</div></div><button class="tm-close" onclick="TrufflMessaging.close()" aria-label="Close">×</button></div>
       ${list.map(t => `<div class="tm-tpl" data-key="${attr(t.key)}">
         <input value="${attr(t.label)}" aria-label="Template name" ${t.custom || t.overridden ? '' : ''}>
         <textarea aria-label="Template text">${esc(t.body)}</textarea>

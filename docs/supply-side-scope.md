@@ -271,6 +271,7 @@ D1 and D2 (immediate daily value), E2 and E3 (revenue for the carer), E4 and E5
 - `supabase/functions/google-calendar/`: Google Calendar two-way sync (OAuth, sync engine, push and poll).
 - `/clients/`: the client book.
 - `/schedule/`: the calendar, job editor, ICS import and subscribe link.
+- `/invoices/` and `/invoice/`: the carer's invoice book and the public invoice page.
 - `/dashboard/`: navigation to the new tools and a today summary.
 
 Deployment order matters: apply the migration and deploy the edge function before
@@ -305,6 +306,18 @@ merging, because the dashboard links to the new pages as soon as it ships.
   test users, weekly reconnect) and goes to production before launch; the feature is
   open to everyone until subscriptions (E4) land. Setup steps in
   `docs/google-calendar-setup.md`.
+
+- **E2 (invoices).** `/invoices/`: pick a client, tick the unpaid priced jobs, add free-text
+  lines, and `create_invoice` numbers it (per-carer prefix and counter under a row lock),
+  snapshots the lines and the issuer block (trading name, ABN, bank details or PayID) so a
+  later settings change never rewrites a sent document. GST is off by default with a switch
+  in invoice settings; when on, prices are treated as GST-inclusive, the GST component is one
+  eleventh, and the public page is headed "Tax invoice". The invoice reaches the client as a
+  tokenised print-styled page (`/invoice/?t=…`) sent through the messaging module (two new
+  templates and four merge fields); no PDF renderer. Mark paid cascades to the jobs; a job
+  marked paid on the schedule settles a jobs-only invoice; void keeps the number and frees
+  the jobs. Decisions taken: no on-platform payment (E3 deferred), GST-inclusive pricing,
+  page-plus-link rather than a PDF attachment.
 
 ## 9. Ticket index
 
